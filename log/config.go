@@ -15,7 +15,7 @@ type Config struct {
 
 var Cfg = new(Config)
 
-func (c *Config) loadConfigurations() *Config {
+func (c *Config) LoadConfigurations() *Config {
 	yamlFile, err := ioutil.ReadFile("config/logger.yaml")
 	if err != nil {
 		log.Fatal("reading log.yaml file failed : ", err)
@@ -26,8 +26,4 @@ func (c *Config) loadConfigurations() *Config {
 	}
 
 	return c
-}
-
-func InitConfig() {
-	Cfg.loadConfigurations()
 }

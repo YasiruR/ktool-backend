@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/YasiruR/ktool-backend/log"
+	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
 )
@@ -22,4 +23,12 @@ func handleAddCluster(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "unmarshal error", err)
 	}
+}
+
+func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
+	params := mux.Vars(req)
+	_ = params["name"]
+
+	//db query to fetch cluster data
+
 }
