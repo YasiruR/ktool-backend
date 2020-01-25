@@ -7,7 +7,8 @@ import (
 )
 
 type Config struct {
-	ServicePort 	string	`yaml:"service_port"`
+	ServicePort 	string		`yaml:"service_port"`
+	PingRetry 		int 		`yaml:"ping_retry"`
 }
 
 var Cfg = new(Config)

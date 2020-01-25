@@ -1,1 +1,2 @@
 service_port: ":6000"
+ping_retry: 3

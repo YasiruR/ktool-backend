@@ -3,15 +3,21 @@ package database
 import (
 	"database/sql"
 	"github.com/YasiruR/ktool-backend/log"
+	_ "github.com/go-sql-driver/mysql"
 	"strconv"
 )
 
-var Database *sql.DB
+const clusterTable  = "cluster"
+
+var Db *sql.DB
 
 func Init() {
-	dataSource := Cfg.Username + ":" + Cfg.Password + "@tcp(" + Cfg.Host + ":" + strconv.Itoa(Cfg.Port) + "/" + Cfg.Database
-	Database, err := sql.Open("mysql", dataSource)
+	dataSource := Cfg.Username + ":" + Cfg.Password + "@tcp(" + Cfg.Host + ":" + strconv.Itoa(Cfg.Port) + ")/" + Cfg.Database
+
+	db, err := sql.Open("mysql", dataSource)
 	if err != nil {
 		log.Logger.Fatal("failed in initializing mysql connection", err)
 	}
+
+	Db = db
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/YasiruR/ktool-backend/cloud"
 	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/http"
 	"github.com/YasiruR/ktool-backend/log"
@@ -11,9 +12,11 @@ func main() {
 	log.Cfg.LoadConfigurations()
 	log.Init()
 
-	service.Cfg.LoadConfigurations()
-	http.InitRouter()
-
 	database.Cfg.LoadConfigurations()
 	database.Init()
+
+	cloud.Init()
+
+	service.Cfg.LoadConfigurations()
+	http.InitRouter()
 }
