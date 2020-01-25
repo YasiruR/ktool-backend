@@ -9,6 +9,7 @@ import (
 type Config struct {
 	ServicePort 	string		`yaml:"service_port"`
 	PingRetry 		int 		`yaml:"ping_retry"`
+	PingTimeout		int			`yaml:"ping_timeout"`
 }
 
 var Cfg = new(Config)

@@ -8,6 +8,6 @@ type reqAddExistingCluster struct {
 }
 
 type reqTestNewCluster struct {
-	ZookeeperHost 		string 			`json:"zookeeper_host"`
-	ZookeeperPort 		int				`json:"zookeeper_port"`
+	Host 		string 			`json:"zookeeper_host"`
+	Port 		int				`json:"zookeeper_port"`
 }

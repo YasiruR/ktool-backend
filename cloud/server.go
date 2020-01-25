@@ -9,6 +9,7 @@ import (
 	"github.com/YasiruR/ktool-backend/service"
 	"github.com/sparrc/go-ping"
 	"golang.org/x/crypto/ssh"
+	"time"
 )
 
 func ConnectToServer(ctx context.Context, ipAddress string) (err error) {
@@ -44,31 +45,47 @@ func ConnectToServer(ctx context.Context, ipAddress string) (err error) {
 	return nil
 }
 
-func pingToServer(ctx context.Context, ipAddress string) (ok bool, err error) {
+func PingToServer(ctx context.Context, ipAddress string) (ok bool, err error) {
+
+	var stats *ping.Statistics
 	pinger, err := ping.NewPinger(ipAddress)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, fmt.Sprintf("ping to server %s", ipAddress), err)
 		return false, err
 	}
 
-	fmt.Println("about to")
-
 	//pinger.SetPrivileged(true)
 
-	pinger.Count = service.Cfg.PingRetry
-	pinger.Run()
-	stats := pinger.Statistics()
-	fmt.Println("stats : ", stats)
+	pinged := make(chan bool)
 
-	if stats.PacketsSent == 0 {
-		//log.Logger.ErrorContext(ctx, "packets sent : 0")
-		return false, errors.New("could not send packets to ping")
+	go func() {
+		pinger.Count = service.Cfg.PingRetry
+		pinger.Run()
+		stats = pinger.Statistics()
+
+		if stats.PacketsSent == 0 {
+			log.Logger.ErrorContext(ctx, "could not send any packet")
+			pinged <- false
+		}
+
+		if stats.PacketsRecv != stats.PacketsSent {
+			log.Logger.ErrorContext(ctx, fmt.Sprintf("packets sent : %v, packets received : %v", stats.PacketsSent, stats.PacketsRecv))
+			pinged <- false
+		}
+
+		pinged <- true
+	}()
+
+	select {
+		case res := <- pinged:
+			if res {
+				log.Logger.TraceContext(ctx, fmt.Sprintf("ping successful : %v", ipAddress))
+				return true, nil
+			} else {
+				return false, errors.New("server ping failed")
+			}
+		case <- time.After(time.Duration(int64(service.Cfg.PingTimeout))*time.Second):
+			log.Logger.ErrorContext(ctx, fmt.Sprintf("%v server ping timeout : %v seconds", ipAddress, service.Cfg.PingTimeout))
+			return false, errors.New("server ping timeout")
 	}
-
-	if stats.PacketsRecv != stats.PacketsSent {
-		log.Logger.ErrorContext(ctx, fmt.Sprintf("packets sent : %v, packets received : %v", stats.PacketsSent, stats.PacketsRecv))
-		return false, errors.New("could not receive all the packets")
-	}
-
-	return true, nil
 }

@@ -1,2 +1,3 @@
 service_port: ":6000"
 ping_retry: 3
+ping_timeout: 3   #seconds

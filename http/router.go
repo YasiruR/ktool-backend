@@ -16,6 +16,7 @@ import (
 func InitRouter() {
 	router := mux.NewRouter()
 	router.HandleFunc("/add-cluster", handleAddCluster).Methods("POST")
+	router.HandleFunc("/ping-server", handlePingToZookeeper).Methods("POST")
 
 	osChannel := make(chan os.Signal, 1)
 	signal.Notify(osChannel, syscall.SIGINT, syscall.SIGKILL)

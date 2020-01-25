@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"github.com/YasiruR/ktool-backend/cloud"
 	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/gorilla/mux"
@@ -40,10 +41,12 @@ func handleAddCluster(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if reqFailed == false {
+		log.Logger.TraceContext(ctx, "cluster stored in the database successfully", addClusterReq.ClusterName)
 		res.WriteHeader(http.StatusOK)
 	}
 }
 
+//handle ping to new server
 func handlePingToZookeeper(res http.ResponseWriter, req *http.Request) {
 	var testClusterReq reqTestNewCluster
 	var reqFailed = false
@@ -64,6 +67,18 @@ func handlePingToZookeeper(res http.ResponseWriter, req *http.Request) {
 	}
 
 	//ssh ping to server
+	//note : req address validations should be added in frontend
+	ok, err := cloud.PingToServer(ctx, testClusterReq.Host)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "ping to server failed")
+		reqFailed = true
+		res.WriteHeader(http.StatusInternalServerError)
+	} else {
+		if ok {
+			reqFailed = false
+			log.Logger.TraceContext(ctx, "ping to server is successful")
+		}
+	}
 
 	if reqFailed == false {
 		res.WriteHeader(http.StatusOK)
