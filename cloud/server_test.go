@@ -34,3 +34,28 @@ func TestPingToServer(t *testing.T) {
 		}
 	}
 }
+
+func TestTelnetToPort(t *testing.T) {
+	tests := [] struct {
+		ipAddress 	string
+		port 		int
+		out 		bool
+	}{
+		{"localhost", 5000, true},
+		{"www.google.com", 80, true},
+		{"35.186.213.42", 500, false},
+		{"127.0.0.1", 5000, true},
+	}
+
+	log.Logger = log2.Constructor.Log(log2.WithColors(true), log2.WithLevel("TRACE"), log2.WithFilePath(true))
+	ctx := context.Background()
+	service.Cfg.PingTimeout = 5
+
+	for index, test := range tests {
+		ok, _ := TelnetToPort(ctx, test.ipAddress, test.port)
+		if ok != test.out {
+			t.Error("unexpected output for test case ", index+1)
+			t.Fail()
+		}
+	}
+}

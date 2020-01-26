@@ -1,9 +1,9 @@
 package domain
 
 type Cluster struct {
-	ID 					int64
+	ID 					int
 	ClusterName 		string
-	KafkaVersion 		string
+	KafkaVersion 		float64
 	Zookeepers 			[]Zookeeper
 	Brokers				[]Broker
 	SchemaRegistry		SchemaRegistry

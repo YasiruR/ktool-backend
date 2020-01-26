@@ -33,7 +33,7 @@ func handleAddCluster(res http.ResponseWriter, req *http.Request) {
 
 	//proceeds to db query
 	//note : frontend validations should be added to request parameters
-	err = database.AddNewCluster(ctx, addClusterReq.ClusterName, addClusterReq.ClusterVersion, addClusterReq.ZookeeperHost, addClusterReq.ZookeeperPort)
+	err = database.AddNewCluster(ctx, addClusterReq.ClusterName, addClusterReq.KafkaVersion, addClusterReq.ZookeeperHost, addClusterReq.ZookeeperPort)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "add new cluster db transaction failed", err)
 		reqFailed = true
@@ -81,6 +81,78 @@ func handlePingToZookeeper(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if reqFailed == false {
+		res.WriteHeader(http.StatusOK)
+	}
+}
+
+func handleTelnetToPort(res http.ResponseWriter, req *http.Request) {
+	var testClusterReq reqTestNewCluster
+	var reqFailed = false
+
+	ctx := context.Background()
+	content, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred while reading request", err)
+		reqFailed = true
+		res.WriteHeader(http.StatusBadRequest)
+	}
+
+	err = json.Unmarshal(content, &testClusterReq)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "unmarshal error", err)
+		reqFailed = true
+		res.WriteHeader(http.StatusBadRequest)
+	}
+
+	ok, err := cloud.TelnetToPort(ctx, testClusterReq.Host, testClusterReq.Port)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "telnet to server failed")
+		reqFailed = true
+		res.WriteHeader(http.StatusInternalServerError)
+	} else {
+		if ok {
+			reqFailed = false
+			log.Logger.TraceContext(ctx, "telnet to server is successful")
+		}
+	}
+
+	if reqFailed == false {
+		res.WriteHeader(http.StatusOK)
+	}
+}
+
+func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
+	var reqFailed = false
+
+	ctx := context.Background()
+	clusterList, err := database.GetAllClusters(ctx)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "get all clusters failed")
+		reqFailed = true
+		res.WriteHeader(http.StatusInternalServerError)
+	}
+
+	var clusterListRes []clusterInfo
+
+	for _, cluster := range clusterList {
+		clusterRes := clusterInfo{}
+		clusterRes.Id = cluster.ID
+		clusterRes.ClusterName = cluster.ClusterName
+		clusterRes.KafkaVersion = cluster.KafkaVersion
+		clusterRes.ActiveControllers = cluster.ActiveControllers
+
+		clusterListRes = append(clusterListRes, clusterRes)
+	}
+
+	err = json.NewEncoder(res).Encode(clusterListRes)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "encoding response into json failed", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		reqFailed = true
+	}
+
+	if reqFailed == false {
+		log.Logger.TraceContext(ctx, "get all clusters was successful")
 		res.WriteHeader(http.StatusOK)
 	}
 }
