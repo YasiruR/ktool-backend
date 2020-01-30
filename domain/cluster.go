@@ -1,11 +1,12 @@
 package domain
 
 type Cluster struct {
-	ID 					int
-	ClusterName 		string
-	KafkaVersion 		float64
-	Zookeepers 			[]Zookeeper
-	Brokers				[]Broker
-	SchemaRegistry		SchemaRegistry
-	ActiveControllers	int
+	ID                int
+	ClusterName       string
+	KafkaVersion      string
+	Zookeepers        []Zookeeper
+	Brokers           []Broker
+	SchemaRegistry    SchemaRegistry
+	ActiveControllers int
+	ZookeeperId       int
 }

@@ -1,12 +1,13 @@
 package http
 
 import (
-	"context"
 	"encoding/json"
 	"github.com/YasiruR/ktool-backend/cloud"
 	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/log"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	traceable_context "github.com/pickme-go/traceable-context"
 	"io/ioutil"
 	"net/http"
 )
@@ -16,7 +17,7 @@ func handleAddCluster(res http.ResponseWriter, req *http.Request) {
 	var addClusterReq reqAddExistingCluster
 	var reqFailed = false
 
-	ctx := context.Background()
+	ctx := traceable_context.WithUUID(uuid.New())
 	content, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "error occurred while reading request", err)
@@ -33,11 +34,27 @@ func handleAddCluster(res http.ResponseWriter, req *http.Request) {
 
 	//proceeds to db query
 	//note : frontend validations should be added to request parameters
-	err = database.AddNewCluster(ctx, addClusterReq.ClusterName, addClusterReq.KafkaVersion, addClusterReq.ZookeeperHost, addClusterReq.ZookeeperPort)
+	err = database.AddNewCluster(ctx, addClusterReq.ClusterName, addClusterReq.KafkaVersion)
 	if err != nil {
-		log.Logger.ErrorContext(ctx, "add new cluster db transaction failed", err)
+		log.Logger.ErrorContext(ctx, "add new cluster db transaction failed")
 		reqFailed = true
 		res.WriteHeader(http.StatusInternalServerError)
+	} else {
+		err = database.AddNewZookeeper(ctx, addClusterReq.ZookeeperHost, addClusterReq.ZookeeperPort, addClusterReq.ClusterName)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "add new zookeeper db transaction failed")
+			//if adding new zookeeper failed reverts the adding cluster query as well
+			err = database.DeleteCluster(ctx, addClusterReq.ClusterName)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, "deleting newly added cluster failed")
+				//cluster table modified but zookeeper table is not
+				res.WriteHeader(http.StatusConflict)
+			} else {
+				log.Logger.TraceContext(ctx, "deleting newly added cluster was successful")
+				res.WriteHeader(http.StatusInternalServerError)
+			}
+			reqFailed = true
+		}
 	}
 
 	if reqFailed == false {
@@ -51,7 +68,7 @@ func handlePingToZookeeper(res http.ResponseWriter, req *http.Request) {
 	var testClusterReq reqTestNewCluster
 	var reqFailed = false
 
-	ctx := context.Background()
+	ctx := traceable_context.WithUUID(uuid.New())
 	content, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "error occurred while reading request", err)
@@ -89,7 +106,7 @@ func handleTelnetToPort(res http.ResponseWriter, req *http.Request) {
 	var testClusterReq reqTestNewCluster
 	var reqFailed = false
 
-	ctx := context.Background()
+	ctx := traceable_context.WithUUID(uuid.New())
 	content, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "error occurred while reading request", err)
@@ -124,7 +141,7 @@ func handleTelnetToPort(res http.ResponseWriter, req *http.Request) {
 func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 	var reqFailed = false
 
-	ctx := context.Background()
+	ctx := traceable_context.WithUUID(uuid.New())
 	clusterList, err := database.GetAllClusters(ctx)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "get all clusters failed")
@@ -139,7 +156,6 @@ func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 		clusterRes.Id = cluster.ID
 		clusterRes.ClusterName = cluster.ClusterName
 		clusterRes.KafkaVersion = cluster.KafkaVersion
-		clusterRes.ActiveControllers = cluster.ActiveControllers
 
 		clusterListRes = append(clusterListRes, clusterRes)
 	}

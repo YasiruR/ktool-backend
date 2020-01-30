@@ -7,7 +7,10 @@ import (
 	"strconv"
 )
 
-const clusterTable  = "cluster"
+const (
+	clusterTable  	= 	"cluster"
+	zookeeperTable 	= 	"zookeeper"
+)
 
 var Db *sql.DB
 

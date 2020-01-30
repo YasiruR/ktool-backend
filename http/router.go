@@ -7,6 +7,7 @@ import (
 	"github.com/YasiruR/ktool-backend/service"
 	"github.com/gorilla/mux"
 	"github.com/pickme-go/log"
+	"github.com/rs/cors"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,7 +21,7 @@ func InitRouter() {
 
 	router.HandleFunc("/cluster/add", handleAddCluster).Methods("POST")
 	router.HandleFunc("/ping-server", handlePingToZookeeper).Methods("POST")
-	router.HandleFunc("/telnet", handleTelnetToPort).Methods("POST")
+	router.HandleFunc("/telnet-cluster", handleTelnetToPort).Methods("POST")
 
 	osChannel := make(chan os.Signal, 1)
 	signal.Notify(osChannel, syscall.SIGINT, syscall.SIGKILL)
@@ -41,5 +42,7 @@ func InitRouter() {
 		os.Exit(0)
 	}()
 
-	log.Fatal(http.ListenAndServe(service.Cfg.ServicePort, router))
+	handler := cors.Default().Handler(router)
+
+	log.Fatal(http.ListenAndServe(":" + service.Cfg.ServicePort, handler))
 }
