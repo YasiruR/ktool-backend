@@ -5,3 +5,7 @@ type clusterInfo struct {
 	ClusterName			string 		`json:"cluster_name"`
 	KafkaVersion		string		`json:"kafka_version"`
 }
+
+type topicData struct {
+	Topics 		[]string		`json:"topics"`
+}

@@ -10,6 +10,7 @@ import (
 	"github.com/reiver/go-telnet"
 	"github.com/sparrc/go-ping"
 	"golang.org/x/crypto/ssh"
+	"strconv"
 	"time"
 )
 
@@ -62,7 +63,8 @@ func TelnetToPort(ctx context.Context, ipAddress string, port int) (ok bool, err
 
 	done := make(chan bool)
 
-	address := fmt.Sprintf("%s:%v", ipAddress, port)
+	//address := fmt.Sprintf("%s:%v", ipAddress, port)
+	address := ipAddress + ":" + strconv.Itoa(port)
 	go func() {
 		_, err = telnet.DialTo(address)
 		if err != nil {

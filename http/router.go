@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/YasiruR/ktool-backend/cloud"
 	"github.com/YasiruR/ktool-backend/database"
+	"github.com/YasiruR/ktool-backend/kafka"
 	"github.com/YasiruR/ktool-backend/service"
 	"github.com/gorilla/mux"
 	"github.com/pickme-go/log"
@@ -17,11 +18,13 @@ import (
 func InitRouter() {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/cluster/get-all", handleGetAllClusters).Methods("GET")
-
+	router.HandleFunc("/cluster/ping", handlePingToZookeeper).Methods("POST")
+	router.HandleFunc("/cluster/telnet", handleTelnetToPort).Methods("POST")
 	router.HandleFunc("/cluster/add", handleAddCluster).Methods("POST")
-	router.HandleFunc("/ping-server", handlePingToZookeeper).Methods("POST")
-	router.HandleFunc("/telnet-cluster", handleTelnetToPort).Methods("POST")
+	router.HandleFunc("/cluster/get-all", handleGetAllClusters).Methods("GET")
+	router.HandleFunc("/cluster/connect", handleConnectToCluster).Methods("POST")
+	router.HandleFunc("/cluster/get-all-topics", handleGetTopicsForBroker).Methods("GET")
+	router.HandleFunc("/cluster/get-all-brokers", handleGetAllBrokers).Methods("GET")
 
 	osChannel := make(chan os.Signal, 1)
 	signal.Notify(osChannel, syscall.SIGINT, syscall.SIGKILL)
@@ -34,6 +37,9 @@ func InitRouter() {
 		if err != nil {
 			log.Error("error occurred in closing mysql connection")
 		}
+
+		//closing cluster connection
+		kafka.Cluster.Close()
 
 		//closing all server sessions
 		for _, session := range cloud.SessionList {

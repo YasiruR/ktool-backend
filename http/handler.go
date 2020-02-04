@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"github.com/YasiruR/ktool-backend/cloud"
 	"github.com/YasiruR/ktool-backend/database"
+	"github.com/YasiruR/ktool-backend/kafka"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
+	//"github.com/gorilla/mux"
 	traceable_context "github.com/pickme-go/traceable-context"
 	"io/ioutil"
 	"net/http"
@@ -14,7 +15,7 @@ import (
 
 //add existing kafka cluster
 func handleAddCluster(res http.ResponseWriter, req *http.Request) {
-	var addClusterReq reqAddExistingCluster
+	var addClusterReq addExistingCluster
 	var reqFailed = false
 
 	ctx := traceable_context.WithUUID(uuid.New())
@@ -65,7 +66,7 @@ func handleAddCluster(res http.ResponseWriter, req *http.Request) {
 
 //handle ping to new server
 func handlePingToZookeeper(res http.ResponseWriter, req *http.Request) {
-	var testClusterReq reqTestNewCluster
+	var testClusterReq server
 	var reqFailed = false
 
 	ctx := traceable_context.WithUUID(uuid.New())
@@ -103,8 +104,10 @@ func handlePingToZookeeper(res http.ResponseWriter, req *http.Request) {
 }
 
 func handleTelnetToPort(res http.ResponseWriter, req *http.Request) {
-	var testClusterReq reqTestNewCluster
+	var testClusterReq server
 	var reqFailed = false
+
+	log.Logger.Trace("req : ", req)
 
 	ctx := traceable_context.WithUUID(uuid.New())
 	content, err := ioutil.ReadAll(req.Body)
@@ -174,9 +177,88 @@ func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 }
 
 func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
-	params := mux.Vars(req)
-	_ = params["name"]
+	var cluster connectToCluster
+	var reqFailed = false
 
-	//db query to fetch cluster data
+	ctx := traceable_context.WithUUID(uuid.New())
+	content, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred while reading request", err)
+		reqFailed = true
+		res.WriteHeader(http.StatusBadRequest)
+	}
 
+	err = json.Unmarshal(content, &cluster)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "unmarshal error", err)
+		reqFailed = true
+		res.WriteHeader(http.StatusBadRequest)
+	}
+
+	err = kafka.InitClient(ctx, cluster.Brokers)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, err)
+		reqFailed = true
+		res.WriteHeader(http.StatusServiceUnavailable)
+	}
+
+	err = kafka.InitClusterConfig(ctx, cluster.Brokers)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, err)
+		reqFailed = true
+		res.WriteHeader(http.StatusServiceUnavailable)
+	}
+
+	if reqFailed == false {
+		log.Logger.TraceContext(ctx, "connecting to cluster was successful", cluster.Brokers)
+		res.WriteHeader(http.StatusOK)
+	}
+}
+
+func handleGetAllBrokers(res http.ResponseWriter, req *http.Request) {
+	reqFailed := false
+	ctx := traceable_context.WithUUID(uuid.New())
+
+	addrList, err := kafka.GetBrokerAddrList(ctx)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "fetching broker address list failed")
+		reqFailed = true
+		res.WriteHeader(http.StatusInternalServerError)
+	}
+
+	err = json.NewEncoder(res).Encode(addrList)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "encoding broker list response to json failed", err)
+		reqFailed = true
+		res.WriteHeader(http.StatusInternalServerError)
+	}
+
+	if reqFailed == false {
+		res.WriteHeader(http.StatusOK)
+	}
+}
+
+func handleGetTopicsForBroker(res http.ResponseWriter, req *http.Request) {
+	//params := mux.Vars(req)
+	reqFailed := false
+
+	ctx := traceable_context.WithUUID(uuid.New())
+
+	topics, err := kafka.GetTopicList(ctx)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "fetching topic data failed", err)
+		reqFailed = true
+		res.WriteHeader(http.StatusInternalServerError)
+	}
+
+	err = json.NewEncoder(res).Encode(topics)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "encoding topics response to json failed", err)
+		reqFailed = true
+		res.WriteHeader(http.StatusInternalServerError)
+	}
+
+	if reqFailed == false {
+		res.WriteHeader(http.StatusOK)
+	}
 }
