@@ -2,16 +2,21 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/YasiruR/ktool-backend/cloud"
 	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/kafka"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/google/uuid"
+	"strings"
+
 	//"github.com/gorilla/mux"
 	traceable_context "github.com/pickme-go/traceable-context"
 	"io/ioutil"
 	"net/http"
 )
+
+const checkClusterRetryCount = 3
 
 //add existing kafka cluster
 func handleAddCluster(res http.ResponseWriter, req *http.Request) {
@@ -33,34 +38,102 @@ func handleAddCluster(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusBadRequest)
 	}
 
-	//proceeds to db query
-	//note : frontend validations should be added to request parameters
-	err = database.AddNewCluster(ctx, addClusterReq.ClusterName, addClusterReq.KafkaVersion)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "add new cluster db transaction failed")
-		reqFailed = true
-		res.WriteHeader(http.StatusInternalServerError)
-	} else {
-		err = database.AddNewZookeeper(ctx, addClusterReq.ZookeeperHost, addClusterReq.ZookeeperPort, addClusterReq.ClusterName)
-		if err != nil {
-			log.Logger.ErrorContext(ctx, "add new zookeeper db transaction failed")
-			//if adding new zookeeper failed reverts the adding cluster query as well
-			err = database.DeleteCluster(ctx, addClusterReq.ClusterName)
-			if err != nil {
-				log.Logger.ErrorContext(ctx, "deleting newly added cluster failed")
-				//cluster table modified but zookeeper table is not
-				res.WriteHeader(http.StatusConflict)
-			} else {
-				log.Logger.TraceContext(ctx, "deleting newly added cluster was successful")
-				res.WriteHeader(http.StatusInternalServerError)
-			}
-			reqFailed = true
-		}
-	}
+	////proceeds to db query
+	////note : frontend validations should be added to request parameters
+	//err = database.AddNewCluster(ctx, addClusterReq.ClusterName, addClusterReq.KafkaVersion)
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "add new cluster db transaction failed")
+	//	reqFailed = true
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//} else {
+	//	err = database.AddNewZookeeper(ctx, addClusterReq.ZookeeperHost, addClusterReq.ZookeeperPort, addClusterReq.ClusterName)
+	//	if err != nil {
+	//		log.Logger.ErrorContext(ctx, "add new zookeeper db transaction failed")
+	//		//if adding new zookeeper failed reverts the adding cluster query as well
+	//		err = database.DeleteCluster(ctx, addClusterReq.ClusterName)
+	//		if err != nil {
+	//			log.Logger.ErrorContext(ctx, "deleting newly added cluster failed")
+	//			//cluster table modified but zookeeper table is not
+	//			res.WriteHeader(http.StatusConflict)
+	//		} else {
+	//			log.Logger.TraceContext(ctx, "deleting newly added cluster was successful")
+	//			res.WriteHeader(http.StatusInternalServerError)
+	//		}
+	//		reqFailed = true
+	//	}
+	//}
 
 	if reqFailed == false {
-		log.Logger.TraceContext(ctx, "cluster stored in the database successfully", addClusterReq.ClusterName)
-		res.WriteHeader(http.StatusOK)
+		retryCount := 0
+	checkIfClusterExists:
+		_, err = database.GetClusterIdByName(ctx, strings.TrimSpace(addClusterReq.ClusterName))
+		if err == nil {
+			log.Logger.ErrorContext(ctx, "cluster name already exists", addClusterReq.ClusterName)
+			var errRes errorMessage
+			res.WriteHeader(http.StatusPreconditionFailed)
+			errRes.Mesg = "Cluster name already exists. Please provide a different name."
+			err := json.NewEncoder(res).Encode(errRes)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, "encoding error response for add cluster req failed")
+			}
+		} else if err.Error() == "no rows found" {
+			//when cluster is eligible to be added
+
+			//proceeds to db query
+			//note : frontend validations should be added to request parameters
+			err = database.AddNewCluster(ctx, addClusterReq.ClusterName, addClusterReq.KafkaVersion)
+			if err != nil {
+				reqFailed = true
+				log.Logger.ErrorContext(ctx, "add new cluster db transaction failed")
+
+			} else {
+				var hosts []string
+				var ports []int
+				for _, broker := range addClusterReq.Brokers {
+					hosts = append(hosts, broker.Host)
+					ports = append(ports, broker.Port)
+				}
+
+				err = database.AddNewBrokers(ctx, hosts, ports, addClusterReq.ClusterName)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "add new brokers db transaction failed", err)
+
+					if err.Error() == "duplicate entry" {
+						var errRes errorMessage
+						res.WriteHeader(http.StatusPreconditionFailed)
+						errRes.Mesg = "You might have already added this cluster."
+						err := json.NewEncoder(res).Encode(errRes)
+						if err != nil {
+							log.Logger.ErrorContext(ctx, "encoding error response for add cluster req failed")
+						}
+					} else {
+						res.WriteHeader(http.StatusInternalServerError)
+					}
+
+					//if adding new brokers failed, reverts the adding cluster query as well
+					err = database.DeleteCluster(ctx, addClusterReq.ClusterName)
+					if err != nil {
+						log.Logger.ErrorContext(ctx, "deleting newly added cluster failed")
+						//cluster table modified but zookeeper table is not
+						//res.WriteHeader(http.StatusConflict)
+					} else {
+						log.Logger.TraceContext(ctx, "deleting newly added cluster was successful")
+					}
+					reqFailed = true
+				}
+			}
+
+			if reqFailed == false {
+				log.Logger.TraceContext(ctx, "cluster stored in the database successfully", addClusterReq.ClusterName)
+			}
+		} else {
+			retryCount += 1
+			if retryCount <= checkClusterRetryCount {
+				goto checkIfClusterExists
+			}
+			log.Logger.ErrorContext(ctx, fmt.Sprintf("checking if cluster exists failed %v times", retryCount-1))
+			res.WriteHeader(http.StatusInternalServerError)
+		}
 	}
 }
 
@@ -172,7 +245,6 @@ func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 
 	if reqFailed == false {
 		log.Logger.TraceContext(ctx, "get all clusters was successful")
-		res.WriteHeader(http.StatusOK)
 	}
 }
 

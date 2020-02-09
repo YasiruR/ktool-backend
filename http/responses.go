@@ -9,3 +9,7 @@ type clusterInfo struct {
 type topicData struct {
 	Topics 		[]string		`json:"topics"`
 }
+
+type errorMessage struct {
+	Mesg 	string		`json:"mesg"`
+}

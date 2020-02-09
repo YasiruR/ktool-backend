@@ -10,6 +10,7 @@ import (
 const (
 	clusterTable  	= 	"cluster"
 	zookeeperTable 	= 	"zookeeper"
+	brokerTable		=	"broker"
 )
 
 var Db *sql.DB

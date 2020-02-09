@@ -21,10 +21,10 @@ func InitRouter() {
 	router.HandleFunc("/cluster/ping", handlePingToZookeeper).Methods("POST")
 	router.HandleFunc("/cluster/telnet", handleTelnetToPort).Methods("POST")
 	router.HandleFunc("/cluster/add", handleAddCluster).Methods("POST")
-	router.HandleFunc("/cluster/get-all", handleGetAllClusters).Methods("GET")
+	router.HandleFunc("/clusters", handleGetAllClusters).Methods("GET")
 	router.HandleFunc("/cluster/connect", handleConnectToCluster).Methods("POST")
-	router.HandleFunc("/cluster/get-all-topics", handleGetTopicsForBroker).Methods("GET")
-	router.HandleFunc("/cluster/get-all-brokers", handleGetAllBrokers).Methods("GET")
+	router.HandleFunc("/topics", handleGetTopicsForBroker).Methods("GET")
+	router.HandleFunc("/brokers", handleGetAllBrokers).Methods("GET")
 
 	osChannel := make(chan os.Signal, 1)
 	signal.Notify(osChannel, syscall.SIGINT, syscall.SIGKILL)
@@ -39,7 +39,9 @@ func InitRouter() {
 		}
 
 		//closing cluster connection
-		kafka.Cluster.Close()
+		if kafka.Cluster != nil {
+			kafka.Cluster.Close()
+		}
 
 		//closing all server sessions
 		for _, session := range cloud.SessionList {

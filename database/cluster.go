@@ -78,7 +78,7 @@ func GetClusterIdByName(ctx context.Context, clusterName string) (clusterId int,
 	switch err := row.Scan(&clusterId); err {
 	case sql.ErrNoRows:
 		log.Logger.ErrorContext(ctx, "no rows scanned for the cluster", clusterName)
-		return 0, errors.New("row scan failed")
+		return 0, errors.New("no rows found")
 	case nil:
 		log.Logger.TraceContext(ctx, "fetched cluster by cluster id", clusterName)
 		return clusterId, nil
