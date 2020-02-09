@@ -40,7 +40,7 @@ func DeleteCluster(ctx context.Context, clusterName string) (err error) {
 }
 
 func GetAllClusters(ctx context.Context) (clusterList []domain.Cluster, err error) {
-	query := "SELECT * FROM cluster;"
+	query := "SELECT * FROM " + clusterTable + ";"
 
 	rows, err := Db.Query(query)
 	if err != nil {

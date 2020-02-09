@@ -8,53 +8,46 @@ import (
 	"github.com/YasiruR/ktool-backend/log"
 )
 
-var (
-	Cluster 		sarama.Consumer
-	Client			sarama.Client
-)
-
-func InitClusterConfig(ctx context.Context, brokers []string) (err error) {
+func InitClusterConfig(ctx context.Context, brokers []string) (consumer sarama.Consumer, err error) {
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
 
-	cluster, err := sarama.NewConsumer(brokers, config)
+	consumer, err = sarama.NewConsumer(brokers, config)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, err, brokers)
-		return errors.New("kafka cluster config initialization failed")
+		return nil, errors.New("kafka cluster config initialization failed")
 	}
 
 	//todo: close cluster connection on disconnect
 
-	Cluster = cluster
-	return nil
+	return consumer, nil
 }
 
-func GetTopicList(ctx context.Context) (topics []string, err error) {
-	topics, err = Cluster.Topics()
+func GetTopicList(ctx context.Context, cluster sarama.Consumer) (topics []string, err error) {
+	topics, err = cluster.Topics()
 	if err != nil {
-		log.Logger.ErrorContext(ctx, err, Cluster)
+		log.Logger.ErrorContext(ctx, err, cluster)
 		return nil, err
 	}
 
-	log.Logger.TraceContext(ctx, "all topics are fetched", fmt.Sprintf("no of topics : %v", len(topics)), fmt.Sprintf("cluster : %v", Cluster))
+	log.Logger.TraceContext(ctx, "all topics are fetched", fmt.Sprintf("no of topics : %v", len(topics)), fmt.Sprintf("cluster : %v", cluster))
 	return topics, nil
 }
 
-func InitClient(ctx context.Context, brokers []string) (err error) {
-	client, err := sarama.NewClient(brokers, nil)
+func InitClient(ctx context.Context, brokers []string) (client sarama.Client, err error) {
+	client, err = sarama.NewClient(brokers, nil)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, fmt.Sprintf("creating new client failed for brokers : %v", brokers), err)
-		return err
+		return nil, err
 	}
 
-	Client = client
 	log.Logger.TraceContext(ctx, "client initialized successfully", brokers)
 
-	return nil
+	return client, nil
 }
 
-func GetBrokerAddrList(ctx context.Context) (addrList []string, err error) {
-	brokers := Client.Brokers()
+func GetBrokerAddrList(ctx context.Context, client sarama.Client) (addrList []string, err error) {
+	brokers := client.Brokers()
 	for _, broker := range brokers {
 		addrList = append(addrList, broker.Addr())
 	}

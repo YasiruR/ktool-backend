@@ -18,13 +18,13 @@ import (
 func InitRouter() {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/cluster/ping", handlePingToZookeeper).Methods("POST")
+	router.HandleFunc("/cluster/ping", handlePingToServer).Methods("POST")
 	router.HandleFunc("/cluster/telnet", handleTelnetToPort).Methods("POST")
 	router.HandleFunc("/cluster/add", handleAddCluster).Methods("POST")
 	router.HandleFunc("/clusters", handleGetAllClusters).Methods("GET")
 	router.HandleFunc("/cluster/connect", handleConnectToCluster).Methods("POST")
-	router.HandleFunc("/topics", handleGetTopicsForBroker).Methods("GET")
-	router.HandleFunc("/brokers", handleGetAllBrokers).Methods("GET")
+	router.HandleFunc("/topics", handleGetTopicsForCluster).Methods("GET")
+	router.HandleFunc("/brokers", handleGetBrokersForCluster).Methods("GET")
 
 	osChannel := make(chan os.Signal, 1)
 	signal.Notify(osChannel, syscall.SIGINT, syscall.SIGKILL)
@@ -38,9 +38,12 @@ func InitRouter() {
 			log.Error("error occurred in closing mysql connection")
 		}
 
-		//closing cluster connection
-		if kafka.Cluster != nil {
-			kafka.Cluster.Close()
+		//closing cluster connections
+		for _, clustClient := range kafka.ClusterList {
+			if clustClient.Client != nil {
+				clustClient.Client.Close()
+				clustClient.Consumer.Close()
+			}
 		}
 
 		//closing all server sessions

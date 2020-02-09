@@ -11,4 +11,6 @@ type Broker struct {
 	OfflinePartitions 	int
 	ActiveControllers 	int
 	Status 				string
+	CreatedAt 			string
+	ClusterID 			int
 }

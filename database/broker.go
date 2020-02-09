@@ -2,9 +2,9 @@ package database
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/go-sql-driver/mysql"
 	"strconv"
@@ -52,20 +52,64 @@ func AddNewBrokers(ctx context.Context, hosts []string, ports []int, clusterName
 	return nil
 }
 
-func GetBrokerByClusterId(ctx context.Context, clusterId int) (id int, brokerHost string, brokerPort int, err error) {
+func GetAllBrokers(ctx context.Context) (brokerList []domain.Broker, err error) {
+	query := "SELECT * FROM " + brokerTable + ";"
+
+	rows, err := Db.Query(query)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "get all brokers db query failed", err)
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		broker := domain.Broker{}
+
+		err = rows.Scan(&broker.ID, &broker.Host, &broker.Port, &broker.CreatedAt, &broker.ClusterID)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "scanning rows in broker table failed", err)
+			return nil, err
+		}
+
+		brokerList = append(brokerList, broker)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred when scanning rows", err)
+		return nil, err
+	}
+
+	log.Logger.TraceContext(ctx, "get all brokers db query was successful")
+	return brokerList, nil
+}
+
+func GetBrokersByClusterId(ctx context.Context, clusterId int) (brokers []domain.Broker, err error) {
 	query := "SELECT id, host, port FROM " + brokerTable + ` WHERE cluster_id="` + strconv.Itoa(clusterId) + `";`
 
-	row := Db.QueryRow(query)
-
-	switch err := row.Scan(&id, &brokerHost, &brokerPort); err {
-	case sql.ErrNoRows:
-		log.Logger.ErrorContext(ctx, "no broker scanned for the cluster_id", clusterId)
-		return 0, "", 0, errors.New("row scan failed")
-	case nil:
-		log.Logger.TraceContext(ctx, "fetched broker by cluster id", clusterId)
-		return id, brokerHost, brokerPort, nil
-	default:
-		log.Logger.ErrorContext(ctx, "unhandled error in row scan", clusterId)
-		return 0, "", 0, errors.New("row scan failed")
+	rows, err := Db.Query(query)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "get brokers for cluster db query failed", err)
+		return nil, err
 	}
+	defer rows.Close()
+	for rows.Next() {
+		broker := domain.Broker{}
+
+		err = rows.Scan(&broker.ID, &broker.Host, &broker.Port, &broker.CreatedAt, &broker.ClusterID)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "scanning rows in broker table failed", err)
+			return nil, err
+		}
+
+		brokers = append(brokers, broker)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred when scanning rows", err)
+		return nil, err
+	}
+
+	log.Logger.TraceContext(ctx, "get all brokers for cluster db query was successful")
+	return brokers, nil
 }
