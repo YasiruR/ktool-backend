@@ -7,6 +7,7 @@ import (
 	"github.com/YasiruR/ktool-backend/kafka"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	traceable_context "github.com/pickme-go/traceable-context"
 	"io/ioutil"
 	"net/http"
@@ -249,6 +250,22 @@ func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 	}
 
 	log.Logger.TraceContext(ctx, "get all clusters was successful")
+}
+
+func handleDeleteCluster(res http.ResponseWriter, req *http.Request) {
+	ctx := traceable_context.WithUUID(uuid.New())
+	params := mux.Vars(req)
+	clusterName := params["cluster_id"]
+
+	err := database.DeleteCluster(ctx, clusterName)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("deleting cluster failed - %v", clusterName), err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	log.Logger.TraceContext(ctx, "cluster deleted successfully", clusterName)
+	res.WriteHeader(http.StatusOK)
 }
 
 func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
