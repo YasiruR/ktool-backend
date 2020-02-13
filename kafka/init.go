@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	ClusterList 	[]KCluster
+	ClusterList 			[]KCluster
+	SelectedClusterList 	[]KCluster
 )
 
 type KCluster struct{

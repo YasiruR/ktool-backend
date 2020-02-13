@@ -11,6 +11,7 @@ import (
 	traceable_context "github.com/pickme-go/traceable-context"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -300,6 +301,56 @@ func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 	}
 
 	log.Logger.TraceContext(ctx, "get all clusters was successful")
+}
+
+func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
+	ctx := traceable_context.WithUUID(uuid.New())
+	clusterID, err := strconv.Atoi(req.FormValue("cluster_id"))
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "conversion of cluster id from string into int failed", err, req.FormValue("cluster_id"))
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	for _, cluster := range kafka.ClusterList {
+		if cluster.ClusterID == clusterID {
+			kafka.SelectedClusterList = append(kafka.SelectedClusterList, cluster)
+			log.Logger.TraceContext(ctx, "connected to cluster successfully", cluster.ClusterName)
+			res.WriteHeader(http.StatusOK)
+			return
+		}
+	}
+
+	log.Logger.ErrorContext(ctx, "could not find the cluster id from the cluster id", clusterID)
+	//send error message
+	res.WriteHeader(http.StatusBadRequest)
+}
+
+func handleDisconnectCluster(res http.ResponseWriter, req *http.Request) {
+	ctx := traceable_context.WithUUID(uuid.New())
+	clusterID, err := strconv.Atoi(req.FormValue("cluster_id"))
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "conversion od cluster id from string into int failed", err, req.FormValue("cluster_id"))
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	for index, cluster := range kafka.SelectedClusterList {
+		if cluster.ClusterID == clusterID {
+			//remove the cluster
+			kafka.SelectedClusterList[index] = kafka.SelectedClusterList[len(kafka.SelectedClusterList)-1] // Copy last element to index i.
+			kafka.SelectedClusterList[len(kafka.SelectedClusterList)-1] = kafka.KCluster{}   // Erase last element (write zero value).
+			kafka.SelectedClusterList = kafka.SelectedClusterList[:len(kafka.SelectedClusterList)-1]   // Truncate slice.
+
+			log.Logger.TraceContext(ctx, "disconnected cluster successfully", cluster.ClusterName)
+			res.WriteHeader(http.StatusOK)
+			return
+		}
+	}
+
+	log.Logger.ErrorContext(ctx, "could not find the cluster in selected clusters", clusterID)
+	//send error message
+	res.WriteHeader(http.StatusBadRequest)
 }
 
 //func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
