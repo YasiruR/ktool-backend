@@ -14,10 +14,10 @@ import (
 func handleGetBrokersForCluster(res http.ResponseWriter, req *http.Request) {
 	ctx := traceable_context.WithUUID(uuid.New())
 
-	params := mux.Vars(req)
-	clusterID, err := strconv.Atoi(params["cluster_id"])
+	//params := mux.Vars(req)
+	clusterID, err := strconv.Atoi(req.FormValue("cluster_id"))
 	if err != nil {
-		log.Logger.ErrorContext(ctx, "cluster id param is not an int")
+		log.Logger.ErrorContext(ctx, "cluster id conversion from string to int failed", err)
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}

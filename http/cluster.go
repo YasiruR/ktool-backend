@@ -11,7 +11,6 @@ import (
 	traceable_context "github.com/pickme-go/traceable-context"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -207,50 +206,50 @@ checkIfClusterExists:
 	}
 }
 
-func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
-	ctx := traceable_context.WithUUID(uuid.New())
-	clusterList, err := database.GetAllClusters(ctx)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "get all clusters failed")
-		res.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	brokerList, err := database.GetAllBrokers(ctx)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "get all brokers failed")
-		res.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	var clusterListRes clusterRes
-
-	for _, cluster := range clusterList {
-		clusterRes := clusterInfo{}
-		clusterRes.Id = cluster.ID
-		clusterRes.ClusterName = cluster.ClusterName
-		clusterRes.KafkaVersion = cluster.KafkaVersion
-
-		for _, b := range brokerList {
-			if b.ClusterID == cluster.ID {
-				clusterRes.Brokers = append(clusterRes.Brokers, broker{b.Host, b.Port})
-				break
-			}
-		}
-
-		clusterListRes.Clusters = append(clusterListRes.Clusters, clusterRes)
-	}
-
-	res.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(res).Encode(clusterListRes)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "encoding response into json failed", err)
-		res.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	log.Logger.TraceContext(ctx, "get all clusters was successful")
-}
+//func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
+//	ctx := traceable_context.WithUUID(uuid.New())
+//	clusterList, err := database.GetAllClusters(ctx)
+//	if err != nil {
+//		log.Logger.ErrorContext(ctx, "get all clusters failed")
+//		res.WriteHeader(http.StatusInternalServerError)
+//		return
+//	}
+//
+//	brokerList, err := database.GetAllBrokers(ctx)
+//	if err != nil {
+//		log.Logger.ErrorContext(ctx, "get all brokers failed")
+//		res.WriteHeader(http.StatusInternalServerError)
+//		return
+//	}
+//
+//	var clusterListRes clusterRes
+//
+//	for _, cluster := range clusterList {
+//		clusterRes := clusterInfo{}
+//		clusterRes.Id = cluster.ID
+//		clusterRes.ClusterName = cluster.ClusterName
+//		clusterRes.KafkaVersion = cluster.KafkaVersion
+//
+//		for _, b := range brokerList {
+//			if b.ClusterID == cluster.ID {
+//				clusterRes.Brokers = append(clusterRes.Brokers, broker{b.Host, b.Port})
+//				break
+//			}
+//		}
+//
+//		clusterListRes.Clusters = append(clusterListRes.Clusters, clusterRes)
+//	}
+//
+//	res.WriteHeader(http.StatusOK)
+//	err = json.NewEncoder(res).Encode(clusterListRes)
+//	if err != nil {
+//		log.Logger.ErrorContext(ctx, "encoding response into json failed", err)
+//		res.WriteHeader(http.StatusInternalServerError)
+//		return
+//	}
+//
+//	log.Logger.TraceContext(ctx, "get all clusters was successful")
+//}
 
 func handleDeleteCluster(res http.ResponseWriter, req *http.Request) {
 	ctx := traceable_context.WithUUID(uuid.New())
@@ -268,45 +267,80 @@ func handleDeleteCluster(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 }
 
-func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
-	var clusterReq connectToCluster
-
+func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 	ctx := traceable_context.WithUUID(uuid.New())
-	content, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "error occurred while reading request", err)
-		res.WriteHeader(http.StatusBadRequest)
-		return
+	var clusterListRes clusterRes
+
+	for _, cluster := range kafka.ClusterList {
+		clusterRes := clusterInfo{}
+		clusterRes.Id = cluster.ClusterID
+		clusterRes.ClusterName = cluster.ClusterName
+		clusterRes.Available = cluster.Available
+
+		for _, b := range cluster.Brokers {
+			clusterRes.Brokers = append(clusterRes.Brokers, b.Addr())
+		}
+
+		for _, t := range cluster.Topics {
+			var topicRes topic
+			topicRes.Name = t.Name
+			topicRes.Partitions = t.Partitions
+			clusterRes.Topics = append(clusterRes.Topics, topicRes)
+		}
+
+		clusterListRes.Clusters = append(clusterListRes.Clusters, clusterRes)
 	}
 
-	err = json.Unmarshal(content, &clusterReq)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "unmarshal error", err)
-		res.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	client, err := kafka.InitClient(ctx, clusterReq.Brokers)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, err)
-		res.WriteHeader(http.StatusServiceUnavailable)
-		return
-	}
-
-	cluster, err := kafka.InitClusterConfig(ctx, clusterReq.Brokers)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, err)
-		res.WriteHeader(http.StatusServiceUnavailable)
-		return
-	}
-
-	var clustClient kafka.KCluster
-	clustClient.ClusterID = clusterReq.ClusterID
-	clustClient.Consumer = cluster
-	clustClient.Client = client
-	kafka.ClusterList = append(kafka.ClusterList, clustClient)
-
-	log.Logger.TraceContext(ctx, "connecting to clusterReq was successful", clusterReq.Brokers)
-	res.Header().Set("ID", strconv.Itoa(clusterReq.ClusterID))
 	res.WriteHeader(http.StatusOK)
+	err := json.NewEncoder(res).Encode(clusterListRes)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "encoding response into json failed", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	log.Logger.TraceContext(ctx, "get all clusters was successful")
 }
+
+//func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
+//	var clusterReq connectToCluster
+//
+//	ctx := traceable_context.WithUUID(uuid.New())
+//	content, err := ioutil.ReadAll(req.Body)
+//	if err != nil {
+//		log.Logger.ErrorContext(ctx, "error occurred while reading request", err)
+//		res.WriteHeader(http.StatusBadRequest)
+//		return
+//	}
+//
+//	err = json.Unmarshal(content, &clusterReq)
+//	if err != nil {
+//		log.Logger.ErrorContext(ctx, "unmarshal error", err)
+//		res.WriteHeader(http.StatusBadRequest)
+//		return
+//	}
+//
+//	client, err := kafka.InitClient(ctx, clusterReq.Brokers)
+//	if err != nil {
+//		log.Logger.ErrorContext(ctx, err)
+//		res.WriteHeader(http.StatusServiceUnavailable)
+//		return
+//	}
+//
+//	cluster, err := kafka.InitClusterConfig(ctx, clusterReq.ClusterName, clusterReq.Brokers, "")
+//	if err != nil {
+//		log.Logger.ErrorContext(ctx, err)
+//		res.WriteHeader(http.StatusServiceUnavailable)
+//		return
+//	}
+//
+//	var clustClient kafka.KCluster
+//	clustClient.ClusterID = clusterReq.ClusterID
+//	clustClient.Consumer = cluster
+//	clustClient.Client = client
+//	kafka.ClusterList = append(kafka.ClusterList, clustClient)
+//
+//	log.Logger.TraceContext(ctx, "connecting to clusterReq was successful", clusterReq.Brokers)
+//	//res.Header().Set("ID", strconv.Itoa(clusterReq.ClusterID))
+//	res.WriteHeader(http.StatusOK)
+//}

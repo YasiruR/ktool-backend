@@ -12,6 +12,7 @@ type server struct {
 }
 
 type connectToCluster struct {
-	ClusterID 	int				`json:"cluster_id"`
-	Brokers 	[]string		`json:"brokers"`
+	ClusterID 		int				`json:"cluster_id"`
+	ClusterName 	string			`json:"cluster_name"`
+	Brokers 		[]string		`json:"brokers"`
 }
