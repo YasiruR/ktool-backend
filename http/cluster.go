@@ -339,7 +339,7 @@ func handleDisconnectCluster(res http.ResponseWriter, req *http.Request) {
 		if cluster.ClusterID == clusterID {
 			//remove the cluster
 			kafka.SelectedClusterList[index] = kafka.SelectedClusterList[len(kafka.SelectedClusterList)-1] // Copy last element to index i.
-			kafka.SelectedClusterList[len(kafka.SelectedClusterList)-1] = kafka.KCluster{}   // Erase last element (write zero value).
+			kafka.SelectedClusterList[len(kafka.SelectedClusterList)-1] = &kafka.KCluster{}   // Erase last element (write zero value).
 			kafka.SelectedClusterList = kafka.SelectedClusterList[:len(kafka.SelectedClusterList)-1]   // Truncate slice.
 
 			log.Logger.TraceContext(ctx, "disconnected cluster successfully", cluster.ClusterName)

@@ -6,7 +6,7 @@ import (
 	"github.com/YasiruR/ktool-backend/log"
 )
 
-func GetClient(ctx context.Context, clusterID int) (clustClient KCluster, err error) {
+func GetClient(ctx context.Context, clusterID int) (clustClient *KCluster, err error) {
 	var found bool
 	for _, clus := range ClusterList {
 		if clus.ClusterID == clusterID {

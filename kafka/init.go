@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	ClusterList 			[]KCluster
-	SelectedClusterList 	[]KCluster
+	ClusterList 			[]*KCluster
+	SelectedClusterList 	[]*KCluster
 )
 
 type KCluster struct{
@@ -52,7 +52,7 @@ func InitAllClusters() {
 		client, err := InitClient(ctx, brokerList)
 		if err != nil {
 			log.Logger.Error("client could not be initialized for cluster", cluster.ClusterName, err)
-			ClusterList = append(ClusterList, clustClient)
+			ClusterList = append(ClusterList, &clustClient)
 			continue
 		}
 
@@ -62,14 +62,14 @@ func InitAllClusters() {
 		saramaConsumer, err := InitClusterConfig(ctx, cluster.ClusterName, brokerList, "")
 		if err != nil {
 			log.Logger.Error("cluster config could not be initialized for cluster", cluster.ClusterName, err)
-			ClusterList = append(ClusterList, clustClient)
+			ClusterList = append(ClusterList, &clustClient)
 			continue
 		}
 
 		topics, err := GetTopicList(ctx, saramaConsumer)
 		if err != nil {
 			log.Logger.Error("topic list could not be fetched from ")
-			ClusterList = append(ClusterList, clustClient)
+			ClusterList = append(ClusterList, &clustClient)
 			continue
 		}
 
@@ -79,7 +79,7 @@ func InitAllClusters() {
 			clusterTopic.Partitions, err = saramaConsumer.Partitions(topic)
 			if err != nil {
 				log.Logger.Error(fmt.Sprintf("partitions could not be fetched for %v topic in %v cluster", topic, cluster.ClusterName), err)
-				ClusterList = append(ClusterList, clustClient)
+				ClusterList = append(ClusterList, &clustClient)
 				continue clusterLoop
 			}
 			clustClient.Topics = append(clustClient.Topics, clusterTopic)
@@ -88,7 +88,7 @@ func InitAllClusters() {
 		clustClient.Consumer = saramaConsumer
 		clustClient.Client = client
 		clustClient.Available = true
-		ClusterList = append(ClusterList, clustClient)
+		ClusterList = append(ClusterList, &clustClient)
 	}
 
 	log.Logger.Trace("cluster initialization completed")
