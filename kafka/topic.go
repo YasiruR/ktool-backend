@@ -65,6 +65,21 @@ func InitTopicConsumer(ctx context.Context, clusterID int, topic string) (err er
 	return nil
 }
 
+func ReadMessages(ctx context.Context, start, end int32, topic string, clusterID int) (messages []*sarama.ConsumerMessage, err error) {
+	for _, c := range TopicClientList {
+		if c.Name == topic {
+			if c.ClusterID == clusterID {
+				messages = c.Mesgs[start:end]
+				log.Logger.TraceContext(ctx, fmt.Sprintf("fetched messages for topic %v from %v to %v", topic, start, end))
+				return messages, nil
+			}
+		}
+	}
+
+	log.Logger.ErrorContext(ctx, "topic or cluster id may not exist", topic, clusterID)
+	return nil, errors.New(fmt.Sprintf("failed to fetch data for %v topic and cluster id %v", topic, clusterID))
+}
+
 func GetTopicData(ctx context.Context, clusterID int, topic string, start, end int) (mesgs []*sarama.ConsumerMessage, err error) {
 	for _, topicClient := range TopicClientList {
 		if topicClient.Name == topic && topicClient.ClusterID == clusterID {

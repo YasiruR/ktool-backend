@@ -159,8 +159,6 @@ checkIfClusterExists:
 			return
 		}
 
-		fmt.Println("Req : ", addClusterReq.Brokers)
-
 		var hosts []string
 		var ports []int
 		for _, broker := range addClusterReq.Brokers {
@@ -204,7 +202,10 @@ checkIfClusterExists:
 		}
 		log.Logger.ErrorContext(ctx, fmt.Sprintf("checking if cluster exists failed %v times", retryCount-1))
 		res.WriteHeader(http.StatusInternalServerError)
+		return
 	}
+
+	kafka.InitAllClusters()
 }
 
 //func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
@@ -252,14 +253,76 @@ checkIfClusterExists:
 //	log.Logger.TraceContext(ctx, "get all clusters was successful")
 //}
 
+func handleTestConnectionToCluster(res http.ResponseWriter, req *http.Request) {
+	ctx := traceable_context.WithUUID(uuid.New())
+	var testClusterReq addExistingCluster
+
+	content, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred while reading request", err)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = json.Unmarshal(content, &testClusterReq)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "unmarshal error", err)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	log.Logger.TraceContext(ctx, testClusterReq, "request")
+
+	var brokers []string
+
+	for _, b := range testClusterReq.Brokers {
+		tmp := b.Host + ":" + strconv.Itoa(b.Port)
+		brokers = append(brokers, tmp)
+	}
+
+	client, err := kafka.InitClient(ctx, brokers)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "test connection to cluster failed", testClusterReq.ClusterName)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	brokList, err := kafka.GetBrokerAddrList(ctx, client)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "test connection to cluster failed", testClusterReq.ClusterName)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if brokList != nil {
+		log.Logger.TraceContext(ctx, "telnet to server is successful")
+		res.WriteHeader(http.StatusOK)
+	}
+
+}
+
 func handleDeleteCluster(res http.ResponseWriter, req *http.Request) {
 	ctx := traceable_context.WithUUID(uuid.New())
 	params := mux.Vars(req)
 	clusterName := params["cluster_id"]
 
-	err := database.DeleteCluster(ctx, clusterName)
+	clusterID, err := database.GetClusterIdByName(ctx, clusterName)
 	if err != nil {
-		log.Logger.ErrorContext(ctx, fmt.Sprintf("deleting cluster failed - %v", clusterName), err)
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("deleting cluster failed - %v due to being unable to get cluster id by name", clusterName), err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err = kafka.DeleteCluster(ctx, clusterID)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("deleting cluster from list failed - %v", clusterName), err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err = database.DeleteCluster(ctx, clusterName)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("deleting cluster from db failed - %v", clusterName), err)
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -314,10 +377,13 @@ func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
 
 	for _, cluster := range kafka.ClusterList {
 		if cluster.ClusterID == clusterID {
-			kafka.SelectedClusterList = append(kafka.SelectedClusterList, cluster)
-			log.Logger.TraceContext(ctx, "connected to cluster successfully", cluster.ClusterName)
-			res.WriteHeader(http.StatusOK)
-			return
+			if cluster.Available == true {
+				kafka.SelectedClusterList = append(kafka.SelectedClusterList, cluster)
+				log.Logger.TraceContext(ctx, "connected to cluster successfully", cluster.ClusterName)
+				res.WriteHeader(http.StatusOK)
+				return
+			}
+			break
 		}
 	}
 

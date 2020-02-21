@@ -6,6 +6,10 @@ type addExistingCluster struct {
 	Brokers 			[]server		`json:"brokers"`
 }
 
+type testCluster struct {
+	Brokers 	[]server 		`json:"brokers"`
+}
+
 type server struct {
 	Host 		string 			`json:"host"`
 	Port 		int				`json:"port"`

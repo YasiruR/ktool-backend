@@ -44,14 +44,23 @@ func InitAllClusters() {
 		clustClient.ClusterID = cluster.ID
 		clustClient.ClusterName = cluster.ClusterName
 
-		for _, broker := range cluster.Brokers {
-			addr := broker.Host + strconv.Itoa(broker.Port)
+		brokers, err := database.GetBrokersByClusterId(ctx, cluster.ID)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "fetching brokers failed for cluster", cluster.ClusterName)
+			clustClient.Available = false
+			ClusterList = append(ClusterList, &clustClient)
+			continue
+		}
+
+		for _, broker := range brokers {
+			addr := broker.Host + ":" + strconv.Itoa(broker.Port)
 			brokerList = append(brokerList, addr)
 		}
 
 		client, err := InitClient(ctx, brokerList)
 		if err != nil {
-			log.Logger.Error("client could not be initialized for cluster", cluster.ClusterName, err)
+			log.Logger.ErrorContext(ctx, "client could not be initialized for cluster", cluster.ClusterName, err)
+			clustClient.Available = false
 			ClusterList = append(ClusterList, &clustClient)
 			continue
 		}
@@ -61,14 +70,16 @@ func InitAllClusters() {
 
 		saramaConsumer, err := InitClusterConfig(ctx, cluster.ClusterName, brokerList, "")
 		if err != nil {
-			log.Logger.Error("cluster config could not be initialized for cluster", cluster.ClusterName, err)
+			log.Logger.ErrorContext(ctx,"cluster config could not be initialized for cluster", cluster.ClusterName, err)
+			clustClient.Available = false
 			ClusterList = append(ClusterList, &clustClient)
 			continue
 		}
 
 		topics, err := GetTopicList(ctx, saramaConsumer)
 		if err != nil {
-			log.Logger.Error("topic list could not be fetched from ")
+			log.Logger.ErrorContext(ctx, "topic list could not be fetched", cluster.ClusterName)
+			clustClient.Available = false
 			ClusterList = append(ClusterList, &clustClient)
 			continue
 		}
@@ -79,6 +90,7 @@ func InitAllClusters() {
 			clusterTopic.Partitions, err = saramaConsumer.Partitions(topic)
 			if err != nil {
 				log.Logger.Error(fmt.Sprintf("partitions could not be fetched for %v topic in %v cluster", topic, cluster.ClusterName), err)
+				clustClient.Available = false
 				ClusterList = append(ClusterList, &clustClient)
 				continue clusterLoop
 			}

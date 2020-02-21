@@ -84,7 +84,7 @@ func GetAllBrokers(ctx context.Context) (brokerList []domain.Broker, err error) 
 }
 
 func GetBrokersByClusterId(ctx context.Context, clusterId int) (brokers []domain.Broker, err error) {
-	query := "SELECT id, host, port FROM " + brokerTable + ` WHERE cluster_id="` + strconv.Itoa(clusterId) + `";`
+	query := "SELECT id, host, port, cluster_id FROM " + brokerTable + ` WHERE cluster_id="` + strconv.Itoa(clusterId) + `";`
 
 	rows, err := Db.Query(query)
 	if err != nil {
@@ -95,7 +95,7 @@ func GetBrokersByClusterId(ctx context.Context, clusterId int) (brokers []domain
 	for rows.Next() {
 		broker := domain.Broker{}
 
-		err = rows.Scan(&broker.ID, &broker.Host, &broker.Port, &broker.CreatedAt, &broker.ClusterID)
+		err = rows.Scan(&broker.ID, &broker.Host, &broker.Port, &broker.ClusterID)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "scanning rows in broker table failed", err)
 			return nil, err
@@ -110,6 +110,6 @@ func GetBrokersByClusterId(ctx context.Context, clusterId int) (brokers []domain
 		return nil, err
 	}
 
-	log.Logger.TraceContext(ctx, "get all brokers for cluster db query was successful")
+	log.Logger.TraceContext(ctx, "get all brokers for cluster db query was successful", clusterId)
 	return brokers, nil
 }
