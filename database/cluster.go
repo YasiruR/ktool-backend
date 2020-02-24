@@ -72,7 +72,6 @@ func GetAllClusters(ctx context.Context) (clusterList []domain.Cluster, err erro
 
 func GetClusterIdByName(ctx context.Context, clusterName string) (clusterId int, err error) {
 	query := "SELECT id FROM " + clusterTable + ` WHERE cluster_name="` + clusterName + `";`
-
 	row := Db.QueryRow(query)
 
 	switch err := row.Scan(&clusterId); err {

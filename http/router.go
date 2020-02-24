@@ -21,7 +21,7 @@ func InitRouter() {
 	router.HandleFunc("/cluster/ping", handlePingToServer).Methods("POST")
 	router.HandleFunc("/cluster/telnet", handleTestConnectionToCluster).Methods("POST")
 	router.HandleFunc("/cluster/add", handleAddCluster).Methods("POST")
-	router.HandleFunc("/cluster/", handleDeleteCluster).Methods("DELETE")
+	router.HandleFunc("/cluster", handleDeleteCluster).Methods("DELETE")
 	router.HandleFunc("/clusters", handleGetAllClusters).Methods("GET")
 	router.HandleFunc("/cluster/connect", handleConnectToCluster).Methods("GET")
 	router.HandleFunc("/cluster/disconnect", handleDisconnectCluster).Methods("GET")
@@ -48,6 +48,7 @@ func InitRouter() {
 				clustClient.Consumer.Close()
 			}
 		}
+		log.Trace("closing all the initialized cluster connections")
 
 		//closing all server sessions
 		for _, session := range cloud.SessionList {

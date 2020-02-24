@@ -113,3 +113,22 @@ func GetBrokersByClusterId(ctx context.Context, clusterId int) (brokers []domain
 	log.Logger.TraceContext(ctx, "get all brokers for cluster db query was successful", clusterId)
 	return brokers, nil
 }
+
+func DeleteBrokersOfCluster(ctx context.Context, clusterID int) (err error) {
+	query := "DELETE FROM " + brokerTable + " WHERE cluster_id=" + strconv.Itoa(clusterID) + ";"
+
+	res, err := Db.Exec(query)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "deleting brokers for cluster failed", fmt.Sprintf("cluster id : %v", clusterID))
+		return err
+	}
+
+	count, err := res.RowsAffected()
+	if err != nil {
+		log.Logger.WarnContext(ctx, "getting deleted broker count failed")
+		return nil
+	}
+
+	log.Logger.TraceContext(ctx, fmt.Sprintf("%v brokers are delted for cluster id : %v", count, clusterID))
+	return nil
+}
