@@ -7,6 +7,7 @@ import (
 	"github.com/YasiruR/ktool-backend/kafka"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/YasiruR/ktool-backend/service"
+	"time"
 )
 
 func main() {
@@ -19,6 +20,18 @@ func main() {
 	cloud.Init()
 
 	service.Cfg.LoadConfigurations()
+
 	kafka.InitAllClusters()
+
+	//refresh cluster data
+	ticker := time.NewTicker(time.Duration(service.Cfg.ClusterRefreshInterval) * time.Second)
+	go func() {
+		for {
+			select {
+				case <- ticker.C:
+					kafka.InitAllClusters()
+			}
+		}
+	}()
 	http.InitRouter()
 }

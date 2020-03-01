@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	ClusterList 			[]*KCluster
-	SelectedClusterList 	[]*KCluster
+	ClusterList 			[]KCluster
+	SelectedClusterList 	[]KCluster
 )
 
 type KCluster struct{
@@ -37,6 +37,8 @@ func InitAllClusters() {
 		log.Logger.Fatal("initializing clusters failed")
 	}
 
+	var tempClustList []KCluster
+
 	clusterLoop:
 	for _, cluster := range clusterList {
 		var brokerList []string
@@ -48,7 +50,7 @@ func InitAllClusters() {
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "fetching brokers failed for cluster", cluster.ClusterName)
 			clustClient.Available = false
-			ClusterList = append(ClusterList, &clustClient)
+			tempClustList = append(tempClustList, clustClient)
 			continue
 		}
 
@@ -61,7 +63,7 @@ func InitAllClusters() {
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "client could not be initialized for cluster", cluster.ClusterName, err)
 			clustClient.Available = false
-			ClusterList = append(ClusterList, &clustClient)
+			tempClustList = append(tempClustList, clustClient)
 			continue
 		}
 
@@ -72,7 +74,7 @@ func InitAllClusters() {
 		if err != nil {
 			log.Logger.ErrorContext(ctx,"cluster config could not be initialized for cluster", cluster.ClusterName, err)
 			clustClient.Available = false
-			ClusterList = append(ClusterList, &clustClient)
+			tempClustList = append(tempClustList, clustClient)
 			continue
 		}
 
@@ -80,7 +82,7 @@ func InitAllClusters() {
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "topic list could not be fetched", cluster.ClusterName)
 			clustClient.Available = false
-			ClusterList = append(ClusterList, &clustClient)
+			tempClustList = append(tempClustList, clustClient)
 			continue
 		}
 
@@ -91,7 +93,7 @@ func InitAllClusters() {
 			if err != nil {
 				log.Logger.Error(fmt.Sprintf("partitions could not be fetched for %v topic in %v cluster", topic, cluster.ClusterName), err)
 				clustClient.Available = false
-				ClusterList = append(ClusterList, &clustClient)
+				tempClustList = append(ClusterList, clustClient)
 				continue clusterLoop
 			}
 			clustClient.Topics = append(clustClient.Topics, clusterTopic)
@@ -100,8 +102,10 @@ func InitAllClusters() {
 		clustClient.Consumer = saramaConsumer
 		clustClient.Client = client
 		clustClient.Available = true
-		ClusterList = append(ClusterList, &clustClient)
+		tempClustList = append(tempClustList, clustClient)
 	}
 
-	log.Logger.Trace("cluster initialization completed")
+	ClusterList = tempClustList
+
+	log.Logger.Trace("cluster initialization completed", fmt.Sprintf("No. of clusters : %v", len(ClusterList)))
 }

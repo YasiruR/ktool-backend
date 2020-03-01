@@ -111,14 +111,14 @@ func DeleteCluster(ctx context.Context, clusterID int) (err error) {
 		if clusterID == cluster.ClusterID {
 			//remove from all clusters
 			ClusterList[index] = ClusterList[len(ClusterList)-1] // Copy last element to index i.
-			ClusterList[len(ClusterList)-1] = &KCluster{}   // Erase last element (write zero value).
+			ClusterList[len(ClusterList)-1] = KCluster{}   // Erase last element (write zero value).
 			ClusterList = ClusterList[:len(ClusterList)-1]   // Truncate slice.
 
 			for i, sCluster := range SelectedClusterList {
 				if clusterID == sCluster.ClusterID {
 					//remove from selected clusters, if selected
 					SelectedClusterList[i] = SelectedClusterList[len(SelectedClusterList)-1] // Copy last element to index i.
-					SelectedClusterList[len(SelectedClusterList)-1] = &KCluster{}   // Erase last element (write zero value).
+					SelectedClusterList[len(SelectedClusterList)-1] = KCluster{}   // Erase last element (write zero value).
 					SelectedClusterList = SelectedClusterList[:len(SelectedClusterList)-1]   // Truncate slice.
 				}
 			}

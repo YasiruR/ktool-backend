@@ -108,8 +108,6 @@ checkIfClusterExists:
 		return
 	}
 
-
-	kafka.ClusterList = []*kafka.KCluster{}
 	kafka.InitAllClusters()
 }
 
@@ -207,10 +205,26 @@ func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 		clusterRes.ClusterName = cluster.ClusterName
 		clusterRes.Available = cluster.Available
 
+		//if cluster.Client != nil && cluster.Consumer != nil {
+		//	topics, err := cluster.Consumer.Topics()
+		//	if err != nil {
+		//		log.Logger.ErrorContext(ctx, fmt.Sprintf("fetching topics for cluster %v failed", cluster.ClusterName))
+		//	}
+		//	clusterRes.Topics = topics
+		//
+		//	fmt.Println("cluster : ", cluster.ClusterName)
+		//	fmt.Println("topics : ", len(topics))
+		//
+		//	brokers, err := kafka.GetBrokerAddrList(ctx, cluster.Client)
+		//	if err != nil {
+		//		log.Logger.ErrorContext(ctx, fmt.Sprintf("fetching brokers for cluster %v failed", cluster.ClusterName))
+		//	}
+		//	clusterRes.Brokers = brokers
+		//}
+
 		for _, b := range cluster.Brokers {
 			clusterRes.Brokers = append(clusterRes.Brokers, b.Addr())
 		}
-
 		for _, t := range cluster.Topics {
 			var topicRes topic
 			topicRes.Name = t.Name
@@ -271,7 +285,7 @@ func handleDisconnectCluster(res http.ResponseWriter, req *http.Request) {
 		if cluster.ClusterID == clusterID {
 			//remove the cluster
 			kafka.SelectedClusterList[index] = kafka.SelectedClusterList[len(kafka.SelectedClusterList)-1] // Copy last element to index i.
-			kafka.SelectedClusterList[len(kafka.SelectedClusterList)-1] = &kafka.KCluster{}   // Erase last element (write zero value).
+			kafka.SelectedClusterList[len(kafka.SelectedClusterList)-1] = kafka.KCluster{}   // Erase last element (write zero value).
 			kafka.SelectedClusterList = kafka.SelectedClusterList[:len(kafka.SelectedClusterList)-1]   // Truncate slice.
 
 			log.Logger.TraceContext(ctx, "disconnected cluster successfully", cluster.ClusterName)

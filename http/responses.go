@@ -9,7 +9,7 @@ type clusterRes struct {
 type clusterInfo struct {
 	Id 					int 		`json:"id"`
 	ClusterName			string 		`json:"cluster_name"`
-	Brokers 			[]string		`json:"brokers"`
+	Brokers 			[]string	`json:"brokers"`
 	Topics 				[]topic 	`json:"topics"`
 	Available 			bool		`json:"available"`
 }

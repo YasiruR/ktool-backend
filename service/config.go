@@ -7,10 +7,11 @@ import (
 )
 
 type Config struct {
-	ServicePort 		string		`yaml:"service_port"`
-	PingRetry 			int 		`yaml:"ping_retry"`
-	PingTimeout			int			`yaml:"ping_timeout"`
-	ClientInitTimeout	int			`yaml:"client_init_timeout"`
+	ServicePort 			string		`yaml:"service_port"`
+	PingRetry 				int 		`yaml:"ping_retry"`
+	PingTimeout				int			`yaml:"ping_timeout"`
+	ClientInitTimeout		int			`yaml:"client_init_timeout"`
+	ClusterRefreshInterval	int			`yaml:"cluster_refresh_interval"`
 }
 
 var Cfg = new(Config)

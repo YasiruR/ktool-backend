@@ -22,6 +22,7 @@ func InitRouter() {
 	router.HandleFunc("/cluster/telnet", handleTestConnectionToCluster).Methods("POST")
 	router.HandleFunc("/cluster/add", handleAddCluster).Methods("POST")
 	router.HandleFunc("/cluster", handleDeleteCluster).Methods("DELETE")
+
 	router.HandleFunc("/clusters", handleGetAllClusters).Methods("GET")
 	router.HandleFunc("/cluster/connect", handleConnectToCluster).Methods("GET")
 	router.HandleFunc("/cluster/disconnect", handleDisconnectCluster).Methods("GET")
