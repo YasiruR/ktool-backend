@@ -5,4 +5,4 @@ ping_retry: 3
 ping_timeout: 5   #seconds
 
 client_init_timeout: 1
-cluster_refresh_interval: 5
+cluster_refresh_interval: 3000

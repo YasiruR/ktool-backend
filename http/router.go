@@ -58,7 +58,7 @@ func InitRouter() {
 		os.Exit(0)
 	}()
 
-	handler := cors.Default().Handler(router)
+	handler := cors.AllowAll().Handler(router)
 
 	log.Fatal(http.ListenAndServe(":" + service.Cfg.ServicePort, handler))
 }

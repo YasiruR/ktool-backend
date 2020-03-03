@@ -14,5 +14,6 @@ require (
 	github.com/rs/cors v1.7.0
 	github.com/sparrc/go-ping v0.0.0-20190613174326-4e5b6552494c
 	golang.org/x/crypto v0.0.0-20200128174031-69ecbb4d6d5d
+	//github.com/go-yaml/yaml v2.2.7
 	gopkg.in/yaml.v2 v2.2.8
 )

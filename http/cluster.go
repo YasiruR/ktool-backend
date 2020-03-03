@@ -131,32 +131,81 @@ func handleTestConnectionToCluster(res http.ResponseWriter, req *http.Request) {
 
 	log.Logger.TraceContext(ctx, testClusterReq, "request")
 
-	var brokers []string
+	var listOfBrokLists [][]string
 
 	for _, b := range testClusterReq.Brokers {
+		var tmpBrokers []string
 		tmp := b.Host + ":" + strconv.Itoa(b.Port)
-		brokers = append(brokers, tmp)
+		tmpBrokers = append(tmpBrokers, tmp)
+
+		client, err := kafka.InitClient(ctx, tmpBrokers)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "test connection to cluster failed", testClusterReq.ClusterName, b)
+			var errRes errorMessage
+			res.WriteHeader(http.StatusPreconditionFailed)
+			errRes.Mesg = fmt.Sprintf("Could not find the cluster for broker - %v", tmp)
+			err := json.NewEncoder(res).Encode(errRes)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, "encoding error response for test cluster req failed")
+			}
+			return
+		}
+
+		tmpBrokList, err := kafka.GetBrokerAddrList(ctx, client)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "test connection to cluster failed", testClusterReq.ClusterName)
+			var errRes errorMessage
+			res.WriteHeader(http.StatusPreconditionFailed)
+			errRes.Mesg = fmt.Sprintf("Could not fetch rest of the brokers for broker - %v", tmp)
+			err := json.NewEncoder(res).Encode(errRes)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, "encoding error response for test cluster req failed")
+			}
+			return
+		}
+
+		listOfBrokLists = append(listOfBrokLists, tmpBrokList)
 	}
 
-	client, err := kafka.InitClient(ctx, brokers)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "test connection to cluster failed", testClusterReq.ClusterName)
-		res.WriteHeader(http.StatusInternalServerError)
-		return
+	//check if all brokers provided are from the same cluster
+	for index, _ := range listOfBrokLists {
+		if len(listOfBrokLists) >= 2 && index != 0 {
+			//check by length
+			if len(listOfBrokLists[index-1]) != len(listOfBrokLists[index]) {
+				log.Logger.ErrorContext(ctx, "test connection to cluster failed", testClusterReq.ClusterName)
+				var errRes errorMessage
+				res.WriteHeader(http.StatusPreconditionFailed)
+				errRes.Mesg = "Provided brokers are not from the same cluster"
+				err := json.NewEncoder(res).Encode(errRes)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "encoding error response for test cluster req failed")
+				}
+				return
+			}
+
+			//check by elements
+			exists := make(map[string]bool)
+			for _, value := range listOfBrokLists[index-1] {
+				exists[value] = true
+			}
+			for _, value := range listOfBrokLists[index] {
+				if !exists[value] {
+					log.Logger.ErrorContext(ctx, "test connection to cluster failed", testClusterReq.ClusterName)
+					var errRes errorMessage
+					res.WriteHeader(http.StatusPreconditionFailed)
+					errRes.Mesg = "Provided brokers are not from the same cluster"
+					err := json.NewEncoder(res).Encode(errRes)
+					if err != nil {
+						log.Logger.ErrorContext(ctx, "encoding error response for test cluster req failed")
+					}
+					return
+				}
+			}
+		}
 	}
 
-	brokList, err := kafka.GetBrokerAddrList(ctx, client)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "test connection to cluster failed", testClusterReq.ClusterName)
-		res.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	if brokList != nil {
-		log.Logger.TraceContext(ctx, "telnet to server is successful")
-		res.WriteHeader(http.StatusOK)
-	}
-
+	log.Logger.TraceContext(ctx, "telnet to server is successful")
+	res.WriteHeader(http.StatusOK)
 }
 
 func handleDeleteCluster(res http.ResponseWriter, req *http.Request) {
