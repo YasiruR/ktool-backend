@@ -254,23 +254,6 @@ func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 		clusterRes.ClusterName = cluster.ClusterName
 		clusterRes.Available = cluster.Available
 
-		//if cluster.Client != nil && cluster.Consumer != nil {
-		//	topics, err := cluster.Consumer.Topics()
-		//	if err != nil {
-		//		log.Logger.ErrorContext(ctx, fmt.Sprintf("fetching topics for cluster %v failed", cluster.ClusterName))
-		//	}
-		//	clusterRes.Topics = topics
-		//
-		//	fmt.Println("cluster : ", cluster.ClusterName)
-		//	fmt.Println("topics : ", len(topics))
-		//
-		//	brokers, err := kafka.GetBrokerAddrList(ctx, cluster.Client)
-		//	if err != nil {
-		//		log.Logger.ErrorContext(ctx, fmt.Sprintf("fetching brokers for cluster %v failed", cluster.ClusterName))
-		//	}
-		//	clusterRes.Brokers = brokers
-		//}
-
 		for _, b := range cluster.Brokers {
 			clusterRes.Brokers = append(clusterRes.Brokers, b.Addr())
 		}

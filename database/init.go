@@ -11,6 +11,7 @@ const (
 	clusterTable  	= 	"cluster"
 	zookeeperTable 	= 	"zookeeper"
 	brokerTable		=	"broker"
+	userTable		= 	"user"
 )
 
 var Db *sql.DB

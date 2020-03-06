@@ -18,6 +18,9 @@ import (
 func InitRouter() {
 	router := mux.NewRouter()
 
+	router.HandleFunc("/user/register", handleAddNewUser).Methods("POST")
+	router.HandleFunc("/user/login", handleLogin).Methods("POST")
+
 	router.HandleFunc("/cluster/ping", handlePingToServer).Methods("POST")
 	router.HandleFunc("/cluster/telnet", handleTestConnectionToCluster).Methods("POST")
 	router.HandleFunc("/cluster/add", handleAddCluster).Methods("POST")

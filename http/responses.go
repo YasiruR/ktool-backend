@@ -27,3 +27,9 @@ type topic struct {
 type errorMessage struct {
 	Mesg 	string		`json:"mesg"`
 }
+
+//-----------------addUserReq-------------------------//
+
+type userRes struct {
+	Token 		string		`json:"token"`
+}
