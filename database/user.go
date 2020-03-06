@@ -54,6 +54,24 @@ func UpdateToken(ctx context.Context, username, token string) (err error) {
 	return nil
 }
 
+func GetUserByToken(ctx context.Context, token string) (username string, ok bool, err error) {
+	query := "SELECT username from " + userTable + ` WHERE token="` + token + `";`
+
+	row := Db.QueryRow(query)
+
+	switch err := row.Scan(&username); err {
+	case sql.ErrNoRows:
+		log.Logger.ErrorContext(ctx, "no rows scanned for the token", token)
+		return "", false, errors.New("no rows found")
+	case nil:
+		log.Logger.TraceContext(ctx, "fetched user by token", token)
+		return token, true, nil
+	default:
+		log.Logger.ErrorContext(ctx, "unhandled error in row scan", token)
+		return "", false, errors.New("row scan failed")
+	}
+}
+
 func GetUserTokenByName(ctx context.Context, username string) (token string, err error) {
 	query := "SELECT token from " + userTable + ` WHERE username="` + username + `";`
 
@@ -85,6 +103,23 @@ func ValidateUserByPassword(ctx context.Context, username, password string) (id 
 		return id,true, nil
 	default:
 		log.Logger.ErrorContext(ctx, "unhandled error in row scan", username, err)
+		return id,false, errors.New("row scan failed")
+	}
+}
+
+func ValidateUserByToken(ctx context.Context, token string) (id int, ok bool, err error) {
+	query := "SELECT id from " + userTable + ` WHERE token="` + token + `";`
+	row := Db.QueryRow(query)
+
+	switch err := row.Scan(&id); err {
+	case sql.ErrNoRows:
+		log.Logger.ErrorContext(ctx, "no rows scanned for the token", token)
+		return id,false, errors.New("incorrect credentials")
+	case nil:
+		log.Logger.TraceContext(ctx, "fetched user by token", token)
+		return id,true, nil
+	default:
+		log.Logger.ErrorContext(ctx, "unhandled error in row scan", token, err)
 		return id,false, errors.New("row scan failed")
 	}
 }

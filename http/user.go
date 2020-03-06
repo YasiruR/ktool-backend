@@ -3,6 +3,7 @@ package http
 import (
 	"encoding/json"
 	"github.com/YasiruR/ktool-backend/database"
+	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/google/uuid"
 	traceable_context "github.com/pickme-go/traceable-context"
@@ -70,7 +71,7 @@ func handleLogin(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	_, ok, err := database.ValidateUserByPassword(ctx, loginUserReq.Username, loginUserReq.Password)
+	id, ok, err := database.ValidateUserByPassword(ctx, loginUserReq.Username, loginUserReq.Password)
 	if err != nil {
 		if err.Error() == "incorrect credentials" {
 			log.Logger.TraceContext(ctx, "no user encountered for the given credentials", loginUserReq.Username)
@@ -82,19 +83,27 @@ func handleLogin(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if ok {
+		tokenRetry:
 		token := generateToken()
+
+		_, ok, err := database.GetUserByToken(ctx, token)
+		if ok {
+			log.Logger.ErrorContext(ctx, "generated token already exists in the database")
+			goto tokenRetry
+		}
+
 		err = database.UpdateToken(ctx, loginUserReq.Username, token)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "login request failed")
 			return
 		}
 
-		token, err := database.GetUserTokenByName(ctx, loginUserReq.Username)
-		if err != nil {
-			log.Logger.ErrorContext(ctx, "login request failed")
-			res.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+		//_, err := database.GetUserTokenByName(ctx, loginUserReq.Username)
+		//if err != nil {
+		//	log.Logger.ErrorContext(ctx, "login request failed")
+		//	res.WriteHeader(http.StatusInternalServerError)
+		//	return
+		//}
 
 		var userRes userRes
 		userRes.Token = token
@@ -106,6 +115,11 @@ func handleLogin(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 
+		var user domain.User
+		user.Username = loginUserReq.Username
+		user.Token = token
+		user.Id = id
+		domain.LoggedInUsers = append(domain.LoggedInUsers, user)
 		log.Logger.TraceContext(ctx, "user logged in successfully", loginUserReq.Username)
 	}
 }
