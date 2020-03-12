@@ -32,9 +32,14 @@ func handleAddNewUser(res http.ResponseWriter, req *http.Request) {
 
 	token := generateToken()
 
-	err = database.AddNewUser(ctx, addUserReq.Username, addUserReq.Password, token, addUserReq.AccessLevel)
+	exists, err := database.AddNewUser(ctx, addUserReq.Username, addUserReq.Password, token, addUserReq.AccessLevel)
 	if err != nil {
-		log.Logger.ErrorContext(ctx, "add new addUserReq request failed", addUserReq.Username)
+		if exists {
+			log.Logger.ErrorContext(ctx, "add new user request failed", addUserReq.Username)
+			res.WriteHeader(http.StatusPreconditionFailed)
+			return
+		}
+		log.Logger.ErrorContext(ctx, "add new user request failed", addUserReq.Username)
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -98,13 +103,6 @@ func handleLogin(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		//_, err := database.GetUserTokenByName(ctx, loginUserReq.Username)
-		//if err != nil {
-		//	log.Logger.ErrorContext(ctx, "login request failed")
-		//	res.WriteHeader(http.StatusInternalServerError)
-		//	return
-		//}
-
 		var userRes userRes
 		userRes.Token = token
 		res.WriteHeader(http.StatusOK)
@@ -115,11 +113,27 @@ func handleLogin(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 
+		//check if user is already in connected list
+		var exists bool
 		var user domain.User
-		user.Username = loginUserReq.Username
-		user.Token = token
-		user.Id = id
-		domain.LoggedInUsers = append(domain.LoggedInUsers, user)
+		for _, u := range domain.LoggedInUsers {
+			if u.Username == loginUserReq.Username {
+				exists = true
+				user = u
+				break
+			}
+		}
+
+		//if exists, update only the token
+		if !exists {
+			user.Username = loginUserReq.Username
+			user.Token = token
+			user.Id = id
+			domain.LoggedInUsers = append(domain.LoggedInUsers, user)
+		} else {
+			user.Token = token
+		}
+
 		log.Logger.TraceContext(ctx, "user logged in successfully", loginUserReq.Username)
 	}
 }

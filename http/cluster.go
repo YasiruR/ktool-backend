@@ -18,9 +18,22 @@ const checkClusterRetryCount = 3
 
 //add existing kafka cluster
 func handleAddCluster(res http.ResponseWriter, req *http.Request) {
+	ctx := traceable_context.WithUUID(uuid.New())
 	var addClusterReq addExistingCluster
 
-	ctx := traceable_context.WithUUID(uuid.New())
+	token := req.Header.Get("Authorization")
+	_, ok, err := database.ValidateUserByToken(ctx, token)
+	if !ok {
+		log.Logger.DebugContext(ctx, "invalid user", token)
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	content, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "error occurred while reading request", err)

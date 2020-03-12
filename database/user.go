@@ -6,22 +6,27 @@ import (
 	"errors"
 	"fmt"
 	"github.com/YasiruR/ktool-backend/log"
+	"github.com/go-sql-driver/mysql"
 	"strconv"
 )
 
-func AddNewUser(ctx context.Context, username, password, token string, accessLevel int) (err error) {
+func AddNewUser(ctx context.Context, username, password, token string, accessLevel int) (exists bool, err error) {
 	query := "INSERT INTO " + userTable + ` (id, username, password, token, access_level) VALUES (null, "` + username + `", "` + password + `", "` + token + `", ` + strconv.Itoa(accessLevel) + `);`
 
 	insert, err := Db.Query(query)
 	if err != nil {
+		if err.(*mysql.MySQLError).Number == 1062 {
+			log.Logger.ErrorContext(ctx, fmt.Sprintf("%v error for user %v", err, username))
+			return true, err
+		}
 		log.Logger.ErrorContext(ctx, fmt.Sprintf("insert to %s table failed", userTable), err)
-		return err
+		return false, err
 	}
 
 	defer insert.Close()
 	log.Logger.TraceContext(ctx, "add new user query was successful", username)
 
-	return nil
+	return false, nil
 }
 
 func UpdateToken(ctx context.Context, username, token string) (err error) {
