@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/go-sql-driver/mysql"
 	"strconv"
@@ -127,4 +128,35 @@ func ValidateUserByToken(ctx context.Context, token string) (id int, ok bool, er
 		log.Logger.ErrorContext(ctx, "unhandled error in row scan", token, err)
 		return id,false, errors.New("row scan failed")
 	}
+}
+
+func GetAllUsers(ctx context.Context) (userList []domain.User, err error) {
+	query := "SELECT (id, name, token, access_level) FROM " + userTable + ";"
+
+	rows, err := Db.Query(query)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "get all users db query failed", err)
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		user := domain.User{}
+
+		err = rows.Scan(&user.Id, &user.Username, &user.Token, &user.AccessLevel)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "scanning rows in user table failed", err)
+			return nil, err
+		}
+
+		userList = append(userList, user)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred when scanning rows", err)
+		return nil, err
+	}
+
+	log.Logger.TraceContext(ctx, "get all users db query was successful")
+	return userList, nil
 }

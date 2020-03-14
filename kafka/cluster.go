@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Shopify/sarama"
+	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/YasiruR/ktool-backend/service"
 	"io/ioutil"
@@ -106,7 +107,7 @@ func GetBrokerAddrList(ctx context.Context, client sarama.Client) (addrList []st
 	return addrList, nil
 }
 
-func DeleteCluster(ctx context.Context, clusterID int) (err error) {
+func DeleteCluster(ctx context.Context, clusterID int, users []domain.User) (err error) {
 	for index, cluster := range ClusterList {
 		if clusterID == cluster.ClusterID {
 			//remove from all clusters
@@ -114,12 +115,23 @@ func DeleteCluster(ctx context.Context, clusterID int) (err error) {
 			ClusterList[len(ClusterList)-1] = KCluster{}   // Erase last element (write zero value).
 			ClusterList = ClusterList[:len(ClusterList)-1]   // Truncate slice.
 
-			for i, sCluster := range SelectedClusterList {
-				if clusterID == sCluster.ClusterID {
-					//remove from selected clusters, if selected
-					SelectedClusterList[i] = SelectedClusterList[len(SelectedClusterList)-1] // Copy last element to index i.
-					SelectedClusterList[len(SelectedClusterList)-1] = KCluster{}   // Erase last element (write zero value).
-					SelectedClusterList = SelectedClusterList[:len(SelectedClusterList)-1]   // Truncate slice.
+			//for i, sCluster := range SelectedClusterList {
+			//	if clusterID == sCluster.ClusterID {
+			//		//remove from selected clusters, if selected
+			//		SelectedClusterList[i] = SelectedClusterList[len(SelectedClusterList)-1] // Copy last element to index i.
+			//		SelectedClusterList[len(SelectedClusterList)-1] = KCluster{}   // Erase last element (write zero value).
+			//		SelectedClusterList = SelectedClusterList[:len(SelectedClusterList)-1]   // Truncate slice.
+			//	}
+			//}
+
+			for _, user := range users {
+				for i, cluster := range user.ConnectedClusters {
+					if clusterID == cluster.ClusterID {
+						//remove from selected clusters, if selected
+						user.ConnectedClusters[i] = user.ConnectedClusters[len(user.ConnectedClusters)-1] // Copy last element to index i.
+						user.ConnectedClusters[len(user.ConnectedClusters)-1] = KCluster{}   // Erase last element (write zero value).
+						user.ConnectedClusters = user.ConnectedClusters[:len(user.ConnectedClusters)-1]   // Truncate slice.
+					}
 				}
 			}
 

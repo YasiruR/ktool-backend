@@ -12,7 +12,7 @@ import (
 
 var (
 	ClusterList 			[]KCluster
-	SelectedClusterList 	[]KCluster
+	//SelectedClusterList 	[]KCluster
 )
 
 type KCluster struct{

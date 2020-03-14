@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/YasiruR/ktool-backend/database"
+	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/kafka"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ func handleAddCluster(res http.ResponseWriter, req *http.Request) {
 	ctx := traceable_context.WithUUID(uuid.New())
 	var addClusterReq addExistingCluster
 
+	//user validation by token header
 	token := req.Header.Get("Authorization")
 	_, ok, err := database.ValidateUserByToken(ctx, token)
 	if !ok {
@@ -128,6 +130,20 @@ func handleTestConnectionToCluster(res http.ResponseWriter, req *http.Request) {
 	ctx := traceable_context.WithUUID(uuid.New())
 	var testClusterReq addExistingCluster
 
+	//user validation by token header
+	token := req.Header.Get("Authorization")
+	_, ok, err := database.ValidateUserByToken(ctx, token)
+	if !ok {
+		log.Logger.DebugContext(ctx, "invalid user", token)
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	content, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "error occurred while reading request", err)
@@ -225,6 +241,20 @@ func handleDeleteCluster(res http.ResponseWriter, req *http.Request) {
 	ctx := traceable_context.WithUUID(uuid.New())
 	clusterName := req.FormValue("cluster_name")
 
+	//user validation by token header
+	token := req.Header.Get("Authorization")
+	_, ok, err := database.ValidateUserByToken(ctx, token)
+	if !ok {
+		log.Logger.DebugContext(ctx, "invalid user", token)
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	clusterID, err := database.GetClusterIdByName(ctx, clusterName)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, fmt.Sprintf("deleting cluster failed - %v due to being unable to get cluster id by name", clusterName), err)
@@ -239,7 +269,12 @@ func handleDeleteCluster(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err = kafka.DeleteCluster(ctx, clusterID)
+	users, err := database.GetAllUsers(ctx)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("deleting cluster failed - %v due to failure in fetching all users", clusterName))
+	}
+
+	err = kafka.DeleteCluster(ctx, clusterID, users)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, fmt.Sprintf("deleting cluster from list failed - %v", clusterName), err)
 		res.WriteHeader(http.StatusInternalServerError)
@@ -261,6 +296,20 @@ func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 	ctx := traceable_context.WithUUID(uuid.New())
 	var clusterListRes clusterRes
 
+	//user validation by token header
+	token := req.Header.Get("Authorization")
+	_, ok, err := database.ValidateUserByToken(ctx, token)
+	if !ok {
+		log.Logger.DebugContext(ctx, "invalid user", token)
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	for _, cluster := range kafka.ClusterList {
 		clusterRes := clusterInfo{}
 		clusterRes.Id = cluster.ClusterID
@@ -281,7 +330,7 @@ func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 	}
 
 	res.WriteHeader(http.StatusOK)
-	err := json.NewEncoder(res).Encode(clusterListRes)
+	err = json.NewEncoder(res).Encode(clusterListRes)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "encoding response into json failed", err)
 		res.WriteHeader(http.StatusInternalServerError)
@@ -293,6 +342,21 @@ func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 
 func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
 	ctx := traceable_context.WithUUID(uuid.New())
+
+	//user validation by token header
+	token := req.Header.Get("Authorization")
+	_, ok, err := database.ValidateUserByToken(ctx, token)
+	if !ok {
+		log.Logger.DebugContext(ctx, "invalid user", token)
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	clusterID, err := strconv.Atoi(req.FormValue("cluster_id"))
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "conversion of cluster id from string into int failed", err, req.FormValue("cluster_id"))
@@ -300,10 +364,34 @@ func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	username, _, err := database.GetUserByToken(ctx, token)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "fetching user for connect to cluster failed", token)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var user domain.User
+	var userFound bool
+	for _, u := range domain.LoggedInUsers {
+		if u.Username == username {
+			user = u
+			userFound = true
+			break
+		}
+	}
+
+	if !userFound {
+		log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", token)
+		res.WriteHeader(http.StatusForbidden)
+		return
+	}
+
 	for _, cluster := range kafka.ClusterList {
 		if cluster.ClusterID == clusterID {
 			if cluster.Available == true {
-				kafka.SelectedClusterList = append(kafka.SelectedClusterList, cluster)
+				//kafka.SelectedClusterList = append(kafka.SelectedClusterList, cluster)
+				user.ConnectedClusters = append(user.ConnectedClusters, cluster)
 				log.Logger.TraceContext(ctx, "connected to cluster successfully", cluster.ClusterName)
 				res.WriteHeader(http.StatusOK)
 				return
@@ -319,6 +407,21 @@ func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
 
 func handleDisconnectCluster(res http.ResponseWriter, req *http.Request) {
 	ctx := traceable_context.WithUUID(uuid.New())
+
+	//user validation by token header
+	token := req.Header.Get("Authorization")
+	_, ok, err := database.ValidateUserByToken(ctx, token)
+	if !ok {
+		log.Logger.DebugContext(ctx, "invalid user", token)
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	clusterID, err := strconv.Atoi(req.FormValue("cluster_id"))
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "conversion od cluster id from string into int failed", err, req.FormValue("cluster_id"))
@@ -326,12 +429,48 @@ func handleDisconnectCluster(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	for index, cluster := range kafka.SelectedClusterList {
+	username, _, err := database.GetUserByToken(ctx, token)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "fetching user for connect to cluster failed", token)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var user domain.User
+	var userFound bool
+	for _, u := range domain.LoggedInUsers {
+		if u.Username == username {
+			user = u
+			userFound = true
+			break
+		}
+	}
+
+	if !userFound {
+		log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", token)
+		res.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	//for index, cluster := range kafka.SelectedClusterList {
+	//	if cluster.ClusterID == clusterID {
+	//		//remove the cluster
+	//		kafka.SelectedClusterList[index] = kafka.SelectedClusterList[len(kafka.SelectedClusterList)-1] // Copy last element to index i.
+	//		kafka.SelectedClusterList[len(kafka.SelectedClusterList)-1] = kafka.KCluster{}   // Erase last element (write zero value).
+	//		kafka.SelectedClusterList = kafka.SelectedClusterList[:len(kafka.SelectedClusterList)-1]   // Truncate slice.
+	//
+	//		log.Logger.TraceContext(ctx, "disconnected cluster successfully", cluster.ClusterName)
+	//		res.WriteHeader(http.StatusOK)
+	//		return
+	//	}
+	//}
+
+	for index, cluster := range user.ConnectedClusters {
 		if cluster.ClusterID == clusterID {
 			//remove the cluster
-			kafka.SelectedClusterList[index] = kafka.SelectedClusterList[len(kafka.SelectedClusterList)-1] // Copy last element to index i.
-			kafka.SelectedClusterList[len(kafka.SelectedClusterList)-1] = kafka.KCluster{}   // Erase last element (write zero value).
-			kafka.SelectedClusterList = kafka.SelectedClusterList[:len(kafka.SelectedClusterList)-1]   // Truncate slice.
+			user.ConnectedClusters[index] = user.ConnectedClusters[len(user.ConnectedClusters)-1] // Copy last element to index i.
+			user.ConnectedClusters[len(user.ConnectedClusters)-1] = kafka.KCluster{}   // Erase last element (write zero value).
+			user.ConnectedClusters = user.ConnectedClusters[:len(user.ConnectedClusters)-1]   // Truncate slice.
 
 			log.Logger.TraceContext(ctx, "disconnected cluster successfully", cluster.ClusterName)
 			res.WriteHeader(http.StatusOK)
