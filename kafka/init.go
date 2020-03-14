@@ -2,8 +2,8 @@ package kafka
 
 import (
 	"fmt"
-	"github.com/Shopify/sarama"
 	"github.com/YasiruR/ktool-backend/database"
+	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/google/uuid"
 	traceable_context "github.com/pickme-go/traceable-context"
@@ -11,24 +11,25 @@ import (
 )
 
 var (
-	ClusterList 			[]KCluster
+	ClusterList 			[]domain.KCluster
 	//SelectedClusterList 	[]KCluster
+	//LoggedInUsers 			[]User
 )
 
-type KCluster struct{
-	ClusterID 	int
-	ClusterName string
-	Consumer  	sarama.Consumer
-	Client    	sarama.Client
-	Brokers 	[]*sarama.Broker
-	Topics 		[]KTopic
-	Available 	bool
-}
-
-type KTopic struct {
-	Name 		string
-	Partitions 	[]int32
-}
+//type KCluster struct{
+//	ClusterID 	int
+//	ClusterName string
+//	Consumer  	sarama.Consumer
+//	Client    	sarama.Client
+//	Brokers 	[]*sarama.Broker
+//	Topics 		[]KTopic
+//	Available 	bool
+//}
+//
+//type KTopic struct {
+//	Name 		string
+//	Partitions 	[]int32
+//}
 
 func InitAllClusters() {
 	ctx := traceable_context.WithUUID(uuid.New())
@@ -37,12 +38,12 @@ func InitAllClusters() {
 		log.Logger.Fatal("initializing clusters failed")
 	}
 
-	var tempClustList []KCluster
+	var tempClustList []domain.KCluster
 
 	clusterLoop:
 	for _, cluster := range clusterList {
 		var brokerList []string
-		var clustClient KCluster
+		var clustClient domain.KCluster
 		clustClient.ClusterID = cluster.ID
 		clustClient.ClusterName = cluster.ClusterName
 
@@ -87,7 +88,7 @@ func InitAllClusters() {
 		}
 
 		for _, topic := range topics {
-			var clusterTopic KTopic
+			var clusterTopic domain.KTopic
 			clusterTopic.Name = topic
 			clusterTopic.Partitions, err = saramaConsumer.Partitions(topic)
 			if err != nil {

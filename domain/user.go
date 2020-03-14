@@ -1,6 +1,8 @@
 package domain
 
-import "github.com/YasiruR/ktool-backend/kafka"
+import (
+	"github.com/Shopify/sarama"
+)
 
 var LoggedInUsers []User
 
@@ -9,5 +11,20 @@ type User struct {
 	Username			string
 	Token				string
 	AccessLevel 		int
-	ConnectedClusters	[]kafka.KCluster
+	ConnectedClusters	[]KCluster
+}
+
+type KCluster struct{
+	ClusterID 	int
+	ClusterName string
+	Consumer  	sarama.Consumer
+	Client    	sarama.Client
+	Brokers 	[]*sarama.Broker
+	Topics 		[]KTopic
+	Available 	bool
+}
+
+type KTopic struct {
+	Name 		string
+	Partitions 	[]int32
 }

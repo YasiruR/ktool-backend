@@ -112,7 +112,7 @@ func DeleteCluster(ctx context.Context, clusterID int, users []domain.User) (err
 		if clusterID == cluster.ClusterID {
 			//remove from all clusters
 			ClusterList[index] = ClusterList[len(ClusterList)-1] // Copy last element to index i.
-			ClusterList[len(ClusterList)-1] = KCluster{}   // Erase last element (write zero value).
+			ClusterList[len(ClusterList)-1] = domain.KCluster{}   // Erase last element (write zero value).
 			ClusterList = ClusterList[:len(ClusterList)-1]   // Truncate slice.
 
 			//for i, sCluster := range SelectedClusterList {
@@ -129,7 +129,7 @@ func DeleteCluster(ctx context.Context, clusterID int, users []domain.User) (err
 					if clusterID == cluster.ClusterID {
 						//remove from selected clusters, if selected
 						user.ConnectedClusters[i] = user.ConnectedClusters[len(user.ConnectedClusters)-1] // Copy last element to index i.
-						user.ConnectedClusters[len(user.ConnectedClusters)-1] = KCluster{}   // Erase last element (write zero value).
+						user.ConnectedClusters[len(user.ConnectedClusters)-1] = domain.KCluster{}   // Erase last element (write zero value).
 						user.ConnectedClusters = user.ConnectedClusters[:len(user.ConnectedClusters)-1]   // Truncate slice.
 					}
 				}
