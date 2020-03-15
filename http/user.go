@@ -32,7 +32,7 @@ func handleAddNewUser(res http.ResponseWriter, req *http.Request) {
 
 	token := generateToken()
 
-	exists, err := database.AddNewUser(ctx, addUserReq.Username, addUserReq.Password, token, addUserReq.AccessLevel)
+	exists, err := database.AddNewUser(ctx, addUserReq.Username, addUserReq.Password, token, addUserReq.AccessLevel, addUserReq.FirstName, addUserReq.LastName, addUserReq.Email)
 	if err != nil {
 		if exists {
 			log.Logger.ErrorContext(ctx, "add new user request failed", addUserReq.Username)

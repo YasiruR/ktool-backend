@@ -24,7 +24,7 @@ func handleAddCluster(res http.ResponseWriter, req *http.Request) {
 
 	//user validation by token header
 	token := req.Header.Get("Authorization")
-	_, ok, err := database.ValidateUserByToken(ctx, token)
+	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
 	if !ok {
 		log.Logger.DebugContext(ctx, "invalid user", token)
 		res.WriteHeader(http.StatusUnauthorized)
@@ -132,7 +132,7 @@ func handleTestConnectionToCluster(res http.ResponseWriter, req *http.Request) {
 
 	//user validation by token header
 	token := req.Header.Get("Authorization")
-	_, ok, err := database.ValidateUserByToken(ctx, token)
+	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
 	if !ok {
 		log.Logger.DebugContext(ctx, "invalid user", token)
 		res.WriteHeader(http.StatusUnauthorized)
@@ -243,7 +243,7 @@ func handleDeleteCluster(res http.ResponseWriter, req *http.Request) {
 
 	//user validation by token header
 	token := req.Header.Get("Authorization")
-	_, ok, err := database.ValidateUserByToken(ctx, token)
+	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
 	if !ok {
 		log.Logger.DebugContext(ctx, "invalid user", token)
 		res.WriteHeader(http.StatusUnauthorized)
@@ -298,7 +298,7 @@ func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 
 	//user validation by token header
 	token := req.Header.Get("Authorization")
-	_, ok, err := database.ValidateUserByToken(ctx, token)
+	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
 	if !ok {
 		log.Logger.DebugContext(ctx, "invalid user", token)
 		res.WriteHeader(http.StatusUnauthorized)
@@ -345,7 +345,7 @@ func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
 
 	//user validation by token header
 	token := req.Header.Get("Authorization")
-	_, ok, err := database.ValidateUserByToken(ctx, token)
+	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
 	if !ok {
 		log.Logger.DebugContext(ctx, "invalid user", token)
 		res.WriteHeader(http.StatusUnauthorized)
@@ -410,7 +410,7 @@ func handleDisconnectCluster(res http.ResponseWriter, req *http.Request) {
 
 	//user validation by token header
 	token := req.Header.Get("Authorization")
-	_, ok, err := database.ValidateUserByToken(ctx, token)
+	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
 	if !ok {
 		log.Logger.DebugContext(ctx, "invalid user", token)
 		res.WriteHeader(http.StatusUnauthorized)

@@ -8,11 +8,19 @@ import (
 	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/go-sql-driver/mysql"
+	"golang.org/x/crypto/bcrypt"
 	"strconv"
 )
 
-func AddNewUser(ctx context.Context, username, password, token string, accessLevel int) (exists bool, err error) {
-	query := "INSERT INTO " + userTable + ` (id, username, password, token, access_level) VALUES (null, "` + username + `", "` + password + `", "` + token + `", ` + strconv.Itoa(accessLevel) + `);`
+func AddNewUser(ctx context.Context, username, password, token string, accessLevel int, firstName, lastName, email string) (exists bool, err error) {
+
+	encryptedPass, err := hashPassword(ctx, password)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "adding new user to the db failed")
+		return false, err
+	}
+
+	query := "INSERT INTO " + userTable + ` (id, username, password, token, access_level, first_name, last_name, email) VALUES (null, "` + username + `", "` + encryptedPass + `", "` + token + `", ` + strconv.Itoa(accessLevel) + `, "` + firstName + `", "` + lastName + `", "` + email + `");`
 
 	insert, err := Db.Query(query)
 	if err != nil {
@@ -97,16 +105,22 @@ func GetUserTokenByName(ctx context.Context, username string) (token string, err
 }
 
 func ValidateUserByPassword(ctx context.Context, username, password string) (id int, ok bool, err error) {
-	query := "SELECT id from " + userTable + ` WHERE username="` + username + `" AND password="` + password + `";`
+
+	var encryptedPass string
+	query := "SELECT id, password from " + userTable + ` WHERE username="` + username + `";`
 	row := Db.QueryRow(query)
 
-	switch err := row.Scan(&id); err {
+	switch err := row.Scan(&id, &encryptedPass); err {
 	case sql.ErrNoRows:
 		log.Logger.ErrorContext(ctx, "no rows scanned for the user", username)
-		return id,false, errors.New("incorrect credentials")
+		return id,false, errors.New("incorrect username")
 	case nil:
-		log.Logger.TraceContext(ctx, "fetched user by username and password", username)
-		return id,true, nil
+		if checkPasswordForHash(ctx, password, encryptedPass) {
+			log.Logger.TraceContext(ctx, "fetched user by username and password", username)
+			return id,true, nil
+		}
+		log.Logger.ErrorContext(ctx, "user found with incorrect password")
+		return id, false, errors.New("incorrect password")
 	default:
 		log.Logger.ErrorContext(ctx, "unhandled error in row scan", username, err)
 		return id,false, errors.New("row scan failed")
@@ -159,4 +173,22 @@ func GetAllUsers(ctx context.Context) (userList []domain.User, err error) {
 
 	log.Logger.TraceContext(ctx, "get all users db query was successful")
 	return userList, nil
+}
+
+func hashPassword(ctx context.Context, password string) (hash string, err error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "generating hash for the password failed", err)
+		return "", err
+	}
+	return string(bytes), nil
+}
+
+func checkPasswordForHash(ctx context.Context, password, hash string) (ok bool) {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "comparing hash and password failed", err)
+		return false
+	}
+	return true
 }
