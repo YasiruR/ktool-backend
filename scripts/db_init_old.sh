@@ -1,39 +1,22 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 #pulling mysql from docker and executing the image
-echo initialization of the database... 
-#sudo su
-#sudo docker pull mysql/mysql-server
-#echo docker image is pulled and stored...
-#sudo docker run --name=mysql1 -d mysql/mysql-server:tag
-#echo docker mysql image is running...
-
-#downloading locally
-sudo yum update
-sudo yum install wget -y
-wget http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
-echo mysql package is downloaded...
-sudo rpm -ivh mysql-community-release-el7-5.noarch.rpm
-sudo yum update
-echo updating yum...
-sudo yum install mysql-server -y
-echo installing mysql-server...
-sudo systemctl start mysqld
-echo starting mysql-server...
+sudo su
+docker pull mysql/mysql-server
+docker run --name=mysql1 -d mysql/mysql-server:tag
 
 #creating sql user and logging in
+mysql -u root -p
+echo
 echo Please provide the credentials for the database.
 echo Username :
 read -r username
 echo Password :
 read -r password
-mysql -u root -p
-\n
 GRANT ALL PRIVILEGES ON *.* TO "$username"@'localhost' IDENTIFIED BY "$password";
-\q
+/q
 mysql -u "$username" -p
 echo "$password"
-echo mysql user is created with username:$username
 
 #creating the db
 CREATE DATABASE kdb;
@@ -46,4 +29,3 @@ DESCRIBE user;
 DESCRIBE cluster;
 DESCRIBE broker;
 \q
-
