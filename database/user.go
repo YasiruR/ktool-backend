@@ -176,7 +176,7 @@ func GetAllUsers(ctx context.Context) (userList []domain.User, err error) {
 }
 
 func hashPassword(ctx context.Context, password string) (hash string, err error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 5)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "generating hash for the password failed", err)
 		return "", err

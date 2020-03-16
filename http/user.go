@@ -9,6 +9,7 @@ import (
 	traceable_context "github.com/pickme-go/traceable-context"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 func handleAddNewUser(res http.ResponseWriter, req *http.Request) {
@@ -136,6 +137,42 @@ func handleLogin(res http.ResponseWriter, req *http.Request) {
 
 		log.Logger.TraceContext(ctx, "user logged in successfully", loginUserReq.Username)
 	}
+}
+
+func handleLogout(res http.ResponseWriter, req *http.Request) {
+	ctx := traceable_context.WithUUID(uuid.New())
+
+	//user validation by token header
+	tokenHeader := req.Header.Get("Authorization")
+	token := strings.TrimSpace(strings.Split(tokenHeader, "Bearer")[1])
+	_, ok, err := database.ValidateUserByToken(ctx, token)
+	if !ok {
+		log.Logger.DebugContext(ctx, "invalid user", token)
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	user, _, err := database.GetUserByToken(ctx, token)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "logout request failed")
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = database.UpdateToken(ctx, user, "")
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "logout request failed")
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	log.Logger.TraceContext(ctx, "user logout done successfully", user)
+	res.WriteHeader(http.StatusOK)
 }
 
 func generateToken() (token string) {
