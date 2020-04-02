@@ -1,4 +1,4 @@
-service_port: "6000"
+service_port: "7070"
 
 #ping and telnet config
 ping_retry: 3

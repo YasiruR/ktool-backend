@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	traceable_context "github.com/pickme-go/traceable-context"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -66,12 +67,8 @@ checkIfClusterExists:
 	} else if err.Error() == "no rows found" {
 		//when cluster is eligible to be added
 
-		var hosts []string
-		var ports []int
 		var brokerAddrList []string
 		for _, broker := range addClusterReq.Brokers {
-			hosts = append(hosts, broker.Host)
-			ports = append(ports, broker.Port)
 			brokerAddrList = append(brokerAddrList, broker.Host + ":" + strconv.Itoa(broker.Port))
 		}
 
@@ -87,6 +84,65 @@ checkIfClusterExists:
 				}
 				return
 			}
+		}
+
+		//get all relevant brokers
+		client, err := kafka.InitClient(ctx, brokerAddrList)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "add cluster request failed", addClusterReq.ClusterName, brokerAddrList)
+			var errRes errorMessage
+			res.WriteHeader(http.StatusPreconditionFailed)
+			errRes.Mesg = fmt.Sprintf("Could not find the cluster for brokers - %v", brokerAddrList)
+			err := json.NewEncoder(res).Encode(errRes)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, "encoding error response for test cluster req failed")
+			}
+			return
+		}
+
+		tmpBrokList, err := kafka.GetBrokerAddrList(ctx, client)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "test connection to cluster failed", addClusterReq.ClusterName)
+			var errRes errorMessage
+			res.WriteHeader(http.StatusPreconditionFailed)
+			errRes.Mesg = fmt.Sprintf("Could not fetch rest of the brokers for cluster - %v", addClusterReq.ClusterName)
+			err := json.NewEncoder(res).Encode(errRes)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, "encoding error response for test cluster req failed")
+			}
+			return
+		}
+
+		var hosts []string
+		var ports []int
+		for _, tmpBroker := range tmpBrokList {
+			host, portStr, err := net.SplitHostPort(tmpBroker)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, fmt.Sprintf("splitting host and port failed for %v", tmpBroker), err)
+				var errRes errorMessage
+				res.WriteHeader(http.StatusInternalServerError)
+				errRes.Mesg = fmt.Sprintf("Splitting host and port failed for cluster - %v", addClusterReq.ClusterName)
+				err := json.NewEncoder(res).Encode(errRes)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "encoding error response for test cluster req failed")
+				}
+				return
+			}
+
+			hosts = append(hosts, host)
+			port, err := strconv.Atoi(portStr)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, "port does not contain an int", tmpBroker)
+				var errRes errorMessage
+				res.WriteHeader(http.StatusBadRequest)
+				errRes.Mesg = fmt.Sprintf("At least one of the ports is not an integer - %v", addClusterReq.ClusterName)
+				err := json.NewEncoder(res).Encode(errRes)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "encoding error response for test cluster req failed")
+				}
+				return
+			}
+			ports = append(ports, port)
 		}
 
 		//proceeds to db query

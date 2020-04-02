@@ -14,7 +14,7 @@ import (
 func AddNewBrokers(ctx context.Context, hosts []string, ports []int, clusterName string) (err error) {
 	clusterId, err := GetClusterIdByName(ctx, clusterName)
 	if err != nil {
-		log.Logger.ErrorContext(ctx, "getting cluster id to add new zookeeper failed")
+		log.Logger.ErrorContext(ctx, "getting cluster id to add new broker failed")
 		return err
 	}
 
