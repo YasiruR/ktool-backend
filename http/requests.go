@@ -1,5 +1,7 @@
 package http
 
+//--------------------------add cluster req------------------------------//
+
 type addExistingCluster struct {
 	ClusterName 		string 			`json:"cluster_name"`
 	KafkaVersion 		string			`json:"kafka_version"`
@@ -11,16 +13,7 @@ type server struct {
 	Port 		int				`json:"port"`
 }
 
-//type testCluster struct {
-//	Brokers 	[]server 		`json:"brokers"`
-//}
-//type connectToCluster struct {
-//	ClusterID 		int				`json:"cluster_id"`
-//	ClusterName 	string			`json:"cluster_name"`
-//	Brokers 		[]string		`json:"brokers"`
-//}
-
-//----------------------------addUserReq--------------------------------//
+//----------------------------add user req--------------------------------//
 
 type addUserReq struct {
 	Username 		string		`json:"username"`

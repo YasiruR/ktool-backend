@@ -402,7 +402,7 @@ func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
 	//user validation by token header
 	tokenHeader := req.Header.Get("Authorization")
 	token := strings.TrimSpace(strings.Split(tokenHeader, "Bearer")[1])
-	_, ok, err := database.ValidateUserByToken(ctx, token)
+	userID, ok, err := database.ValidateUserByToken(ctx, token)
 	if !ok {
 		log.Logger.DebugContext(ctx, "invalid user", token)
 		res.WriteHeader(http.StatusUnauthorized)
@@ -421,37 +421,57 @@ func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	username, _, err := database.GetUserByToken(ctx, token)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "fetching user for connect to cluster failed", token)
-		res.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	var userFound bool
-	for index, u := range domain.LoggedInUsers {
-		if u.Username == username {
-			userFound = true
-			for _, cluster := range kafka.ClusterList {
-				if cluster.ClusterID == clusterID {
-					if cluster.Available == true {
-						domain.LoggedInUsers[index].ConnectedClusters = append(domain.LoggedInUsers[index].ConnectedClusters, cluster)
-						log.Logger.TraceContext(ctx, "connected to cluster successfully", cluster.ClusterName)
-						res.WriteHeader(http.StatusOK)
-						return
-					}
-					log.Logger.WarnContext(ctx, "cluster not available", cluster.ClusterName)
-					break
-				}
+	user, ok := domain.LoggedInUserMap[userID]
+	if ok {
+		for _, cluster := range kafka.ClusterList {
+			if cluster.Available == true {
+				user.ConnectedClusters = append(user.ConnectedClusters, cluster)
+				//note : check for concurrency issues
+				domain.LoggedInUserMap[userID] = user
+				log.Logger.TraceContext(ctx, "connected to cluster successfully", cluster.ClusterName)
+				res.WriteHeader(http.StatusOK)
+				return
 			}
+			log.Logger.WarnContext(ctx, "cluster not available", cluster.ClusterName)
+			break
 		}
-	}
-
-	if !userFound {
-		log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", username)
+	} else {
+		log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", userID)
 		res.WriteHeader(http.StatusForbidden)
 		return
 	}
+
+	//username, _, err := database.GetUserByToken(ctx, token)
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "fetching user for connect to cluster failed", token)
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
+	//
+	//var userFound bool
+	//for index, u := range domain.LoggedInUsers {
+	//	if u.Username == username {
+	//		userFound = true
+	//		for _, cluster := range kafka.ClusterList {
+	//			if cluster.ClusterID == clusterID {
+	//				if cluster.Available == true {
+	//					domain.LoggedInUsers[index].ConnectedClusters = append(domain.LoggedInUsers[index].ConnectedClusters, cluster)
+	//					log.Logger.TraceContext(ctx, "connected to cluster successfully", cluster.ClusterName)
+	//					res.WriteHeader(http.StatusOK)
+	//					return
+	//				}
+	//				log.Logger.WarnContext(ctx, "cluster not available", cluster.ClusterName)
+	//				break
+	//			}
+	//		}
+	//	}
+	//}
+	//
+	//if !userFound {
+	//	log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", username)
+	//	res.WriteHeader(http.StatusForbidden)
+	//	return
+	//}
 
 	log.Logger.ErrorContext(ctx, "could not find the cluster id from the cluster id", clusterID)
 	//send error message
@@ -464,7 +484,7 @@ func handleDisconnectCluster(res http.ResponseWriter, req *http.Request) {
 	//user validation by token header
 	tokenHeader := req.Header.Get("Authorization")
 	token := strings.TrimSpace(strings.Split(tokenHeader, "Bearer")[1])
-	_, ok, err := database.ValidateUserByToken(ctx, token)
+	userID, ok, err := database.ValidateUserByToken(ctx, token)
 	if !ok {
 		log.Logger.DebugContext(ctx, "invalid user", token)
 		res.WriteHeader(http.StatusUnauthorized)
@@ -483,43 +503,92 @@ func handleDisconnectCluster(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	username, _, err := database.GetUserByToken(ctx, token)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "fetching user for connect to cluster failed", token)
-		res.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	user, ok := domain.LoggedInUserMap[userID]
+	if ok {
+		for index, cluster := range user.ConnectedClusters {
+			if cluster.ClusterID == clusterID {
+				//remove the cluster
+				user.ConnectedClusters[index] = user.ConnectedClusters[len(user.ConnectedClusters)-1] // Copy last element to index i.
+				user.ConnectedClusters[len(user.ConnectedClusters)-1] = domain.KCluster{}   // Erase last element (write zero value).
+				user.ConnectedClusters = user.ConnectedClusters[:len(user.ConnectedClusters)-1]   // Truncate slice.
 
-	var user domain.User
-	var userFound bool
-	for _, u := range domain.LoggedInUsers {
-		if u.Username == username {
-			user = u
-			userFound = true
-			break
+				//note: check for concurrency issues
+				domain.LoggedInUserMap[userID] = user
+				log.Logger.TraceContext(ctx, "disconnected cluster successfully", cluster.ClusterName)
+				res.WriteHeader(http.StatusOK)
+				return
+			}
 		}
-	}
-
-	if !userFound {
+	} else {
 		log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", token)
 		res.WriteHeader(http.StatusForbidden)
 		return
 	}
 
-	for index, cluster := range user.ConnectedClusters {
-		if cluster.ClusterID == clusterID {
-			//remove the cluster
-			user.ConnectedClusters[index] = user.ConnectedClusters[len(user.ConnectedClusters)-1] // Copy last element to index i.
-			user.ConnectedClusters[len(user.ConnectedClusters)-1] = domain.KCluster{}   // Erase last element (write zero value).
-			user.ConnectedClusters = user.ConnectedClusters[:len(user.ConnectedClusters)-1]   // Truncate slice.
-
-			log.Logger.TraceContext(ctx, "disconnected cluster successfully", cluster.ClusterName)
-			res.WriteHeader(http.StatusOK)
-			return
-		}
-	}
+	//username, _, err := database.GetUserByToken(ctx, token)
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "fetching user for connect to cluster failed", token)
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
+	//
+	//var user domain.User
+	//var userFound bool
+	//for _, u := range domain.LoggedInUsers {
+	//	if u.Username == username {
+	//		user = u
+	//		userFound = true
+	//		break
+	//	}
+	//}
+	//
+	//if !userFound {
+	//	log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", token)
+	//	res.WriteHeader(http.StatusForbidden)
+	//	return
+	//}
+	//
+	//for index, cluster := range user.ConnectedClusters {
+	//	if cluster.ClusterID == clusterID {
+	//		//remove the cluster
+	//		user.ConnectedClusters[index] = user.ConnectedClusters[len(user.ConnectedClusters)-1] // Copy last element to index i.
+	//		user.ConnectedClusters[len(user.ConnectedClusters)-1] = domain.KCluster{}   // Erase last element (write zero value).
+	//		user.ConnectedClusters = user.ConnectedClusters[:len(user.ConnectedClusters)-1]   // Truncate slice.
+	//
+	//		log.Logger.TraceContext(ctx, "disconnected cluster successfully", cluster.ClusterName)
+	//		res.WriteHeader(http.StatusOK)
+	//		return
+	//	}
+	//}
 
 	log.Logger.ErrorContext(ctx, "could not find the cluster in selected clusters", clusterID)
 	//send error message
 	res.WriteHeader(http.StatusBadRequest)
+}
+
+func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
+	ctx := traceable_context.WithUUID(uuid.New())
+	//user validation by token header
+	tokenHeader := req.Header.Get("Authorization")
+	token := strings.TrimSpace(strings.Split(tokenHeader, "Bearer")[1])
+	userID, ok, err := database.ValidateUserByToken(ctx, token)
+	if !ok {
+		log.Logger.DebugContext(ctx, "invalid user", token)
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	clusterID, err := strconv.Atoi(req.FormValue("cluster_id"))
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "conversion of cluster id from string into int failed", err, req.FormValue("cluster_id"))
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+
 }

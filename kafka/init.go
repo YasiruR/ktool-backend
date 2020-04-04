@@ -12,24 +12,7 @@ import (
 
 var (
 	ClusterList 			[]domain.KCluster
-	//SelectedClusterList 	[]KCluster
-	//LoggedInUsers 			[]User
 )
-
-//type KCluster struct{
-//	ClusterID 	int
-//	ClusterName string
-//	Consumer  	sarama.Consumer
-//	Client    	sarama.Client
-//	Brokers 	[]*sarama.Broker
-//	Topics 		[]KTopic
-//	Available 	bool
-//}
-//
-//type KTopic struct {
-//	Name 		string
-//	Partitions 	[]int32
-//}
 
 func InitAllClusters() {
 	ctx := traceable_context.WithUUID(uuid.New())

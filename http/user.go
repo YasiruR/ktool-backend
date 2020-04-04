@@ -77,7 +77,7 @@ func handleLogin(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	id, ok, err := database.ValidateUserByPassword(ctx, loginUserReq.Username, loginUserReq.Password)
+	userID, ok, err := database.ValidateUserByPassword(ctx, loginUserReq.Username, loginUserReq.Password)
 	if err != nil {
 		if err.Error() == "incorrect credentials" {
 			log.Logger.TraceContext(ctx, "no user encountered for the given credentials", loginUserReq.Username)
@@ -114,26 +114,37 @@ func handleLogin(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		//check if user is already in connected list
-		var exists bool
-		var user domain.User
-		for _, u := range domain.LoggedInUsers {
-			if u.Username == loginUserReq.Username {
-				exists = true
-				user = u
-				break
-			}
-		}
-
 		//if exists, update only the token
-		if !exists {
+		user, ok := domain.LoggedInUserMap[userID]
+		if ok {
+			user.Token = token
+		} else {
 			user.Username = loginUserReq.Username
 			user.Token = token
-			user.Id = id
-			domain.LoggedInUsers = append(domain.LoggedInUsers, user)
-		} else {
-			user.Token = token
+			user.Id = userID
+			domain.LoggedInUserMap[userID] = user
 		}
+
+		////check if user is already in connected list
+		//var exists bool
+		//var user domain.User
+		//for _, u := range domain.LoggedInUsers {
+		//	if u.Username == loginUserReq.Username {
+		//		exists = true
+		//		user = u
+		//		break
+		//	}
+		//}
+		//
+		////if exists, update only the token
+		//if !exists {
+		//	user.Username = loginUserReq.Username
+		//	user.Token = token
+		//	user.Id = userID
+		//	domain.LoggedInUsers = append(domain.LoggedInUsers, user)
+		//} else {
+		//	user.Token = token
+		//}
 
 		log.Logger.TraceContext(ctx, "user logged in successfully", loginUserReq.Username)
 	}
