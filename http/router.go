@@ -18,21 +18,23 @@ import (
 func InitRouter() {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/user/register", handleAddNewUser).Methods("POST")
-	router.HandleFunc("/user/login", handleLogin).Methods("POST")
-	router.HandleFunc("/user/logout", handleLogout).Methods("GET")
+	router.HandleFunc("/user/register", handleAddNewUser).Methods(http.MethodPost)
+	router.HandleFunc("/user/login", handleLogin).Methods(http.MethodPost)
+	router.HandleFunc("/user/logout", handleLogout).Methods(http.MethodGet)
 
-	router.HandleFunc("/cluster/ping", handlePingToServer).Methods("POST")
-	router.HandleFunc("/cluster/telnet", handleTestConnectionToCluster).Methods("POST")
-	router.HandleFunc("/cluster/add", handleAddCluster).Methods("POST")
-	router.HandleFunc("/cluster", handleDeleteCluster).Methods("DELETE")
+	router.HandleFunc("/cluster/ping", handlePingToServer).Methods(http.MethodPost)
+	router.HandleFunc("/cluster/telnet", handleTestConnectionToCluster).Methods(http.MethodPost)
+	router.HandleFunc("/cluster/add", handleAddCluster).Methods(http.MethodPost)
+	router.HandleFunc("/cluster", handleDeleteCluster).Methods(http.MethodDelete)
 
-	router.HandleFunc("/clusters", handleGetAllClusters).Methods("GET")
-	router.HandleFunc("/cluster/connect", handleConnectToCluster).Methods("GET")
-	router.HandleFunc("/cluster/disconnect", handleDisconnectCluster).Methods("GET")
+	router.HandleFunc("/clusters", handleGetAllClusters).Methods(http.MethodGet)
+	router.HandleFunc("/cluster/connect", handleConnectToCluster).Methods(http.MethodGet)
+	router.HandleFunc("/cluster/disconnect", handleDisconnectCluster).Methods(http.MethodGet)
 
-	router.HandleFunc("/topics", handleGetTopicsForCluster).Methods("GET")
-	router.HandleFunc("/brokers", handleGetBrokersForCluster).Methods("GET")
+	router.HandleFunc("/topics", handleGetTopicsForCluster).Methods(http.MethodGet)
+	router.HandleFunc("/brokers", handleGetBrokersForCluster).Methods(http.MethodGet)
+
+	router.HandleFunc("/cluster/broker_overview", handleGetBrokerOverview).Methods(http.MethodGet)
 
 	osChannel := make(chan os.Signal, 1)
 	signal.Notify(osChannel, syscall.SIGINT, syscall.SIGKILL)

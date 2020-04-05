@@ -155,6 +155,12 @@ func handleLogout(res http.ResponseWriter, req *http.Request) {
 
 	//user validation by token header
 	tokenHeader := req.Header.Get("Authorization")
+	if len(strings.Split(tokenHeader, "Bearer")) < 2 {
+		log.Logger.ErrorContext(ctx, "token format is invalid", tokenHeader)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	token := strings.TrimSpace(strings.Split(tokenHeader, "Bearer")[1])
 	_, ok, err := database.ValidateUserByToken(ctx, token)
 	if !ok {

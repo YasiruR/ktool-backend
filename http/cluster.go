@@ -25,6 +25,11 @@ func handleAddCluster(res http.ResponseWriter, req *http.Request) {
 
 	//user validation by token header
 	token := req.Header.Get("Authorization")
+	if len(strings.Split(token, "Bearer")) < 2 {
+		log.Logger.ErrorContext(ctx, "token format is invalid", token)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
 	if !ok {
 		log.Logger.DebugContext(ctx, "invalid user", token)
@@ -86,8 +91,13 @@ checkIfClusterExists:
 			}
 		}
 
+		config, err := kafka.InitSaramaConfig(ctx, addClusterReq.ClusterName, "")
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "initializing sarama config failed and may proceed with default config for client init", addClusterReq.ClusterName)
+		}
+
 		//get all relevant brokers
-		client, err := kafka.InitClient(ctx, brokerAddrList)
+		client, err := kafka.InitClient(ctx, brokerAddrList, config)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "add cluster request failed", addClusterReq.ClusterName, brokerAddrList)
 			var errRes errorMessage
@@ -188,6 +198,11 @@ func handleTestConnectionToCluster(res http.ResponseWriter, req *http.Request) {
 
 	//user validation by token header
 	token := req.Header.Get("Authorization")
+	if len(strings.Split(token, "Bearer")) < 2 {
+		log.Logger.ErrorContext(ctx, "token format is invalid", token)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
 	if !ok {
 		log.Logger.DebugContext(ctx, "invalid user", token)
@@ -223,7 +238,7 @@ func handleTestConnectionToCluster(res http.ResponseWriter, req *http.Request) {
 		tmp := b.Host + ":" + strconv.Itoa(b.Port)
 		tmpBrokers = append(tmpBrokers, tmp)
 
-		client, err := kafka.InitClient(ctx, tmpBrokers)
+		client, err := kafka.InitClient(ctx, tmpBrokers, nil)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "test connection to cluster failed", testClusterReq.ClusterName, b)
 			var errRes errorMessage
@@ -299,6 +314,11 @@ func handleDeleteCluster(res http.ResponseWriter, req *http.Request) {
 
 	//user validation by token header
 	token := req.Header.Get("Authorization")
+	if len(strings.Split(token, "Bearer")) < 2 {
+		log.Logger.ErrorContext(ctx, "token format is invalid", token)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
 	if !ok {
 		log.Logger.DebugContext(ctx, "invalid user", token)
@@ -354,6 +374,12 @@ func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 
 	//user validation by token header
 	token := req.Header.Get("Authorization")
+	if len(strings.Split(token, "Bearer")) < 2 {
+		log.Logger.ErrorContext(ctx, "token format is invalid", token)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
 	if !ok {
 		log.Logger.DebugContext(ctx, "invalid user", token)
@@ -401,6 +427,11 @@ func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
 
 	//user validation by token header
 	tokenHeader := req.Header.Get("Authorization")
+	if len(strings.Split(tokenHeader, "Bearer")) < 2 {
+		log.Logger.ErrorContext(ctx, "token format is invalid", tokenHeader)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	token := strings.TrimSpace(strings.Split(tokenHeader, "Bearer")[1])
 	userID, ok, err := database.ValidateUserByToken(ctx, token)
 	if !ok {
@@ -424,15 +455,19 @@ func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
 	user, ok := domain.LoggedInUserMap[userID]
 	if ok {
 		for _, cluster := range kafka.ClusterList {
-			if cluster.Available == true {
-				user.ConnectedClusters = append(user.ConnectedClusters, cluster)
-				//note : check for concurrency issues
-				domain.LoggedInUserMap[userID] = user
-				log.Logger.TraceContext(ctx, "connected to cluster successfully", cluster.ClusterName)
-				res.WriteHeader(http.StatusOK)
-				return
+			if cluster.ClusterID == clusterID {
+				if cluster.Available == true {
+					user.ConnectedClusters = append(user.ConnectedClusters, cluster)
+					//note : check for concurrency issues
+					domain.LoggedInUserMap[userID] = user
+					log.Logger.TraceContext(ctx, "connected to cluster successfully", cluster.ClusterName)
+					res.WriteHeader(http.StatusOK)
+					return
+				}
+				log.Logger.WarnContext(ctx, "cluster is not available", cluster.ClusterName)
+				break
 			}
-			log.Logger.WarnContext(ctx, "cluster not available", cluster.ClusterName)
+			log.Logger.WarnContext(ctx, "cluster does not exist", cluster.ClusterName)
 			break
 		}
 	} else {
@@ -483,6 +518,11 @@ func handleDisconnectCluster(res http.ResponseWriter, req *http.Request) {
 
 	//user validation by token header
 	tokenHeader := req.Header.Get("Authorization")
+	if len(strings.Split(tokenHeader, "Bearer")) < 2 {
+		log.Logger.ErrorContext(ctx, "token format is invalid", tokenHeader)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	token := strings.TrimSpace(strings.Split(tokenHeader, "Bearer")[1])
 	userID, ok, err := database.ValidateUserByToken(ctx, token)
 	if !ok {
@@ -590,5 +630,29 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	var overviewRes domain.BrokerOverview
 
+	user, ok := domain.LoggedInUserMap[userID]
+	if ok {
+		for _, cluster := range user.ConnectedClusters {
+			if cluster.ClusterID == clusterID {
+				overviewRes = cluster.BrokerOverview
+				res.WriteHeader(http.StatusOK)
+				err = json.NewEncoder(res).Encode(overviewRes)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, err, "marshalling response for get broker overview request failed", clusterID)
+					res.WriteHeader(http.StatusInternalServerError)
+				}
+				log.Logger.TraceContext(ctx, "broker metrics for requested cluster are fetched", clusterID)
+				return
+			}
+
+			log.Logger.ErrorContext(ctx, "user has not connected to the requested cluster to get broker overall metrics", clusterID)
+			res.WriteHeader(http.StatusBadRequest)
+		}
+	} else {
+		log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", token)
+		res.WriteHeader(http.StatusForbidden)
+		return
+	}
 }

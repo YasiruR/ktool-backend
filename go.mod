@@ -9,6 +9,7 @@ require (
 	github.com/gorilla/mux v1.7.3
 	github.com/pickme-go/log v1.2.3
 	github.com/pickme-go/traceable-context v1.0.0
+	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
 	github.com/reiver/go-oi v1.0.0 // indirect
 	github.com/reiver/go-telnet v0.0.0-20180421082511-9ff0b2ab096e
 	github.com/rs/cors v1.7.0

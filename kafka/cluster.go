@@ -14,25 +14,27 @@ import (
 	"time"
 )
 
-func InitClusterConfig(ctx context.Context, clusterName string, brokers []string, networkSecurity string) (consumer sarama.Consumer, err error) {
-	config := sarama.NewConfig()
+func InitSaramaConfig(ctx context.Context,  clusterName string, networkSecurity string) (config *sarama.Config, err error) {
+	config = sarama.NewConfig()
 	config.Consumer.Return.Errors = true
+	config.Version = sarama.V2_0_0_0	//todo: add this as a parameter
 
 	if networkSecurity == "tsl" {
 		caFile, certFile, keyFile, err := generateRSAKeys(ctx, clusterName)
 		if err != nil {
-			return nil, err
+			return config, err
 		}
 
 		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "loading X509 key pair failed", err)
-			return nil, err
+			return config, err
 		}
 
 		ca, err := ioutil.ReadFile(caFile)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "reading ca pem file failed", err)
+			return config, err
 		}
 
 		pool := x509.NewCertPool()
@@ -46,6 +48,16 @@ func InitClusterConfig(ctx context.Context, clusterName string, brokers []string
 		config.Net.TLS.Config = tlsConfig
 	}
 
+	err = config.Validate()
+	if err != nil {
+		log.Logger.ErrorContext(ctx, err, "invalid configuration")
+		return
+	}
+
+	return
+}
+
+func InitSaramaConsumer(ctx context.Context, brokers []string, config *sarama.Config) (consumer sarama.Consumer, err error) {
 	consumer, err = sarama.NewConsumer(brokers, config)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, err, brokers)
@@ -53,6 +65,8 @@ func InitClusterConfig(ctx context.Context, clusterName string, brokers []string
 	}
 
 	//todo: close cluster connection on disconnect
+
+	log.Logger.TraceContext(ctx, "new consumer initialized with config", config)
 
 	return consumer, nil
 }
@@ -68,11 +82,11 @@ func GetTopicList(ctx context.Context, cluster sarama.Consumer) (topics []string
 	return topics, nil
 }
 
-func InitClient(ctx context.Context, brokers []string) (client sarama.Client, err error) {
+func InitClient(ctx context.Context, brokers []string, config *sarama.Config) (client sarama.Client, err error) {
 	done := make(chan string)
 
 	go func() {
-		client, err = sarama.NewClient(brokers, nil)
+		client, err = sarama.NewClient(brokers, config)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, fmt.Sprintf("creating new client failed for brokers : %v", brokers), err)
 			done <- "err"

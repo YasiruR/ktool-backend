@@ -7,12 +7,23 @@ import (
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/google/uuid"
 	traceable_context "github.com/pickme-go/traceable-context"
+	"github.com/rcrowley/go-metrics"
 	"strconv"
 )
 
 var (
 	ClusterList 			[]domain.KCluster
 )
+
+//taken from sarama library for histogram sample
+const (
+	metricsReservoirSize = 1028
+	metricsAlphaFactor   = 0.015
+)
+
+func init() {
+	domain.LoggedInUserMap = make(map[int]domain.User)
+}
 
 func InitAllClusters() {
 	ctx := traceable_context.WithUUID(uuid.New())
@@ -43,7 +54,12 @@ func InitAllClusters() {
 			brokerList = append(brokerList, addr)
 		}
 
-		client, err := InitClient(ctx, brokerList)
+		config, err := InitSaramaConfig(ctx, cluster.ClusterName, "")
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "initializing sarama config failed and may proceed with default config for consumer and client init", cluster.ClusterName)
+		}
+
+		client, err := InitClient(ctx, brokerList, config)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "client could not be initialized for cluster", cluster.ClusterName, err)
 			clustClient.Available = false
@@ -54,13 +70,58 @@ func InitAllClusters() {
 		saramaBrokers := client.Brokers()
 		clustClient.Brokers = saramaBrokers
 
-		saramaConsumer, err := InitClusterConfig(ctx, cluster.ClusterName, brokerList, "")
+		saramaConsumer, err := InitSaramaConsumer(ctx, brokerList, config)
 		if err != nil {
-			log.Logger.ErrorContext(ctx,"cluster config could not be initialized for cluster", cluster.ClusterName, err)
+			log.Logger.ErrorContext(ctx, err,"cluster config could not be initialized for cluster", cluster.ClusterName)
 			clustClient.Available = false
 			tempClustList = append(tempClustList, clustClient)
 			continue
 		}
+
+		//to store all broker overview in a cluster
+		clustClient.BrokerOverview.Brokers = make(map[int32]domain.BrokerMetrics)
+
+		//open broker connections to establish metrics along with config
+		for _, broker := range saramaBrokers {
+			//check if broker is already connected
+			connected, err := broker.Connected()
+			if err != nil {
+				log.Logger.ErrorContext(ctx, err,"checking if broker connection with sarama failed", broker.ID(), cluster.ClusterName)
+				clustClient.Available = false
+				tempClustList = append(tempClustList, clustClient)
+				continue
+			}
+
+
+			if !connected {
+				err = broker.Open(config)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, err,"connecting broker to sarama failed", broker.ID(), cluster.ClusterName)
+					clustClient.Available = false
+					tempClustList = append(tempClustList, clustClient)
+					continue
+				}
+			}
+
+			var brokerMetrics domain.BrokerMetrics
+
+			brokerMetrics.BrokerIncomingByteRate = metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).Rate5()
+			brokerMetrics.BrokerOutgoingByteRate = metrics.GetOrRegisterMeter("outgoing-byte-rate", config.MetricRegistry).Rate5()
+			brokerMetrics.BrokerRequestRate = metrics.GetOrRegisterMeter("request-rate", config.MetricRegistry).Rate5()
+			brokerMetrics.ResponseRate = metrics.GetOrRegisterMeter("response-rate", config.MetricRegistry).Rate5()
+
+			//user GetOrRegister in metrics library if this does not work, as used in sarama broker
+			brokerMetrics.BrokerRequestLatency = metrics.GetOrRegisterHistogram("request-size", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Count()
+			brokerMetrics.BrokerRequestSize = metrics.GetOrRegisterHistogram("request-size", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Count()
+			brokerMetrics.BrokerResponseSize = metrics.GetOrRegisterHistogram("response-size", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Count()
+
+			clustClient.BrokerOverview.Brokers[broker.ID()] = brokerMetrics
+
+			fmt.Println("incoming byte rate count : ", metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).Count())
+			fmt.Println("incoming byte rate 1 : ", metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).Rate1())
+			fmt.Println("incoming byte rate 15 : ", metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).Rate15())
+		}
+
 
 		topics, err := GetTopicList(ctx, saramaConsumer)
 		if err != nil {
@@ -70,6 +131,7 @@ func InitAllClusters() {
 			continue
 		}
 
+		var numOfPartitions, numOfReplicas, numOfOfflineRepl, numOfInsyncRepl int
 		for _, topic := range topics {
 			var clusterTopic domain.KTopic
 			clusterTopic.Name = topic
@@ -80,8 +142,50 @@ func InitAllClusters() {
 				tempClustList = append(ClusterList, clustClient)
 				continue clusterLoop
 			}
+			numOfPartitions += len(clusterTopic.Partitions)
 			clustClient.Topics = append(clustClient.Topics, clusterTopic)
+
+			//to fetch information about replicas
+			partitionLoop:
+			for _, partitionID := range clusterTopic.Partitions {
+				replicas, err := client.Replicas(clusterTopic.Name, partitionID)
+				if err != nil {
+					log.Logger.Error(fmt.Sprintf("replicas could not be fetched for %v topic and %v paritition in %v cluster", topic, partitionID, cluster.ClusterName), err)
+					continue partitionLoop
+				}
+				numOfReplicas += len(replicas)
+
+				insyncReplicas, err := client.InSyncReplicas(clusterTopic.Name, partitionID)
+				if err != nil {
+					log.Logger.Error(fmt.Sprintf("insync replicas could not be fetched for %v topic and %v paritition in %v cluster", topic, partitionID, cluster.ClusterName), err)
+					continue partitionLoop
+				}
+				numOfInsyncRepl += len(insyncReplicas)
+
+				offlineReplicas, err := client.OfflineReplicas(clusterTopic.Name, partitionID)
+				if err != nil {
+					log.Logger.Error(fmt.Sprintf("offline replicas could not be fetched for %v topic and %v paritition in %v cluster", topic, partitionID, cluster.ClusterName), err)
+					continue partitionLoop
+				}
+				numOfOfflineRepl += len(offlineReplicas)
+			}
 		}
+
+		//getting cluster controller id
+		controller, err := client.Controller()
+		if err != nil {
+			log.Logger.ErrorContext(ctx, err, fmt.Sprintf("fetching controller id for the cluster %v failed", cluster.ClusterName))
+		} else {
+			clustClient.BrokerOverview.ActiveController = controller.Addr()
+		}
+
+		//updating all collected broker metrics to the cluster
+		clustClient.BrokerOverview.TotalBrokers = len(saramaBrokers)
+		clustClient.BrokerOverview.TotalPartitions = numOfPartitions
+		clustClient.BrokerOverview.TotalTopics = len(topics)
+		clustClient.BrokerOverview.TotalReplicas = numOfReplicas
+		clustClient.BrokerOverview.TotalInsyncReplicas = numOfInsyncRepl
+		clustClient.BrokerOverview.TotalOfflineReplicas = numOfOfflineRepl
 
 		clustClient.Consumer = saramaConsumer
 		clustClient.Client = client
