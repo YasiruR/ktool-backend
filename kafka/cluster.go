@@ -16,6 +16,7 @@ import (
 
 func InitSaramaConfig(ctx context.Context,  clusterName string, networkSecurity string) (config *sarama.Config, err error) {
 	config = sarama.NewConfig()
+	config.ClientID = clusterName
 	config.Consumer.Return.Errors = true
 	config.Version = sarama.V2_0_0_0	//todo: add this as a parameter
 
@@ -78,7 +79,7 @@ func GetTopicList(ctx context.Context, cluster sarama.Consumer) (topics []string
 		return nil, err
 	}
 
-	log.Logger.TraceContext(ctx, "all topics are fetched", fmt.Sprintf("no of topics : %v", len(topics)), fmt.Sprintf("cluster : %v", cluster))
+	log.Logger.TraceContext(ctx, "all topics are fetched", fmt.Sprintf("no of topics : %v", len(topics)))
 	return topics, nil
 }
 

@@ -13,12 +13,13 @@ import (
 
 var (
 	ClusterList 			[]domain.KCluster
+	RegisteredMetrics 		= 	[]string{"incoming-byte-rate", "outgoing-byte-rate", "request-rate"}
 )
 
 //taken from sarama library for histogram sample
 const (
-	metricsReservoirSize = 1028
-	metricsAlphaFactor   = 0.015
+	metricsReservoirSize 	= 	1028
+	metricsAlphaFactor   	= 	0.015
 )
 
 func init() {
@@ -81,17 +82,26 @@ func InitAllClusters() {
 		//to store all broker overview in a cluster
 		clustClient.BrokerOverview.Brokers = make(map[int32]domain.BrokerMetrics)
 
+		clustClient.BrokerOverview.TotalIncomingRate = metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).RateMean()/1024
+		clustClient.BrokerOverview.TotalOutgoingRate = metrics.GetOrRegisterMeter("outgoing-byte-rate", config.MetricRegistry).RateMean()/1024
+		clustClient.BrokerOverview.TotalRequestRate = metrics.GetOrRegisterMeter("request-rate", config.MetricRegistry).RateMean()
+		clustClient.BrokerOverview.TotalResponseRate = metrics.GetOrRegisterMeter("response-rate", config.MetricRegistry).RateMean()
+
+		//user GetOrRegister in metrics library if this does not work, as used in sarama broker
+		clustClient.BrokerOverview.TotalRequestLatency = metrics.GetOrRegisterHistogram("request-latency-in-ms", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Mean()
+		clustClient.BrokerOverview.TotalRequestSize = metrics.GetOrRegisterHistogram("request-size", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Mean()
+		clustClient.BrokerOverview.TotalResponseSize = metrics.GetOrRegisterHistogram("response-size", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Mean()
+
 		//open broker connections to establish metrics along with config
 		for _, broker := range saramaBrokers {
 			//check if broker is already connected
 			connected, err := broker.Connected()
 			if err != nil {
-				log.Logger.ErrorContext(ctx, err,"checking if broker connection with sarama failed", broker.ID(), cluster.ClusterName)
+				log.Logger.ErrorContext(ctx, err,"checking broker connection with sarama failed", broker.ID(), cluster.ClusterName)
 				clustClient.Available = false
 				tempClustList = append(tempClustList, clustClient)
 				continue
 			}
-
 
 			if !connected {
 				err = broker.Open(config)
@@ -101,25 +111,50 @@ func InitAllClusters() {
 					tempClustList = append(tempClustList, clustClient)
 					continue
 				}
+				log.Logger.TraceContext(ctx, "new broker connection opened since it was not connected previously", broker.Addr())
 			}
 
 			var brokerMetrics domain.BrokerMetrics
 
-			brokerMetrics.BrokerIncomingByteRate = metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).Rate5()
-			brokerMetrics.BrokerOutgoingByteRate = metrics.GetOrRegisterMeter("outgoing-byte-rate", config.MetricRegistry).Rate5()
-			brokerMetrics.BrokerRequestRate = metrics.GetOrRegisterMeter("request-rate", config.MetricRegistry).Rate5()
-			brokerMetrics.ResponseRate = metrics.GetOrRegisterMeter("response-rate", config.MetricRegistry).Rate5()
+			//todo: unregister all these metrics on app termination and close brokers
 
-			//user GetOrRegister in metrics library if this does not work, as used in sarama broker
-			brokerMetrics.BrokerRequestLatency = metrics.GetOrRegisterHistogram("request-size", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Count()
-			brokerMetrics.BrokerRequestSize = metrics.GetOrRegisterHistogram("request-size", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Count()
-			brokerMetrics.BrokerResponseSize = metrics.GetOrRegisterHistogram("response-size", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Count()
+			//brokerMetrics.IncomingByteRate = metrics.GetOrRegisterMeter(fmt.Sprintf("incoming-byte-rate-for-broker-%v", broker.ID()), config.MetricRegistry).Rate5()
+			//brokerMetrics.OutgoingByteRate = metrics.GetOrRegisterMeter(fmt.Sprintf("outgoing-byte-rate-for-broker-%v", broker.ID()), config.MetricRegistry).Rate5()
+			//brokerMetrics.RequestRate = metrics.GetOrRegisterMeter(fmt.Sprintf("request-rate-for-broker-%v", broker.ID()), config.MetricRegistry).Rate5()
+			//brokerMetrics.ResponseRate = metrics.GetOrRegisterMeter(fmt.Sprintf("response-rate-for-broker-%v", broker.ID()), config.MetricRegistry).Rate5()
+			//
+			////user GetOrRegister in metrics library if this does not work, as used in sarama broker
+			//brokerMetrics.RequestLatency = metrics.GetOrRegisterHistogram(fmt.Sprintf("request-latency-in-ms-for-broker-%v", broker.ID()), config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Mean()
+			//brokerMetrics.RequestSize = metrics.GetOrRegisterHistogram(fmt.Sprintf("request-size-for-broker-%v", broker.ID()), config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Mean()
+			//brokerMetrics.ResponseSize = metrics.GetOrRegisterHistogram(fmt.Sprintf("response-size-for-broker-%v", broker.ID()), config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Mean()
 
 			clustClient.BrokerOverview.Brokers[broker.ID()] = brokerMetrics
 
-			fmt.Println("incoming byte rate count : ", metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).Count())
+			fmt.Println("incoming byte count : ", metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).Count())
+			fmt.Println("incoming byte rate mean : ", metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).RateMean())
 			fmt.Println("incoming byte rate 1 : ", metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).Rate1())
 			fmt.Println("incoming byte rate 15 : ", metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).Rate15())
+
+			fmt.Println("outgoing byte count : ", metrics.GetOrRegisterMeter("outgoing-byte-rate", config.MetricRegistry).Count())
+			fmt.Println("outgoing byte rate mean : ", metrics.GetOrRegisterMeter("outgoing-byte-rate", config.MetricRegistry).RateMean())
+
+			fmt.Println("request-rate count : ", metrics.GetOrRegisterMeter("request-rate", config.MetricRegistry).Count())
+			fmt.Println("request-rate mean : ", metrics.GetOrRegisterMeter("request-rate", config.MetricRegistry).RateMean())
+			fmt.Println("request-rate 1 : ", metrics.GetOrRegisterMeter("request-rate", config.MetricRegistry).Rate1())
+			fmt.Println("request-rate 15 : ", metrics.GetOrRegisterMeter("request-rate", config.MetricRegistry).Rate15())
+
+			fmt.Println("response-rate count : ", metrics.GetOrRegisterMeter("response-rate", config.MetricRegistry).Count())
+			fmt.Println("response-rate mean : ", metrics.GetOrRegisterMeter("response-rate", config.MetricRegistry).RateMean())
+			fmt.Println("response-rate 1 : ", metrics.GetOrRegisterMeter("response-rate", config.MetricRegistry).Rate1())
+			fmt.Println("response-rate 15 : ", metrics.GetOrRegisterMeter("response-rate", config.MetricRegistry).Rate15())
+
+			fmt.Println("incoming kb : ", metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).RateMean()/1024)
+			fmt.Println("outgoing kb : ", metrics.GetOrRegisterMeter("outgoing-byte-rate", config.MetricRegistry).RateMean()/1024)
+
+			fmt.Println("producer metrics record send mean rate : ", metrics.GetOrRegisterMeter("record-send-rate", config.MetricRegistry).RateMean())
+			fmt.Println("producer metrics record send rate 1 : ", metrics.GetOrRegisterMeter("record-send-rate", config.MetricRegistry).Rate1())
+
+			fmt.Println("all metrics : ", config.MetricRegistry.GetAll())
 		}
 
 
@@ -184,8 +219,8 @@ func InitAllClusters() {
 		clustClient.BrokerOverview.TotalPartitions = numOfPartitions
 		clustClient.BrokerOverview.TotalTopics = len(topics)
 		clustClient.BrokerOverview.TotalReplicas = numOfReplicas
-		clustClient.BrokerOverview.TotalInsyncReplicas = numOfInsyncRepl
-		clustClient.BrokerOverview.TotalOfflineReplicas = numOfOfflineRepl
+		clustClient.BrokerOverview.UnderReplicatedPartitions = numOfReplicas - numOfInsyncRepl
+		clustClient.BrokerOverview.OfflinePartitions = numOfOfflineRepl
 
 		clustClient.Consumer = saramaConsumer
 		clustClient.Client = client

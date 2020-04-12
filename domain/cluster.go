@@ -25,33 +25,31 @@ type KCluster struct{
 }
 
 type BrokerOverview struct {
-	TotalBrokers 			int							`json:"total_brokers"`
-	TotalPartitions 		int							`json:"total_partitions"`
-	TotalTopics 			int							`json:"total_topics"`
-	TotalReplicas 			int							`json:"total_replicas"`
-	TotalInsyncReplicas 	int							`json:"total_insync_replicas"`
-	TotalOfflineReplicas	int							`json:"total_offline_replicas"`
-	TotalProductionRate		float64						`json:"total_partition_rate"`
-	TotalConsumptionRate	float64						`json:"total_consumption_rate"`
-	ActiveController 		string						`json:"active_controller"`
-	ZookeeperAvail			bool						`json:"zookeeper_avail"`
-	KafkaVersion 			string						`json:"kafka_version"`
-	Brokers					map[int32]BrokerMetrics	`json:"brokers"`
+	TotalBrokers              	int     					`json:"brokers"`
+	TotalPartitions           	int     					`json:"partitions"`
+	TotalTopics               	int     					`json:"topics"`
+	TotalReplicas             	int     					`json:"replicas"`
+	UnderReplicatedPartitions 	int     					`json:"under_replicated_partitions"`
+	OfflinePartitions			int							`json:"offline_partitions"`
+	TotalOutgoingRate       	float64 					`json:"total_outgoing_rate"`		//in kb
+	TotalIncomingRate      		float64 					`json:"total_incoming_rate"`		//in kb
+	TotalRequestRate          	float64 					`json:"total_request_rate"`
+	TotalRequestSize          	float64 					`json:"total_request_size"`
+	TotalRequestLatency       	float64 					`json:"total_request_latency"`
+	TotalResponseRate         	float64 					`json:"total_response_rate"`
+	TotalResponseSize         	float64 					`json:"total_response_size"`
+	ActiveController          	string  					`json:"active_controller"`
+	ZookeeperAvail            	bool    					`json:"zookeeper_avail"`
+	KafkaVersion              	string  					`json:"kafka_version"`
+	Brokers						map[int32]BrokerMetrics		`json:"brokers"`
 }
 
 type BrokerMetrics struct {
 	IncomingByteRate       	float64 	`json:"incoming_byte_rate"`
-	RequestRate            	int64 		`json:"request_rate"`
-	RequestSize            	int64		`json:"request_size"`
-	RequestLatency         	int64		`json:"request_latency"`
+	RequestRate            	float64		`json:"request_rate"`
+	RequestSize            	float64		`json:"request_size"`
+	RequestLatency         	float64		`json:"request_latency"`		//in ms
 	OutgoingByteRate       	float64		`json:"outgoing_byte_rate"`
 	ResponseRate           	float64		`json:"response_rate"`
-	ResponseSize           	int64		`json:"response_size"`
-	BrokerIncomingByteRate 	float64		`json:"broker_incoming_byte_rate"`
-	BrokerRequestRate      	float64		`json:"broker_request_rate"`
-	BrokerRequestSize      	int64		`json:"broker_request_size"`
-	BrokerRequestLatency   	int64		`json:"broker_request_latency"`			//in ms
-	BrokerOutgoingByteRate 	float64		`json:"broker_outgoing_byte_rate"`
-	BrokerResponseRate     	float64		`json:"broker_response_rate"`
-	BrokerResponseSize     	int64		`json:"broker_response_size"`
+	ResponseSize           	float64		`json:"response_size"`
 }

@@ -632,6 +632,14 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 
 	var overviewRes domain.BrokerOverview
 
+	cluster, err := database.GetClusterByClusterID(ctx, clusterID)
+	if err != nil {
+		//even if error occurs, this may proceed without kafka version
+		log.Logger.ErrorContext(ctx, "getting kafka version for broker overview failed", clusterID)
+	} else {
+		overviewRes.KafkaVersion = cluster.KafkaVersion
+	}
+
 	user, ok := domain.LoggedInUserMap[userID]
 	if ok {
 		for _, cluster := range user.ConnectedClusters {

@@ -6,7 +6,6 @@ import (
 	"github.com/YasiruR/ktool-backend/kafka"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	traceable_context "github.com/pickme-go/traceable-context"
 	"net/http"
 	"strconv"
@@ -96,8 +95,8 @@ func handleGetTopicsForCluster(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	params := mux.Vars(req)
-	clusterID, err := strconv.Atoi(params["cluster_id"])
+	//params := mux.Vars(req)
+	clusterID, err := strconv.Atoi(req.FormValue("cluster_id"))
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "cluster id param is not an int")
 		res.WriteHeader(http.StatusBadRequest)
