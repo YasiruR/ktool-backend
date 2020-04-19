@@ -34,6 +34,10 @@ func InitRouter() {
 	router.HandleFunc("/topics", handleGetTopicsForCluster).Methods("GET")
 	router.HandleFunc("/brokers", handleGetBrokersForCluster).Methods("GET")
 
+	router.HandleFunc("/secret/create", handleAddSecret).Methods("POST")
+	router.HandleFunc("/secret/get", handleGetAllSecrets).Methods("GET")
+	router.HandleFunc("/secret/delete", handleDeleteSecret).Methods("DELETE")
+
 	osChannel := make(chan os.Signal, 1)
 	signal.Notify(osChannel, syscall.SIGINT, syscall.SIGKILL)
 
@@ -64,5 +68,5 @@ func InitRouter() {
 
 	handler := cors.AllowAll().Handler(router)
 
-	log.Fatal(http.ListenAndServe(":" + service.Cfg.ServicePort, handler))
+	log.Fatal(http.ListenAndServe(":"+service.Cfg.ServicePort, handler))
 }

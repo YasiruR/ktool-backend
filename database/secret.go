@@ -8,7 +8,7 @@ import (
 	"strconv"
 )
 
-func (dao *SecretDAO) AddSecret(ctx context.Context, secretName string, userId string, service string, keyType int, key string, tags string) (result DAOResult) {
+func (dao *domain.SecretDAO) AddSecret(ctx context.Context, secretName string, userId string, service string, keyType int, key string, tags string) (result DAOResult) {
 	query := "INSERT INTO " + secretTable + " ( Name, OwnerId, Provider, Type, Key, CreatedBy, ModifiedBy, Tags) " +
 		` VALUES ( "` + secretName + `", "` + userId + `", "` + service + `", "` + strconv.Itoa(keyType) + `", "` +
 		key + `", "` + userId + `", "` + userId + `", "` + tags + `" )`
@@ -51,7 +51,7 @@ func (dao *SecretDAO) AddSecret(ctx context.Context, secretName string, userId s
 //	return nil
 //}
 
-func GetAllSecretsByUser(ctx context.Context, userId string) (result DAOResult) {
+func (dao *domain.SecretDAO) GetAllSecretsByUser(ctx context.Context, userId string) (result DAOResult) {
 	query := "SELECT * FROM " + clusterTable + " WHERE OwnerId = '" + userId + "';"
 
 	rows, err := Db.Query(query)
