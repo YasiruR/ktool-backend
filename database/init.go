@@ -8,10 +8,11 @@ import (
 )
 
 const (
-	clusterTable  	= 	"cluster"
-	zookeeperTable 	= 	"zookeeper"
-	brokerTable		=	"broker"
-	userTable		= 	"user"
+	clusterTable   = "cluster"
+	zookeeperTable = "zookeeper"
+	brokerTable    = "broker"
+	userTable      = "user"
+	secretTable    = "secret"
 )
 
 var Db *sql.DB

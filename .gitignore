@@ -1,2 +1,4 @@
 .idea
 ktool-backend
+go.mod
+config/*

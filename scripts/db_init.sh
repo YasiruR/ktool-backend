@@ -43,5 +43,29 @@ CREATE TABLE broker (id int(10) not null primary key auto_increment, host varcha
 \q
 INIT_SCRIPT
 
+mysql -u "$username" -p "$password" <<INIT_SCRIPT
+#creating the cloud tables
+USE kdb;
+CREATE TABLE `secret` (
+	`ID` INT NOT NULL AUTO_INCREMENT COMMENT 'unique id',
+	`Name` VARCHAR COMMENT 'identifiable name',
+	`OwnerId` INT NOT NULL COMMENT 'owner id correlation',
+	`Provider` VARCHAR NOT NULL COMMENT 'cloud service provider',
+	`Type` INT COMMENT 'secret type',
+	`Key` VARCHAR NOT NULL COMMENT 'cloud secret',
+	`CreatedOn` DATETIME NOT NULL DEFAULT 'SYSDATE' COMMENT 'create timestamp',
+	`CreatedBy` INT NOT NULL COMMENT 'user correlation id',
+	`ModifiedOn` DATETIME NOT NULL DEFAULT 'SYSDATE',
+	`ModifiedBy` INT NOT NULL COMMENT 'user correlation id',
+	`Activated` BOOLEAN NOT NULL DEFAULT 'FALSE' COMMENT 'activated flag',
+	`Deleted` BOOLEAN NOT NULL DEFAULT 'FALSE' COMMENT 'deleted flag',
+	`Encrypted` BOOLEAN NOT NULL DEFAULT 'FALSE' COMMENT 'encrypted flag',
+	`Tags` VARCHAR COMMENT 'tags',
+	UNIQUE KEY `IDX_Owner` (`OwnerId`) USING HASH,
+	PRIMARY KEY (`ID`)
+) ENGINE=InnoDB;
+\q;
+INIT_SCRIPT
+
 echo kdb database initialized successfully with user, cluster and broker tables
 
