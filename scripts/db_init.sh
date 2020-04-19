@@ -45,25 +45,27 @@ INIT_SCRIPT
 
 mysql -u "$username" -p "$password" <<INIT_SCRIPT
 #creating the cloud tables
-USE kdb;
-CREATE TABLE `secret` (
-	`ID` INT NOT NULL AUTO_INCREMENT COMMENT 'unique id',
-	`Name` VARCHAR COMMENT 'identifiable name',
-	`OwnerId` INT NOT NULL COMMENT 'owner id correlation',
-	`Provider` VARCHAR NOT NULL COMMENT 'cloud service provider',
-	`Type` INT COMMENT 'secret type',
-	`Key` VARCHAR NOT NULL COMMENT 'cloud secret',
-	`CreatedOn` DATETIME NOT NULL DEFAULT 'SYSDATE' COMMENT 'create timestamp',
-	`CreatedBy` INT NOT NULL COMMENT 'user correlation id',
-	`ModifiedOn` DATETIME NOT NULL DEFAULT 'SYSDATE',
-	`ModifiedBy` INT NOT NULL COMMENT 'user correlation id',
-	`Activated` BOOLEAN NOT NULL DEFAULT 'FALSE' COMMENT 'activated flag',
-	`Deleted` BOOLEAN NOT NULL DEFAULT 'FALSE' COMMENT 'deleted flag',
-	`Encrypted` BOOLEAN NOT NULL DEFAULT 'FALSE' COMMENT 'encrypted flag',
-	`Tags` VARCHAR COMMENT 'tags',
-	UNIQUE KEY `IDX_Owner` (`OwnerId`) USING HASH,
-	PRIMARY KEY (`ID`)
-) ENGINE=InnoDB;
+USE kdb;CREATE TABLE kdb.secret (
+	Name varchar(100) NOT NULL,
+	OwnerId INT NOT NULL,
+	Provider varchar(100) NOT NULL,
+	`Type` INT NULL,
+	CreatedOn DATETIME DEFAULT NOW() NOT NULL,
+	CreatedBy INT NOT NULL,
+	ModifiedOn DATETIME DEFAULT NOW() NULL,
+	ModifiedBy INT NULL,
+	Activated BOOLEAN DEFAULT FALSE NOT NULL,
+	Deleted BOOLEAN DEFAULT FALSE NOT NULL,
+	Encrpted BOOLEAN DEFAULT FALSE NOT NULL,
+	Tags varchar(100) NULL,
+	ID BIGINT NOT NULL AUTO_INCREMENT,
+	CONSTRAINT secret_PK PRIMARY KEY (ID),
+	CONSTRAINT secret_FK FOREIGN KEY (OwnerId) REFERENCES kdb.`user`(id) ON DELETE CASCADE ON UPDATE CASCADE
+)
+ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_general_ci;
+CREATE UNIQUE INDEX secret_OwnerId_IDX USING HASH ON kdb.secret (OwnerId);
 \q;
 INIT_SCRIPT
 
