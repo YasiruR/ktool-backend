@@ -13,6 +13,7 @@ const (
 	brokerTable    = "broker"
 	userTable      = "user"
 	secretTable    = "secret"
+	gkeSecretTable = "gke_secret"
 )
 
 var Db *sql.DB

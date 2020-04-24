@@ -37,11 +37,16 @@ type loginUserReq struct {
 }
 
 //-------------------------secret-management-api------------------//
-type addSecretRequest struct {
-	secretName string
-	userId     string
-	service    string
-	keyType    int
-	key        string
-	tags       string
+type AddSecretRequest struct {
+	SecretName       string
+	UserId           string
+	ServiceProvider  string
+	KeyType          int
+	Tags             string
+	GkeType          string
+	GkeProjectId     string
+	GkeProjectKeyId  string
+	GkePrivateKey    string
+	GkeClientMail    string
+	GkeClientCertUrl string
 }

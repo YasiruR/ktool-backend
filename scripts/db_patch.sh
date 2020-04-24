@@ -25,7 +25,8 @@ read -r password
 #echo Please provide the root password - default procedure is to skip this
 
 mysql -u "$username" -p "$password" <<PATCH_SCRIPT
-#creating the cloud tables
+echo creating the cloud tables
+# creating secret table
 USE kdb;
 CREATE TABLE kdb.secret (
 	Name varchar(100) NOT NULL,
@@ -48,6 +49,21 @@ ENGINE=InnoDB
 DEFAULT CHARSET=utf8mb4
 COLLATE=utf8mb4_general_ci;
 CREATE UNIQUE INDEX secret_OwnerId_IDX USING HASH ON kdb.secret (OwnerId);
+
+# creating gke_secret table
+CREATE TABLE `gke_secret` (
+  `Type` varchar(100) NOT NULL,
+  `ProjectId` varchar(100) NOT NULL,
+  `SecretId` bigint(20) NOT NULL,
+  `ProjectKeyId` varchar(100) NOT NULL,
+  `PrivateKey` varchar(5096) NOT NULL,
+  `ClientMail` varchar(100) NOT NULL,
+  `ClientId` varchar(100) NOT NULL,
+  `ClientX509CertUrl` varchar(1096) NOT NULL,
+  PRIMARY KEY (`SecretId`),
+  KEY `gke_secret_FK` (`SecretId`),
+  CONSTRAINT `gke_secret_FK` FOREIGN KEY (`SecretId`) REFERENCES `secret` (`ID`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 \q;
 PATCH_SCRIPT
 

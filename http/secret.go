@@ -18,7 +18,7 @@ import (
 
 func handleAddSecret(res http.ResponseWriter, req *http.Request) {
 	ctx := traceable_context.WithUUID(uuid.New())
-	var addSecretRequest addSecretRequest
+	var addSecretRequest AddSecretRequest
 
 	//user validation by token header
 	token := req.Header.Get("Authorization")

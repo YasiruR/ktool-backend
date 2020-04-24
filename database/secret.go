@@ -4,16 +4,27 @@ import (
 	"context"
 	"fmt"
 	"github.com/YasiruR/ktool-backend/domain"
+	"github.com/YasiruR/ktool-backend/http"
 	"github.com/YasiruR/ktool-backend/log"
 	"strconv"
 )
 
-func (dao *domain.SecretDAO) AddSecret(ctx context.Context, secretName string, userId string, service string, keyType int, key string, tags string) (result DAOResult) {
-	query := "INSERT INTO " + secretTable + " ( Name, OwnerId, Provider, Type, Key, CreatedBy, ModifiedBy, Tags) " +
-		` VALUES ( "` + secretName + `", "` + userId + `", "` + service + `", "` + strconv.Itoa(keyType) + `", "` +
-		key + `", "` + userId + `", "` + userId + `", "` + tags + `" )`
+func (dao *domain.SecretDAO) AddSecret(ctx context.Context, request *http.AddSecretRequest) (result DAOResult) {
+	//TODO: call a stored procedure
+	query := "INSERT INTO " + secretTable + " ( Name, OwnerId, Provider, Type, CreatedBy, ModifiedBy, Tags) " +
+		` VALUES ( "` + request.SecretName + `", "` + request.UserId + `", "` + request.ServiceProvider + `", "` + strconv.Itoa(request.KeyType) + `", "` + request.UserId + `", "` + request.UserId + `", "` + request.Tags + `" )`
 
 	insert, err := Db.Query(query)
+
+	switch request.ServiceProvider {
+	case "Google":
+		query = "INSERT INTO " + gkeSecretTable + " ( Type, ProjectId, SecretId, ProjectKeyId, PrivateKey, ClientMail, ClientId, ClientX509CertUrl) " +
+			` VALUES ( "` + request.GkeType + `", "` + request.GkeProjectId + `", ` + LAST_INSERT_ID() + `, "` + strconv.Itoa(request.KeyType) + `", "` + request.UserId + `", "` + request.UserId + `", "` + request.Tags + `" )`
+	default:
+		query = ""
+	}
+	insert, err = Db.Query(query)
+
 	if err != nil {
 		log.Logger.ErrorContext(ctx, fmt.Sprintf("insert to %s table failed", clusterTable), err)
 		return domain.DAOResult{
