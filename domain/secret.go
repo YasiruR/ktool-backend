@@ -16,16 +16,16 @@ type Secret struct {
 }
 
 type GkeSecret struct {
-	Type              string
-	ProjectId         string
-	PrivateKeyId      string
-	PrivateKey        string
-	ClientMail        string
-	ClientId          string
-	AuthUri           string
-	TokenUri          string
-	AuthX509CertUrl   string
-	ClientX509CertUrl string
+	Type              string `json:"type"`
+	ProjectId         string `json:"project_id"`
+	PrivateKeyId      string `json:"private_key_id"`
+	PrivateKey        string `json:"private_key"`
+	ClientMail        string `json:"client_email"`
+	ClientId          string `json:"client_id"`
+	AuthUri           string `json:"auth_uri"`
+	TokenUri          string `json:"token_uri"`
+	AuthX509CertUrl   string `json:"auth_provider_x509_cert_url"`
+	ClientX509CertUrl string `json:"client_x509_cert_url"`
 }
 
 type EksSecret struct {
@@ -49,16 +49,16 @@ type CloudSecret struct {
 	Deleted    bool
 	Tags       string
 	// gke specific
-	Type              string
-	ProjectId         string
-	PrivateKeyId      string
-	PrivateKey        string
-	ClientMail        string
-	ClientId          string
-	AuthUri           string
-	TokenUri          string
-	AuthX509CertUrl   string
-	ClientX509CertUrl string
+	Type              string `json:"type"`
+	ProjectId         string `json:"project_id"`
+	PrivateKeyId      string `json:"private_key_id"`
+	PrivateKey        string `json:"private_key"`
+	ClientMail        string `json:"client_email"`
+	ClientId          string `json:"client_id"`
+	AuthUri           string `json:"auth_uri"`
+	TokenUri          string `json:"token_uri"`
+	AuthX509CertUrl   string `json:"auth_provider_x509_cert_url"`
+	ClientX509CertUrl string `json:"client_x509_cert_url"`
 	// aws specific
 	// azure specific
 }
@@ -72,9 +72,10 @@ type Result struct {
 
 type DAOResult struct {
 	SecretList []CloudSecret
-	Status     int
-	Message    string
-	Error      error
+	//SecretList []GkeSecret
+	Status  int
+	Message string
+	Error   error
 }
 
 //type SecretDAO interface {

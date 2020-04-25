@@ -58,3 +58,5 @@ type SearchSecretsRequest struct {
 	OwnerId         string `json:"OwnerId"`
 	ServiceProvider string `json:"ServiceProvider"`
 }
+
+//-------------------Kubernetes API-----------------------//

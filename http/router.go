@@ -38,6 +38,8 @@ func InitRouter() {
 	router.HandleFunc("/secret/get", handleGetAllSecrets).Methods("POST")
 	router.HandleFunc("/secret/delete", handleDeleteSecret).Methods("DELETE")
 
+	router.HandleFunc("/kubernetes/gke/list", handleGetAllGkeKubClusters).Methods("POST")
+
 	osChannel := make(chan os.Signal, 1)
 	signal.Notify(osChannel, syscall.SIGINT, syscall.SIGKILL)
 

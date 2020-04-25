@@ -47,7 +47,9 @@ func AddSecret(ctx context.Context, UserId string, SecretName string, ServicePro
 }
 
 func GetAllSecretsByUserInternal(ctx context.Context, OwnerId string, ServiceProvider string) (result domain.DAOResult) {
-	query := "SELECT id, secretType, projectId, privateKeyId, privateKey, clientEmail, clientId, authUri, tokenUri, authCertUrl, clientCertUrl FROM " + cloudSecretTable + " WHERE OwnerId = " + OwnerId + ";"
+	query := "SELECT id, secretType, projectId, privateKeyId, privateKey, clientEmail, clientId, authUri, tokenUri," +
+		" authCertUrl, clientCertUrl FROM " + cloudSecretTable + " WHERE OwnerId = " + OwnerId + " AND Provider = '" +
+		ServiceProvider + "';"
 
 	rows, err := Db.Query(query)
 
