@@ -38,15 +38,23 @@ type loginUserReq struct {
 
 //-------------------------secret-management-api------------------//
 type AddSecretRequest struct {
-	SecretName       string
-	UserId           string
-	ServiceProvider  string
-	KeyType          int
-	Tags             string
-	GkeType          string
-	GkeProjectId     string
-	GkeProjectKeyId  string
-	GkePrivateKey    string
-	GkeClientMail    string
-	GkeClientCertUrl string
+	SecretName       string `json:"SecretName"`
+	UserId           string `json:"UserId"`
+	ServiceProvider  string `json:"ServiceProvider"`
+	Tags             string `json:"Tags"`
+	GkeType          string `json:"GkeType"`
+	GkeProjectId     string `json:"GkeProjectId"`
+	GkePrivateKeyId  string `json:"GkePrivateKeyId"`
+	GkePrivateKey    string `json:"GkePrivateKey"`
+	GkeClientMail    string `json:"GkeClientMail"`
+	GkeClientId      string `json:"GkeClientId"`
+	GkeAuthUri       string `json:"GkeAuthUri"`
+	GkeTokenUri      string `json:"GkeTokenUri"`
+	GkeAuthCertUrl   string `json:"GkeAuthCertUrl"`
+	GkeClientCertUrl string `json:"GkeClientCertUrl"`
+}
+
+type SearchSecretsRequest struct {
+	OwnerId         string `json:"OwnerId"`
+	ServiceProvider string `json:"ServiceProvider"`
 }

@@ -35,7 +35,7 @@ func InitRouter() {
 	router.HandleFunc("/brokers", handleGetBrokersForCluster).Methods("GET")
 
 	router.HandleFunc("/secret/create", handleAddSecret).Methods("POST")
-	router.HandleFunc("/secret/get", handleGetAllSecrets).Methods("GET")
+	router.HandleFunc("/secret/get", handleGetAllSecrets).Methods("POST")
 	router.HandleFunc("/secret/delete", handleDeleteSecret).Methods("DELETE")
 
 	osChannel := make(chan os.Signal, 1)

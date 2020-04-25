@@ -2,3 +2,4 @@
 ktool-backend
 go.mod
 config/*
+/config/

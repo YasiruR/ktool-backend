@@ -8,12 +8,13 @@ import (
 )
 
 const (
-	clusterTable   = "cluster"
-	zookeeperTable = "zookeeper"
-	brokerTable    = "broker"
-	userTable      = "user"
-	secretTable    = "secret"
-	gkeSecretTable = "gke_secret"
+	clusterTable     = "cluster"
+	zookeeperTable   = "zookeeper"
+	brokerTable      = "broker"
+	userTable        = "user"
+	secretTable      = "secret"
+	gkeSecretTable   = "gke_secret"
+	cloudSecretTable = "cloud_secret"
 )
 
 var Db *sql.DB

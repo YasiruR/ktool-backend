@@ -1,47 +1,84 @@
 package domain
 
-import (
-	"context"
-	http "github.com/YasiruR/ktool-backend/http"
-)
-
 type Secret struct {
 	ID         int
 	Name       string
-	OwnerId    int
+	OwnerId    string
 	Provider   string
-	Type       int
+	Type       string
 	CreatedOn  string
-	CreatedBy  int
+	CreatedBy  string
 	ModifiedOn string
-	ModifiedBy int
+	ModifiedBy string
 	Activated  bool
 	Deleted    bool
-	Encrypted  bool
 	Tags       string
 }
 
 type GkeSecret struct {
-	id                int
 	Type              string
 	ProjectId         string
-	SecretId          string
-	ProjectKeyId      string
+	PrivateKeyId      string
 	PrivateKey        string
 	ClientMail        string
 	ClientId          string
+	AuthUri           string
+	TokenUri          string
+	AuthX509CertUrl   string
 	ClientX509CertUrl string
 }
 
-type DAOResult struct {
+type EksSecret struct {
+	AccessKeyId     string
+	SecretAccessKey string
+}
+
+type AksSecret struct {
+}
+
+type CloudSecret struct {
+	ID         int
+	Name       string
+	OwnerId    string
+	Provider   string
+	CreatedOn  string
+	CreatedBy  string
+	ModifiedOn string
+	ModifiedBy string
+	Activated  bool
+	Deleted    bool
+	Tags       string
+	// gke specific
+	Type              string
+	ProjectId         string
+	PrivateKeyId      string
+	PrivateKey        string
+	ClientMail        string
+	ClientId          string
+	AuthUri           string
+	TokenUri          string
+	AuthX509CertUrl   string
+	ClientX509CertUrl string
+	// aws specific
+	// azure specific
+}
+
+type Result struct {
 	SecretList []Secret
 	Status     int
 	Message    string
 	Error      error
 }
 
-type SecretDAO interface {
-	AddSecret(ctx context.Context, addSecretRequest *http.AddSecretRequest) (result DAOResult)
-	DeleteSecret(ctx context.Context, secretId string) (result DAOResult)
-	GetAllSecretsByUser(ctx context.Context, userId string) (result DAOResult)
+type DAOResult struct {
+	SecretList []CloudSecret
+	Status     int
+	Message    string
+	Error      error
 }
+
+//type SecretDAO interface {
+//	AddSecret(ctx context.Context, addSecretRequest *http.AddSecretRequest) (result Result)
+//	DeleteSecret(ctx context.Context, secretId string) (result Result)
+//	GetAllSecretsByUser(ctx context.Context, userId string) (result Result)
+//}
