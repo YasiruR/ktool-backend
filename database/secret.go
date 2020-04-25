@@ -9,7 +9,7 @@ import (
 )
 
 // valid for adding gke secrets
-func AddSecret(ctx context.Context, UserId string, SecretName string, ServiceProvider string, Tags string, GkeType string, GkeProjectId string, GkePrivateKeyId string, GkePrivateKey string, GkeClientMail string, GkeClientId string, GkeAuthUri string, GkeTokenUri string, GkeAuthCertUrl string, GkeClientCertUrl string) (result domain.Result) {
+func AddSecret(ctx context.Context, UserId string, SecretName string, ServiceProvider string, Tags string, GkeType string, GkeProjectId string, GkePrivateKeyId string, GkePrivateKey string, GkeClientMail string, GkeClientId string, GkeAuthUri string, GkeTokenUri string, GkeAuthCertUrl string, GkeClientCertUrl string) (result domain.DAOResult) {
 	//TODO: call a stored procedure
 
 	query := ""
@@ -32,8 +32,8 @@ func AddSecret(ctx context.Context, UserId string, SecretName string, ServicePro
 
 	if err != nil {
 		log.Logger.ErrorContext(ctx, fmt.Sprintf("insert to %s table failed", cloudSecretTable), err)
-		return domain.Result{
-			SecretList: make([]domain.Secret, 0),
+		return domain.DAOResult{
+			SecretList: make([]domain.CloudSecret, 0),
 			Status:     1,
 			Message:    "insert failed",
 			Error:      nil,
@@ -43,27 +43,7 @@ func AddSecret(ctx context.Context, UserId string, SecretName string, ServicePro
 	defer insert.Close()
 	log.Logger.TraceContext(ctx, "successfully added a new key", SecretName)
 
-	return domain.Result{
-		SecretList: []domain.Secret{
-			domain.Secret{
-				ID:       1,
-				Name:     SecretName,
-				OwnerId:  UserId,
-				Provider: ServiceProvider,
-				Type:     GkeType,
-				//CreatedOn : ,
-				CreatedBy: UserId,
-				//ModifiedOn : ,
-				//ModifiedBy : ,
-				Activated: false,
-				Deleted:   false,
-				Tags:      Tags,
-			},
-		},
-		Status:  0,
-		Message: "insert success",
-		Error:   nil,
-	}
+	return GetAllSecretsByUserExternal(ctx, UserId, "all")
 }
 
 func GetAllSecretsByUserInternal(ctx context.Context, OwnerId string, ServiceProvider string) (result domain.DAOResult) {
