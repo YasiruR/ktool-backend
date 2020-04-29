@@ -29,8 +29,10 @@ type GkeSecret struct {
 }
 
 type EksSecret struct {
-	AccessKeyId     string
-	SecretAccessKey string
+	Id     string `json:"id"`
+	Secret string `json:"secret"`
+	Token  string `json:"token"`
+	Region string `json:"region"`
 }
 
 type AksSecret struct {
@@ -60,6 +62,8 @@ type CloudSecret struct {
 	AuthX509CertUrl   string `json:"auth_provider_x509_cert_url"`
 	ClientX509CertUrl string `json:"client_x509_cert_url"`
 	// aws specific
+	AccessKeyId     string `json:"access_key_id"`
+	SecretAccessKey string `json:"secret_access_key"`
 	// azure specific
 }
 

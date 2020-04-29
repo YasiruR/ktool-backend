@@ -9,7 +9,10 @@ import (
 )
 
 // valid for adding gke secrets
-func AddSecret(ctx context.Context, UserId string, SecretName string, ServiceProvider string, Tags string, GkeType string, GkeProjectId string, GkePrivateKeyId string, GkePrivateKey string, GkeClientMail string, GkeClientId string, GkeAuthUri string, GkeTokenUri string, GkeAuthCertUrl string, GkeClientCertUrl string) (result domain.DAOResult) {
+func AddSecret(ctx context.Context, UserId string, SecretName string, ServiceProvider string, Tags string,
+	GkeType string, GkeProjectId string, GkePrivateKeyId string, GkePrivateKey string, GkeClientMail string,
+	GkeClientId string, GkeAuthUri string, GkeTokenUri string, GkeAuthCertUrl string, GkeClientCertUrl string,
+	EksAccessKeyId string, EksSecretAccessKey string) (result domain.DAOResult) {
 	//TODO: call a stored procedure
 
 	query := ""
@@ -23,6 +26,12 @@ func AddSecret(ctx context.Context, UserId string, SecretName string, ServicePro
 			"','" + GkePrivateKeyId + "','" + GkePrivateKey + "','" + GkeClientMail + "','" +
 			GkeClientId + "','" + GkeAuthUri + "','" + GkeTokenUri + "','" +
 			GkeAuthCertUrl + "','" + GkeClientCertUrl + "')"
+
+	case "Amazon":
+		query = "INSERT INTO kdb.cloud_secret (ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
+			" modifiedOn, activated, deleted, accessKeyId, secretAccessKey) VALUES(" +
+			UserId + ",'" + SecretName + "','" + ServiceProvider + "','" + Tags + "'," +
+			UserId + ", CURRENT_TIMESTAMP, '', '', 0, 0,'" + EksAccessKeyId + "','" + EksSecretAccessKey + "')"
 
 	default:
 		query = ""
@@ -47,8 +56,10 @@ func AddSecret(ctx context.Context, UserId string, SecretName string, ServicePro
 }
 
 func GetAllSecretsByUserInternal(ctx context.Context, OwnerId string, ServiceProvider string) (result domain.DAOResult) {
+
 	query := "SELECT id, secretType, projectId, privateKeyId, privateKey, clientEmail, clientId, authUri, tokenUri," +
-		" authCertUrl, clientCertUrl FROM " + cloudSecretTable + " WHERE OwnerId = " + OwnerId + " AND Provider = '" +
+		" authCertUrl, clientCertUrl, secretKeyId, secretAccessKey FROM " + cloudSecretTable + " WHERE OwnerId = " +
+		OwnerId + " AND Provider = '" +
 		ServiceProvider + "';"
 
 	rows, err := Db.Query(query)
@@ -65,11 +76,11 @@ func GetAllSecretsByUserInternal(ctx context.Context, OwnerId string, ServicePro
 			Error:      err,
 		}
 	default:
-		log.Logger.InfoContext(ctx, "unhandled error occured while fetching records for userId %s", OwnerId)
+		log.Logger.InfoContext(ctx, "unhandled error occurred while fetching records for userId %s", OwnerId)
 		return domain.DAOResult{
 			SecretList: make([]domain.CloudSecret, 0),
 			Status:     -1,
-			Message:    "unhandled error occured",
+			Message:    "unhandled error occurred",
 			Error:      err,
 		}
 	}
@@ -81,7 +92,8 @@ func GetAllSecretsByUserInternal(ctx context.Context, OwnerId string, ServicePro
 		secret := domain.CloudSecret{}
 
 		err = rows.Scan(&secret.ID, &secret.Type, &secret.ProjectId, &secret.PrivateKeyId, &secret.PrivateKey, &secret.ClientMail,
-			&secret.ClientId, &secret.AuthUri, &secret.TokenUri, &secret.AuthX509CertUrl, &secret.ClientX509CertUrl)
+			&secret.ClientId, &secret.AuthUri, &secret.TokenUri, &secret.AuthX509CertUrl, &secret.ClientX509CertUrl, &secret.AccessKeyId,
+			&secret.SecretAccessKey)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "scanning rows in secret table failed", err)
 			return domain.DAOResult{

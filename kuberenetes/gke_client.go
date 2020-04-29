@@ -1,4 +1,4 @@
-package kuberenetes
+package main
 
 import (
 	container "cloud.google.com/go/container/apiv1"
@@ -27,7 +27,7 @@ func main() {
 
 func ListClusters(userId string) (*containerpb.ListClustersResponse, error) {
 	ctx := context.Background()
-	b, err := GetGkeCredentialsForUser(userId)
+	b, cred, err := GetGkeCredentialsForUser(userId)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func ListClusters(userId string) (*containerpb.ListClustersResponse, error) {
 		return nil, err
 	}
 	req := &containerpb.ListClustersRequest{
-		Parent: `projects/k-tool/locations/-`,
+		Parent: `projects/` + cred.ProjectId + `/locations/-`,
 	}
 	resp, err := c.ListClusters(ctx, req)
 	if err != nil {
@@ -45,9 +45,15 @@ func ListClusters(userId string) (*containerpb.ListClustersResponse, error) {
 	return resp, nil
 }
 
-func GetGkeCredentialsForUser(userId string) ([]byte, error) {
+func GetGkeCredentialsForUser(userId string) ([]byte, domain.GkeSecret, error) {
 	ctx := context.Background()
-	firstSecret := &database.GetAllSecretsByUserInternal(ctx, userId, `Google`).SecretList[1]
+	secretDao := database.GetAllSecretsByUserInternal(ctx, userId, `Google`)
+
+	if err := secretDao.Error; err != nil {
+		log.Logger.ErrorContext(ctx, "Error occurred while fetching eks secret for client %s", userId)
+		return nil, domain.GkeSecret{}, err
+	}
+	firstSecret := secretDao.SecretList[1]
 	cred := domain.GkeSecret{
 		Type:              firstSecret.Type,
 		ProjectId:         firstSecret.ProjectId,
@@ -62,10 +68,10 @@ func GetGkeCredentialsForUser(userId string) ([]byte, error) {
 	}
 	bytes, err := json.Marshal(&cred)
 	if err != nil {
-		log.Logger.ErrorContext(ctx, "Could not create gke credentials for user %s", userId)
-		return nil, err
+		log.Logger.ErrorContext(ctx, "Could not marshall gke credentials for user %s", userId)
+		return nil, cred, err
 	}
-	return bytes, nil
+	return bytes, cred, nil
 }
 
 //func GetGkeCredentialsForUser(userId string, cred *google.Credentials) {
