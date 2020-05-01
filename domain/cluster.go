@@ -25,7 +25,6 @@ type KCluster struct{
 }
 
 type ClusterOverview struct {
-	TotalBrokers              	int     					`json:"brokers"`
 	TotalPartitions           	int     					`json:"partitions"`
 	TotalTopics               	int     					`json:"topics"`
 	TotalReplicas             	int     					`json:"replicas"`

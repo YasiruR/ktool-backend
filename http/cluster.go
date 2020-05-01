@@ -646,29 +646,23 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 		for _, cluster := range user.ConnectedClusters {
 			if cluster.ClusterID == clusterID {
 
-				//get the rest of the metrics from db (to get byte rate a time interval can too be implemented in future)
-				for _, broker := range cluster.Brokers {
-					s := strings.Split(broker.Addr(), ":")
-					if len(s) < 2 {
-						log.Logger.ErrorContext(ctx, "invalid format received for address", broker.Addr())
-						continue
-					}
-					host, port := s[0], s[1]
+				//get all brokers for the cluster
+				brokers, err := database.GetBrokersByClusterId(ctx, clusterID)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "getting brokers for the requested cluster failed")
+					res.WriteHeader(http.StatusInternalServerError)
+					return
+				}
 
-					//todo : get address from db
-
-					bytesIn, bytesOut, err := database.GetBrokerMetrics(ctx, host)
+				for _, broker := range brokers {
+					bytesIn, bytesOut, err := database.GetBrokerMetrics(ctx, broker.Host)
 					if err != nil {
-						log.Logger.ErrorContext(ctx,"getting broker metrics failed", host)
+						log.Logger.ErrorContext(ctx,"getting broker metrics failed", broker.Host)
 						continue
 					}
 
 					var brokerMetrics domain.BrokerMetrics
-					brokerMetrics.Host = host
-					brokerMetrics.Port, err = strconv.Atoi(port)
-					if err != nil {
-						log.Logger.ErrorContext(ctx, err, "converting port to int failed")
-					}
+					brokerMetrics.Host, brokerMetrics.Port = broker.Host, broker.Port
 					brokerMetrics.MesgInByteRate = bytesIn
 					brokerMetrics.MesgOutByteRate = bytesOut
 
@@ -679,9 +673,47 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 						totalBytesOut[key] += val
 					}
 
+					//clustBrokers = append(clustBrokers, brokerMetrics)
 					cluster.ClusterOverview.Brokers = append(cluster.ClusterOverview.Brokers, brokerMetrics)
 				}
 
+				//get the rest of the metrics from db (to get byte rate a time interval can too be implemented in future)
+				//for _, broker := range cluster.Brokers {
+				//	s := strings.Split(broker.Addr(), ":")
+				//	if len(s) < 2 {
+				//		log.Logger.ErrorContext(ctx, "invalid format received for address", broker.Addr())
+				//		continue
+				//	}
+				//	host, port := s[0], s[1]
+				//
+				//	//todo : get address from db
+				//
+				//	bytesIn, bytesOut, err := database.GetBrokerMetrics(ctx, host)
+				//	if err != nil {
+				//		log.Logger.ErrorContext(ctx,"getting broker metrics failed", host)
+				//		continue
+				//	}
+				//
+				//	var brokerMetrics domain.BrokerMetrics
+				//	brokerMetrics.Host = host
+				//	brokerMetrics.Port, err = strconv.Atoi(port)
+				//	if err != nil {
+				//		log.Logger.ErrorContext(ctx, err, "converting port to int failed")
+				//	}
+				//	brokerMetrics.MesgInByteRate = bytesIn
+				//	brokerMetrics.MesgOutByteRate = bytesOut
+				//
+				//	for key, val := range bytesIn {
+				//		totalBytesIn[key] += val
+				//	}
+				//	for key, val := range bytesOut {
+				//		totalBytesOut[key] += val
+				//	}
+				//
+				//	cluster.ClusterOverview.Brokers = append(cluster.ClusterOverview.Brokers, brokerMetrics)
+				//}
+
+				//cluster.ClusterOverview.Brokers = clustBrokers
 				cluster.ClusterOverview.TotalMesgByteInRate = totalBytesIn
 				cluster.ClusterOverview.TotalMesgByteOutRate = totalBytesOut
 				overviewRes = cluster.ClusterOverview

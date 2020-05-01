@@ -75,7 +75,7 @@ func GetUserByToken(ctx context.Context, token string) (username string, ok bool
 
 	switch err := row.Scan(&username); err {
 	case sql.ErrNoRows:
-		log.Logger.ErrorContext(ctx, "no rows scanned for the token", token)
+		log.Logger.WarnContext(ctx, "no rows scanned for the token", token)
 		return "", false, errors.New("no rows found")
 	case nil:
 		log.Logger.TraceContext(ctx, "fetched user by token", username)

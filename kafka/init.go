@@ -181,7 +181,6 @@ func InitAllClusters() {
 		}
 
 		//updating all collected broker metrics to the cluster
-		clustClient.ClusterOverview.TotalBrokers = len(saramaBrokers)
 		clustClient.ClusterOverview.TotalPartitions = numOfPartitions
 		clustClient.ClusterOverview.TotalTopics = len(topics)
 		clustClient.ClusterOverview.TotalReplicas = numOfReplicas

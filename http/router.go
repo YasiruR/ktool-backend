@@ -49,7 +49,7 @@ func InitRouter() {
 		}
 
 		//closing cluster connections
-		log.Trace("closing all the initialized cluster connections")
+		log.Info("closing all the initialized cluster connections")
 		for _, clustClient := range kafka.ClusterList {
 			if clustClient.Client != nil {
 				clustClient.Client.Close()
@@ -57,14 +57,14 @@ func InitRouter() {
 			}
 		}
 
-		log.Trace("closing all spawned docker containers")
+		log.Info("closing all spawned docker containers")
 		//stop and remove docker prometheus container
 		stopDocker := exec.Command("/bin/sh", "-c", "sudo docker stop prometheus")
 		stopOutput, err := stopDocker.CombinedOutput()
 		if err != nil {
-			log.Info(err,"failed to stop docker prometheus container", string(stopOutput))
+			log.Error(err,"failed to stop docker prometheus container", string(stopOutput))
 		} else {
-			log.Trace("prometheus docker container is terminated")
+			log.Info("prometheus docker container is terminated")
 			rmDocker := exec.Command("/bin/sh", "-c", "sudo docker rm prometheus")
 			rmOutput, err := rmDocker.CombinedOutput()
 			if err != nil {

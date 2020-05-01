@@ -14,7 +14,7 @@ const (
 	userTable			= 	"user"
 	brokerBytesInTable	= 	"broker_bytes_in"
 	brokerBytesOutTable	= 	"broker_bytes_out"
-	metricsLimit 		= 	20
+	metricsLimit 		= 	5
 )
 
 var Db *sql.DB

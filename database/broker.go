@@ -219,9 +219,7 @@ func GetBrokerMetrics(ctx context.Context, host string) (byteRateIn, byteRateOut
 	byteRateIn = make(map[int64]int64)
 	byteRateOut = make(map[int64]int64)
 
-	fmt.Println("query : ", "SELECT bytes_in, created_at FROM " + brokerBytesInTable + ` WHERE host="` + host + `" ORDER BY ID DESC LIMIT ` + strconv.Itoa(metricsLimit) + `;`)
-
-	rows, err := Db.Query("SELECT bytes_in, created_at FROM " + brokerBytesInTable + ` WHERE host="` + host + `" ORDER BY ID DESC LIMIT ` + strconv.Itoa(metricsLimit) + `;`)
+	rows, err := Db.Query("SELECT bytes_in, UNIX_TIMESTAMP(created_at) FROM " + brokerBytesInTable + ` WHERE host="` + host + `" ORDER BY ID DESC LIMIT ` + strconv.Itoa(metricsLimit) + `;`)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "get broker bytes in query failed", err)
 		return nil, nil, err
@@ -230,7 +228,6 @@ func GetBrokerMetrics(ctx context.Context, host string) (byteRateIn, byteRateOut
 	for rows.Next() {
 		var byteRate, ts int64
 		err = rows.Scan(&byteRate, &ts)
-		fmt.Println("ts 1 : ", ts)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "scanning rows in broker bytes in table failed", err)
 			return
@@ -245,7 +242,7 @@ func GetBrokerMetrics(ctx context.Context, host string) (byteRateIn, byteRateOut
 		return
 	}
 
-	rows, err = Db.Query("SELECT bytes_out, created_at FROM " + brokerBytesOutTable + ` WHERE host="` + host + `" ORDER BY ID DESC LIMIT ` + strconv.Itoa(metricsLimit) + `;`)
+	rows, err = Db.Query("SELECT bytes_out, UNIX_TIMESTAMP(created_at) FROM " + brokerBytesOutTable + ` WHERE host="` + host + `" ORDER BY ID DESC LIMIT ` + strconv.Itoa(metricsLimit) + `;`)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "get broker bytes out query failed", err)
 		return nil, nil, err
@@ -254,7 +251,6 @@ func GetBrokerMetrics(ctx context.Context, host string) (byteRateIn, byteRateOut
 	for rows.Next() {
 		var byteRate, ts int64
 		err = rows.Scan(&byteRate, &ts)
-		fmt.Println("ts 2 : ", ts)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "scanning rows in broker bytes out table failed", err)
 			return
@@ -269,6 +265,5 @@ func GetBrokerMetrics(ctx context.Context, host string) (byteRateIn, byteRateOut
 		return
 	}
 
-	fmt.Println("bytes in : ", byteRateIn)
 	return
 }
