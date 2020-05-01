@@ -27,6 +27,6 @@ func (c *Config) LoadConfigurations() *Config {
 		log.Logger.Fatal("unmarshal error (service.yaml) : ", err)
 	}
 
-	log.Logger.Trace("service configurations initialized")
+	log.Logger.Info("service configurations initialized")
 	return c
 }

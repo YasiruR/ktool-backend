@@ -25,4 +25,5 @@ func Init() {
 	}
 
 	Db = db
+	log.Logger.Info("connection to mysql database is established")
 }

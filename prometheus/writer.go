@@ -3,7 +3,6 @@ package prometheus
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/log"
 	"io/ioutil"
@@ -20,13 +19,11 @@ func setBrokerBytesIn(ctx context.Context) (err error) {
 	var response BrokerBytes
 
 	//query bytes in to the broker
-	res, err := http.Get(promUrl + "query_range?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesin_total%5B1m%5D))&time=" + currentTime)
+	res, err := http.Get(promUrl + "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesin_total%5B1m%5D))&time=" + currentTime)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, err, "querying broker total bytes in failed")
 		return
 	}
-
-	fmt.Println("got res")
 
 	content, err := ioutil.ReadAll(res.Body)
 	if err != nil {
@@ -34,15 +31,16 @@ func setBrokerBytesIn(ctx context.Context) (err error) {
 		return
 	}
 
-	fmt.Println("read all")
-
 	err = json.Unmarshal(content, &response)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, err, "unmarshalling broker total bytes in response failed")
 		return
 	}
 
-	fmt.Println("unmarshalled", response)
+	if res.StatusCode != http.StatusOK {
+		log.Logger.ErrorContext(ctx, response, "error received for prometheus api cal")
+		return
+	}
 
 	for _, result := range response.Data.Result {
 		if len(result.Value) < 2 {
@@ -68,8 +66,6 @@ func setBrokerBytesIn(ctx context.Context) (err error) {
 		}
 	}
 
-	fmt.Println("done")
-
 	return nil
 }
 
@@ -78,7 +74,7 @@ func setBrokerBytesOut(ctx context.Context) (err error) {
 	var response BrokerBytes
 
 	//query bytes out from the broker
-	res, err := http.Get(promUrl + "query_range?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesout_total%5B1m%5D))&time=" + currentTime)
+	res, err := http.Get(promUrl + "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesout_total%5B1m%5D))&time=" + currentTime)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, err, "querying broker total bytes out failed")
 		return
@@ -93,6 +89,11 @@ func setBrokerBytesOut(ctx context.Context) (err error) {
 	err = json.Unmarshal(content, &response)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, err, "unmarshalling broker total bytes out response failed")
+		return
+	}
+
+	if res.StatusCode != http.StatusOK {
+		log.Logger.ErrorContext(ctx, response, "error received for prometheus api cal")
 		return
 	}
 

@@ -26,6 +26,6 @@ func (c *Config) LoadConfigurations() *Config {
 		log.Logger.Fatal("unmarshal error (database.yaml) : ", err)
 	}
 
-	log.Logger.Trace("database configurations initialized")
+	log.Logger.Info("database configurations initialized")
 	return c
 }

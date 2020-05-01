@@ -134,24 +134,24 @@ func DeleteBrokersOfCluster(ctx context.Context, clusterID int) (err error) {
 }
 
 func UpdateBrokerByteInRate(ctx context.Context, bytesIn float64, host string) (err error) {
-	query := "UPDATE " + brokerTable + " SET bytes_in=" + strconv.FormatFloat(bytesIn, 'f', -1, 64) + "WHERE host=" + host + ";"
+	query := "UPDATE " + brokerTable + " SET bytes_in=" + strconv.FormatFloat(bytesIn, 'f', -1, 64) + ` WHERE host="` + host + `";`
 
 	tx, err := Db.Begin()
 	if err != nil {
-		log.Logger.ErrorContext(ctx, "starting the transaction failed", err, host)
+		log.Logger.ErrorContext(ctx, err,"starting the transaction failed", host)
 		return err
 	}
 	defer tx.Rollback()
 
 	statement, err := tx.Prepare(query)
 	if err != nil {
-		log.Logger.ErrorContext(ctx, "preparing the query failed", host)
+		log.Logger.ErrorContext(ctx, err,"preparing the query failed", host)
 		return err
 	}
 
 	_, err = statement.Exec()
 	if err != nil {
-		log.Logger.ErrorContext(ctx, "executing the update token query failed", err, host)
+		log.Logger.ErrorContext(ctx, err,"executing the update token query failed", host)
 		return err
 	}
 
@@ -161,16 +161,15 @@ func UpdateBrokerByteInRate(ctx context.Context, bytesIn float64, host string) (
 		return err
 	}
 
-	log.Logger.TraceContext(ctx, "updating user token query was successful", host)
 	return nil
 }
 
 func UpdateBrokerByteOutRate(ctx context.Context, bytesOut float64, host string) (err error) {
-	query := "UPDATE " + brokerTable + " SET bytes_out=" + strconv.FormatFloat(bytesOut, 'f', -1, 64) + "WHERE host=" + host + ";"
+	query := "UPDATE " + brokerTable + " SET bytes_out=" + strconv.FormatFloat(bytesOut, 'f', -1, 64) + ` WHERE host="` + host + `";`
 
 	tx, err := Db.Begin()
 	if err != nil {
-		log.Logger.ErrorContext(ctx, "starting the transaction failed", err, host)
+		log.Logger.ErrorContext(ctx, err,"starting the transaction failed", host)
 		return err
 	}
 	defer tx.Rollback()
@@ -183,16 +182,15 @@ func UpdateBrokerByteOutRate(ctx context.Context, bytesOut float64, host string)
 
 	_, err = statement.Exec()
 	if err != nil {
-		log.Logger.ErrorContext(ctx, "executing the update token query failed", err, host)
+		log.Logger.ErrorContext(ctx, err,"executing the update token query failed", host)
 		return err
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Logger.ErrorContext(ctx, "committing the transaction failed", host)
+		log.Logger.ErrorContext(ctx, err,"committing the transaction failed", host)
 		return err
 	}
 
-	log.Logger.TraceContext(ctx, "updating user token query was successful", host)
 	return nil
 }
