@@ -15,11 +15,11 @@ import (
 const promUrl = "http://localhost:9090/api/v1/"
 
 func setBrokerBytesIn(ctx context.Context) (err error) {
-	currentTime := strconv.Itoa(int(time.Now().Unix()))
+	currentTime := time.Now()
 	var response BrokerBytes
 
 	//query bytes in to the broker
-	res, err := http.Get(promUrl + "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesin_total%5B1m%5D))&time=" + currentTime)
+	res, err := http.Get(promUrl + "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesin_total%5B1m%5D))&time=" + strconv.Itoa(int(currentTime.Unix())))
 	if err != nil {
 		log.Logger.ErrorContext(ctx, err, "querying broker total bytes in failed")
 		return
@@ -60,7 +60,7 @@ func setBrokerBytesIn(ctx context.Context) (err error) {
 		}
 		host := s[0]
 
-		err = database.UpdateBrokerByteInRate(ctx, byteRate, host)
+		err = database.UpdateBrokerByteInRate(ctx, byteRate, host, currentTime)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "db query to update broker bytes in failed", result.Metric.Instance)
 		}
@@ -70,11 +70,11 @@ func setBrokerBytesIn(ctx context.Context) (err error) {
 }
 
 func setBrokerBytesOut(ctx context.Context) (err error) {
-	currentTime := strconv.Itoa(int(time.Now().Unix()))
+	currentTime := time.Now()
 	var response BrokerBytes
 
 	//query bytes out from the broker
-	res, err := http.Get(promUrl + "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesout_total%5B1m%5D))&time=" + currentTime)
+	res, err := http.Get(promUrl + "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesout_total%5B1m%5D))&time=" + strconv.Itoa(int(currentTime.Unix())))
 	if err != nil {
 		log.Logger.ErrorContext(ctx, err, "querying broker total bytes out failed")
 		return
@@ -115,7 +115,7 @@ func setBrokerBytesOut(ctx context.Context) (err error) {
 		}
 		host := s[0]
 
-		err = database.UpdateBrokerByteOutRate(ctx, byteRate, host)
+		err = database.UpdateBrokerByteOutRate(ctx, byteRate, host, currentTime)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "db query to update broker bytes out failed", result.Metric.Instance)
 		}

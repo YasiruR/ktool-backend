@@ -133,64 +133,84 @@ func DeleteBrokersOfCluster(ctx context.Context, clusterID int) (err error) {
 	return nil
 }
 
-func UpdateBrokerByteInRate(ctx context.Context, bytesIn float64, host string) (err error) {
-	query := "UPDATE " + brokerTable + " SET bytes_in=" + strconv.FormatFloat(bytesIn, 'f', -1, 64) + ` WHERE host="` + host + `";`
+func UpdateBrokerByteInRate(ctx context.Context, bytesIn float64, host string, currentTime time.Time) (err error) {
+	//query := "UPDATE " + brokerTable + " SET bytes_in=" + strconv.FormatFloat(bytesIn, 'f', -1, 64) + ` WHERE host="` + host + `";`
+	//
+	//tx, err := Db.Begin()
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, err,"starting the transaction failed", host)
+	//	return err
+	//}
+	//defer tx.Rollback()
+	//
+	//statement, err := tx.Prepare(query)
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, err,"preparing the query failed", host)
+	//	return err
+	//}
+	//
+	//_, err = statement.Exec()
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, err,"executing the update token query failed", host)
+	//	return err
+	//}
+	//
+	//err = tx.Commit()
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "committing the transaction failed", host)
+	//	return err
+	//}
 
-	tx, err := Db.Begin()
+	//todo run a separate job to clean these broker metrics table
+	query := "INSERT INTO " + brokerBytesInTable + " ( id, host, bytes_in, created_at ) " + ` VALUES ( null, "` + host + `", ` + strconv.FormatFloat(bytesIn, 'f', -1, 64) + `, "`+ currentTime.Format("2006-01-02 15:04:05") + `" );`
+
+	insert, err := Db.Query(query)
 	if err != nil {
-		log.Logger.ErrorContext(ctx, err,"starting the transaction failed", host)
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("insert to %s table failed", brokerBytesInTable), err)
 		return err
 	}
-	defer tx.Rollback()
-
-	statement, err := tx.Prepare(query)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, err,"preparing the query failed", host)
-		return err
-	}
-
-	_, err = statement.Exec()
-	if err != nil {
-		log.Logger.ErrorContext(ctx, err,"executing the update token query failed", host)
-		return err
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "committing the transaction failed", host)
-		return err
-	}
+	defer insert.Close()
 
 	return nil
 }
 
-func UpdateBrokerByteOutRate(ctx context.Context, bytesOut float64, host string) (err error) {
-	query := "UPDATE " + brokerTable + " SET bytes_out=" + strconv.FormatFloat(bytesOut, 'f', -1, 64) + ` WHERE host="` + host + `";`
+func UpdateBrokerByteOutRate(ctx context.Context, bytesOut float64, host string, currentTime time.Time) (err error) {
+	//query := "UPDATE " + brokerTable + " SET bytes_out=" + strconv.FormatFloat(bytesOut, 'f', -1, 64) + ` WHERE host="` + host + `";`
+	//
+	//tx, err := Db.Begin()
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, err,"starting the transaction failed", host)
+	//	return err
+	//}
+	//defer tx.Rollback()
+	//
+	//statement, err := tx.Prepare(query)
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "preparing the query failed", host)
+	//	return err
+	//}
+	//
+	//_, err = statement.Exec()
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, err,"executing the update token query failed", host)
+	//	return err
+	//}
+	//
+	//err = tx.Commit()
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, err,"committing the transaction failed", host)
+	//	return err
+	//}
 
-	tx, err := Db.Begin()
+	query := "INSERT INTO " + brokerBytesOutTable + " ( id, host, bytes_out, created_at ) " + ` VALUES ( null, "` + host + `", ` + strconv.FormatFloat(bytesOut, 'f', -1, 64) + `, "`+ currentTime.Format("2006-01-02 15:04:05") + `" );`
+
+	insert, err := Db.Query(query)
 	if err != nil {
-		log.Logger.ErrorContext(ctx, err,"starting the transaction failed", host)
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("insert to %s table failed", brokerBytesOutTable), err)
 		return err
 	}
-	defer tx.Rollback()
-
-	statement, err := tx.Prepare(query)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "preparing the query failed", host)
-		return err
-	}
-
-	_, err = statement.Exec()
-	if err != nil {
-		log.Logger.ErrorContext(ctx, err,"executing the update token query failed", host)
-		return err
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		log.Logger.ErrorContext(ctx, err,"committing the transaction failed", host)
-		return err
-	}
+	defer insert.Close()
 
 	return nil
+
 }
