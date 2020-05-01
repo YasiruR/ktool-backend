@@ -14,14 +14,14 @@ type Cluster struct {
 }
 
 type KCluster struct{
-	ClusterID 		int
-	ClusterName 	string
-	Consumer  		sarama.Consumer
-	Client    		sarama.Client
-	Brokers 		[]*sarama.Broker
-	Topics 			[]KTopic
-	Available 		bool
-	BrokerOverview	ClusterOverview
+	ClusterID       int
+	ClusterName     string
+	Consumer        sarama.Consumer
+	Client          sarama.Client
+	Brokers         []*sarama.Broker
+	Topics          []KTopic
+	Available       bool
+	ClusterOverview ClusterOverview
 }
 
 type ClusterOverview struct {
@@ -34,23 +34,17 @@ type ClusterOverview struct {
 	OfflineReplicas				int							`json:"offline_replicas"`
 	TotalOutgoingRate       	float64 					`json:"total_outgoing_rate"`		//in kb
 	TotalIncomingRate      		float64 					`json:"total_incoming_rate"`		//in kb
-	TotalRequestRate          	float64 					`json:"total_request_rate"`
-	TotalRequestSize          	float64 					`json:"total_request_size"`
-	TotalRequestLatency       	float64 					`json:"total_request_latency"`
-	TotalResponseRate         	float64 					`json:"total_response_rate"`
-	TotalResponseSize         	float64 					`json:"total_response_size"`
+	TotalMesgByteInRate			map[int64]int64				`json:"total_mesg_byte_in_rate"`
+	TotalMesgByteOutRate		map[int64]int64				`json:"total_mesg_byte_out_rate"`
 	ActiveController          	string  					`json:"active_controller"`
 	ZookeeperAvail            	bool    					`json:"zookeeper_avail"`
 	KafkaVersion              	string  					`json:"kafka_version"`
-	Brokers						map[int32]BrokerMetrics		`json:"brokers"`
+	Brokers						[]BrokerMetrics				`json:"brokers"`
 }
 
 type BrokerMetrics struct {
-	IncomingByteRate       	float64 	`json:"incoming_byte_rate"`
-	RequestRate            	float64		`json:"request_rate"`
-	RequestSize            	float64		`json:"request_size"`
-	RequestLatency         	float64		`json:"request_latency"`		//in ms
-	OutgoingByteRate       	float64		`json:"outgoing_byte_rate"`
-	ResponseRate           	float64		`json:"response_rate"`
-	ResponseSize           	float64		`json:"response_size"`
+	Host 						string						`json:"host"`
+	Port 						int							`json:"port"`
+	MesgInByteRate 				map[int64]int64				`json:"mesg_in_byte_rate"`
+	MesgOutByteRate				map[int64]int64				`json:"mesg_out_byte_rate"`
 }

@@ -80,47 +80,42 @@ func InitAllClusters() {
 		}
 
 		//to store all broker overview in a cluster
-		clustClient.BrokerOverview.Brokers = make(map[int32]domain.BrokerMetrics)
+		//clustClient.ClusterOverview.Brokers = make(map[int32]domain.BrokerMetrics)
 
 		//todo: unregister all these metrics on app termination and close brokers
-		clustClient.BrokerOverview.TotalIncomingRate = metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).RateMean()/1024
-		clustClient.BrokerOverview.TotalOutgoingRate = metrics.GetOrRegisterMeter("outgoing-byte-rate", config.MetricRegistry).RateMean()/1024
-		clustClient.BrokerOverview.TotalRequestRate = metrics.GetOrRegisterMeter("request-rate", config.MetricRegistry).RateMean()
-		clustClient.BrokerOverview.TotalResponseRate = metrics.GetOrRegisterMeter("response-rate", config.MetricRegistry).RateMean()
+		clustClient.ClusterOverview.TotalIncomingRate = metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).RateMean()/1024
+		clustClient.ClusterOverview.TotalOutgoingRate = metrics.GetOrRegisterMeter("outgoing-byte-rate", config.MetricRegistry).RateMean()/1024
 
-		//user GetOrRegister in metrics library if this does not work, as used in sarama broker
-		clustClient.BrokerOverview.TotalRequestLatency = metrics.GetOrRegisterHistogram("request-latency-in-ms", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Mean()
-		clustClient.BrokerOverview.TotalRequestSize = metrics.GetOrRegisterHistogram("request-size", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Mean()
-		clustClient.BrokerOverview.TotalResponseSize = metrics.GetOrRegisterHistogram("response-size", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Mean()
+		//clustClient.ClusterOverview.TotalRequestRate = metrics.GetOrRegisterMeter("request-rate", config.MetricRegistry).RateMean()
+		//clustClient.ClusterOverview.TotalResponseRate = metrics.GetOrRegisterMeter("response-rate", config.MetricRegistry).RateMean()
+		//
+		////user GetOrRegister in metrics library if this does not work, as used in sarama broker
+		//clustClient.ClusterOverview.TotalRequestLatency = metrics.GetOrRegisterHistogram("request-latency-in-ms", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Mean()
+		//clustClient.ClusterOverview.TotalRequestSize = metrics.GetOrRegisterHistogram("request-size", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Mean()
+		//clustClient.ClusterOverview.TotalResponseSize = metrics.GetOrRegisterHistogram("response-size", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Mean()
 
-		//open broker connections to establish metrics along with config
-		for _, broker := range saramaBrokers {
-			//check if broker is already connected
-			connected, err := broker.Connected()
-			if err != nil {
-				log.Logger.ErrorContext(ctx, err,"checking broker connection with sarama failed", broker.ID(), cluster.ClusterName)
-				clustClient.Available = false
-				tempClustList = append(tempClustList, clustClient)
-				continue
-			}
-
-			if !connected {
-				err = broker.Open(config)
-				if err != nil {
-					log.Logger.ErrorContext(ctx, err,"connecting broker to sarama failed", broker.ID(), cluster.ClusterName)
-					clustClient.Available = false
-					tempClustList = append(tempClustList, clustClient)
-					continue
-				}
-				log.Logger.TraceContext(ctx, "new broker connection opened since it was not connected previously", broker.Addr())
-			}
-
-			var brokerMetrics domain.BrokerMetrics
-
-			clustClient.BrokerOverview.Brokers[broker.ID()] = brokerMetrics
-
-			//fmt.Println("all metrics : ", config.MetricRegistry.GetAll())
-		}
+		////open broker connections to establish metrics along with config
+		//for _, broker := range saramaBrokers {
+		//	//check if broker is already connected
+		//	connected, err := broker.Connected()
+		//	if err != nil {
+		//		log.Logger.ErrorContext(ctx, err,"checking broker connection with sarama failed", broker.ID(), cluster.ClusterName)
+		//		clustClient.Available = false
+		//		tempClustList = append(tempClustList, clustClient)
+		//		continue
+		//	}
+		//
+		//	if !connected {
+		//		err = broker.Open(config)
+		//		if err != nil {
+		//			log.Logger.ErrorContext(ctx, err,"connecting broker to sarama failed", broker.ID(), cluster.ClusterName)
+		//			clustClient.Available = false
+		//			tempClustList = append(tempClustList, clustClient)
+		//			continue
+		//		}
+		//		log.Logger.TraceContext(ctx, "new broker connection opened since it was not connected previously", broker.Addr())
+		//	}
+		//}
 
 		topics, err := GetTopicList(ctx, saramaConsumer)
 		if err != nil {
@@ -182,17 +177,17 @@ func InitAllClusters() {
 		if err != nil {
 			log.Logger.ErrorContext(ctx, err, fmt.Sprintf("fetching controller id for the cluster %v failed", cluster.ClusterName))
 		} else {
-			clustClient.BrokerOverview.ActiveController = controller.Addr()
+			clustClient.ClusterOverview.ActiveController = controller.Addr()
 		}
 
 		//updating all collected broker metrics to the cluster
-		clustClient.BrokerOverview.TotalBrokers = len(saramaBrokers)
-		clustClient.BrokerOverview.TotalPartitions = numOfPartitions
-		clustClient.BrokerOverview.TotalTopics = len(topics)
-		clustClient.BrokerOverview.TotalReplicas = numOfReplicas
-		clustClient.BrokerOverview.UnderReplicatedPartitions = numOfReplicas - numOfInSyncRepl
-		clustClient.BrokerOverview.OfflineReplicas = numOfOfflineRepl
-		clustClient.BrokerOverview.OfflinePartitions = numOfPartitions - numOfOnlinePartitions
+		clustClient.ClusterOverview.TotalBrokers = len(saramaBrokers)
+		clustClient.ClusterOverview.TotalPartitions = numOfPartitions
+		clustClient.ClusterOverview.TotalTopics = len(topics)
+		clustClient.ClusterOverview.TotalReplicas = numOfReplicas
+		clustClient.ClusterOverview.UnderReplicatedPartitions = numOfReplicas - numOfInSyncRepl
+		clustClient.ClusterOverview.OfflineReplicas = numOfOfflineRepl
+		clustClient.ClusterOverview.OfflinePartitions = numOfPartitions - numOfOnlinePartitions
 
 		clustClient.Consumer = saramaConsumer
 		clustClient.Client = client

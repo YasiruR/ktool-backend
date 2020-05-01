@@ -6,4 +6,4 @@ ping_timeout: 5   #seconds
 
 client_init_timeout: 1
 cluster_refresh_interval: 500
-metrics_update_interval: 10
+metrics_update_interval: 100

@@ -81,7 +81,7 @@ func Init() {
 		log.Logger.Fatal(err,"could not start docker prometheus container (there might be a container already running (or stopped) as prometheus)", string(runOutput))
 	}
 
-	log.Logger.Info("prometheus docker container is up and running", string(runOutput))
+	log.Logger.Info("prometheus docker container is up and running")
 }
 
 //iterate through brokers of cluster list

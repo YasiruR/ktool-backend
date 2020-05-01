@@ -467,9 +467,8 @@ func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
 				log.Logger.WarnContext(ctx, "cluster is not available", cluster.ClusterName)
 				break
 			}
-			log.Logger.WarnContext(ctx, "cluster does not exist", cluster.ClusterName)
-			break
 		}
+		log.Logger.WarnContext(ctx, "cluster does not exist", clusterID)
 	} else {
 		log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", userID)
 		res.WriteHeader(http.StatusForbidden)
@@ -508,7 +507,6 @@ func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
 	//	return
 	//}
 
-	log.Logger.ErrorContext(ctx, "could not find the cluster id from the cluster id", clusterID)
 	//send error message
 	res.WriteHeader(http.StatusBadRequest)
 }
@@ -640,11 +638,53 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 		overviewRes.KafkaVersion = cluster.KafkaVersion
 	}
 
+	totalBytesIn := make(map[int64]int64)
+	totalBytesOut := make(map[int64]int64)
+
 	user, ok := domain.LoggedInUserMap[userID]
 	if ok {
 		for _, cluster := range user.ConnectedClusters {
 			if cluster.ClusterID == clusterID {
-				overviewRes = cluster.BrokerOverview
+
+				//get the rest of the metrics from db (to get byte rate a time interval can too be implemented in future)
+				for _, broker := range cluster.Brokers {
+					s := strings.Split(broker.Addr(), ":")
+					if len(s) < 2 {
+						log.Logger.ErrorContext(ctx, "invalid format received for address", broker.Addr())
+						continue
+					}
+					host, port := s[0], s[1]
+
+					//todo : get address from db
+
+					bytesIn, bytesOut, err := database.GetBrokerMetrics(ctx, host)
+					if err != nil {
+						log.Logger.ErrorContext(ctx,"getting broker metrics failed", host)
+						continue
+					}
+
+					var brokerMetrics domain.BrokerMetrics
+					brokerMetrics.Host = host
+					brokerMetrics.Port, err = strconv.Atoi(port)
+					if err != nil {
+						log.Logger.ErrorContext(ctx, err, "converting port to int failed")
+					}
+					brokerMetrics.MesgInByteRate = bytesIn
+					brokerMetrics.MesgOutByteRate = bytesOut
+
+					for key, val := range bytesIn {
+						totalBytesIn[key] += val
+					}
+					for key, val := range bytesOut {
+						totalBytesOut[key] += val
+					}
+
+					cluster.ClusterOverview.Brokers = append(cluster.ClusterOverview.Brokers, brokerMetrics)
+				}
+
+				cluster.ClusterOverview.TotalMesgByteInRate = totalBytesIn
+				cluster.ClusterOverview.TotalMesgByteOutRate = totalBytesOut
+				overviewRes = cluster.ClusterOverview
 				res.WriteHeader(http.StatusOK)
 				err = json.NewEncoder(res).Encode(overviewRes)
 				if err != nil {
@@ -654,10 +694,9 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 				log.Logger.TraceContext(ctx, "broker metrics for requested cluster are fetched", clusterID)
 				return
 			}
-
-			log.Logger.ErrorContext(ctx, "user has not connected to the requested cluster to get broker overall metrics", clusterID)
-			res.WriteHeader(http.StatusBadRequest)
 		}
+		log.Logger.ErrorContext(ctx, "user has not connected to the requested cluster to get broker overall metrics", clusterID)
+		res.WriteHeader(http.StatusBadRequest)
 	} else {
 		log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", token)
 		res.WriteHeader(http.StatusForbidden)
