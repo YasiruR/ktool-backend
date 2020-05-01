@@ -132,3 +132,67 @@ func DeleteBrokersOfCluster(ctx context.Context, clusterID int) (err error) {
 	log.Logger.TraceContext(ctx, fmt.Sprintf("%v brokers are delted for cluster id : %v", count, clusterID))
 	return nil
 }
+
+func UpdateBrokerByteInRate(ctx context.Context, bytesIn float64, host string) (err error) {
+	query := "UPDATE " + brokerTable + " SET bytes_in=" + strconv.FormatFloat(bytesIn, 'f', -1, 64) + "WHERE host=" + host + ";"
+
+	tx, err := Db.Begin()
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "starting the transaction failed", err, host)
+		return err
+	}
+	defer tx.Rollback()
+
+	statement, err := tx.Prepare(query)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "preparing the query failed", host)
+		return err
+	}
+
+	_, err = statement.Exec()
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "executing the update token query failed", err, host)
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "committing the transaction failed", host)
+		return err
+	}
+
+	log.Logger.TraceContext(ctx, "updating user token query was successful", host)
+	return nil
+}
+
+func UpdateBrokerByteOutRate(ctx context.Context, bytesOut float64, host string) (err error) {
+	query := "UPDATE " + brokerTable + " SET bytes_out=" + strconv.FormatFloat(bytesOut, 'f', -1, 64) + "WHERE host=" + host + ";"
+
+	tx, err := Db.Begin()
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "starting the transaction failed", err, host)
+		return err
+	}
+	defer tx.Rollback()
+
+	statement, err := tx.Prepare(query)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "preparing the query failed", host)
+		return err
+	}
+
+	_, err = statement.Exec()
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "executing the update token query failed", err, host)
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "committing the transaction failed", host)
+		return err
+	}
+
+	log.Logger.TraceContext(ctx, "updating user token query was successful", host)
+	return nil
+}

@@ -12,6 +12,7 @@ type Config struct {
 	PingTimeout				int			`yaml:"ping_timeout"`
 	ClientInitTimeout		int			`yaml:"client_init_timeout"`
 	ClusterRefreshInterval	int			`yaml:"cluster_refresh_interval"`
+	MetricsUpdateInterval 	int			`yaml:"metrics_update_interval"`
 }
 
 var Cfg = new(Config)

@@ -21,16 +21,17 @@ type KCluster struct{
 	Brokers 		[]*sarama.Broker
 	Topics 			[]KTopic
 	Available 		bool
-	BrokerOverview	BrokerOverview
+	BrokerOverview	ClusterOverview
 }
 
-type BrokerOverview struct {
+type ClusterOverview struct {
 	TotalBrokers              	int     					`json:"brokers"`
 	TotalPartitions           	int     					`json:"partitions"`
 	TotalTopics               	int     					`json:"topics"`
 	TotalReplicas             	int     					`json:"replicas"`
 	UnderReplicatedPartitions 	int     					`json:"under_replicated_partitions"`
 	OfflinePartitions			int							`json:"offline_partitions"`
+	OfflineReplicas				int							`json:"offline_replicas"`
 	TotalOutgoingRate       	float64 					`json:"total_outgoing_rate"`		//in kb
 	TotalIncomingRate      		float64 					`json:"total_incoming_rate"`		//in kb
 	TotalRequestRate          	float64 					`json:"total_request_rate"`

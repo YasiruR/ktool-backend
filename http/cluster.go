@@ -630,7 +630,7 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var overviewRes domain.BrokerOverview
+	var overviewRes domain.ClusterOverview
 
 	cluster, err := database.GetClusterByClusterID(ctx, clusterID)
 	if err != nil {

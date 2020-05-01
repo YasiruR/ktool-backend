@@ -5,7 +5,10 @@ import (
 	"github.com/YasiruR/ktool-backend/http"
 	"github.com/YasiruR/ktool-backend/kafka"
 	"github.com/YasiruR/ktool-backend/log"
+	"github.com/YasiruR/ktool-backend/prometheus"
 	"github.com/YasiruR/ktool-backend/service"
+	"github.com/google/uuid"
+	traceable_context "github.com/pickme-go/traceable-context"
 	"time"
 )
 
@@ -21,6 +24,7 @@ func main() {
 	service.Cfg.LoadConfigurations()
 
 	kafka.InitAllClusters()
+	prometheus.Init()
 
 	//refresh cluster data
 	ticker := time.NewTicker(time.Duration(service.Cfg.ClusterRefreshInterval) * time.Second)
@@ -32,5 +36,18 @@ func main() {
 			}
 		}
 	}()
+
+	//scrape prometheus metrics from jmx
+	metricsTicker := time.NewTicker(time.Duration(service.Cfg.MetricsUpdateInterval) * time.Second)
+	syncContext := traceable_context.WithUUID(uuid.New())
+	go func() {
+		for {
+			select {
+			case <- metricsTicker.C:
+				prometheus.SyncBrokerData(syncContext)
+			}
+		}
+	}()
+
 	http.InitRouter()
 }

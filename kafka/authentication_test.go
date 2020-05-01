@@ -17,7 +17,7 @@ func TestGenerateSSLKeys(t *testing.T) {
 	log.Logger = log2.Constructor.Log(log2.WithColors(true), log2.WithLevel("TRACE"), log2.WithFilePath(true))
 	ctx := context.Background()
 
-	for _, test := range tests {
-		_, _, _ = generateRSAKeys(ctx, test.clusterName)
-	}
+	//for _, test := range tests {
+	//	_, _, _ = generateRSAKeys(ctx, test.clusterName)
+	//}
 }

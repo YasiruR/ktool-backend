@@ -33,7 +33,6 @@ func InitRouter() {
 
 	router.HandleFunc("/topics", handleGetTopicsForCluster).Methods(http.MethodGet)
 	router.HandleFunc("/brokers", handleGetBrokersForCluster).Methods(http.MethodGet)
-
 	router.HandleFunc("/cluster/broker_overview", handleGetBrokerOverview).Methods(http.MethodGet)
 
 	osChannel := make(chan os.Signal, 1)
@@ -56,6 +55,8 @@ func InitRouter() {
 			}
 		}
 		log.Trace("closing all the initialized cluster connections")
+
+		//todo stop any running docker container such as prometheus
 
 		//closing all server sessions
 		for _, session := range cloud.SessionList {
