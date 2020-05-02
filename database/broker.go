@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/YasiruR/ktool-backend/domain"
@@ -133,8 +134,99 @@ func DeleteBrokersOfCluster(ctx context.Context, clusterID int) (err error) {
 	return nil
 }
 
-//func GetBrokerMetrics(ctx context.Context, host string) (brokerMetrics domain.BrokerMetrics, err error) {
-//	rows, err := Db.Query("SELECT timestamp, partitions, leaders, acti FROM " + brokerBytesInTable + ` WHERE host="` + host + `" ORDER BY ID DESC LIMIT ` + strconv.Itoa(metricsLimit) + `;`)
+func GetBrokerMetrics(ctx context.Context, host string) (brokerMetrics map[int64]domain.BrokerMetrics, err error) {
+	brokerMetrics = make(map[int64]domain.BrokerMetrics)
+	var metrics domain.BrokerMetrics
+	rows, err := Db.Query("SELECT timestamp, partitions, leaders, act_controller, offline_part, under_replicated, bytes_in, bytes_out, mesg_rate, isr_exp_rate, isr_shrink_rate, send_time, queue_time, remote_time, local_time, total_time, net_proc_avg_idle_perc, max_lag, unclean_lead_elec, failed_fetch_rate, failed_prod_rate FROM " + brokerMetricsTable + ` WHERE host="` + host + `" ORDER BY ID DESC LIMIT ` + strconv.Itoa(metricsLimit) + `;`)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "get broker metrics query failed", err)
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var ts, bytesIn, bytesOut int64
+		var partitions, leaders, actControllers, offlinePart, underReplicated, mesgRate sql.NullInt64
+		var isrExp, isrShrink, sendTime, queueTime, localTime, remoteTime, totalTime, netIdle, maxLag, uncleanLeadElec, failedFetch, failedProd sql.NullFloat64
+		err = rows.Scan(&ts, &partitions, &leaders, &actControllers, &offlinePart, &underReplicated, &bytesIn, &bytesOut, &mesgRate, &isrExp, &isrShrink, &sendTime, &queueTime, &remoteTime, &localTime, &totalTime, &netIdle, &maxLag, &uncleanLeadElec, &failedFetch, &failedProd)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "scanning rows in broker metrics table failed", err)
+			return
+		}
+
+		if partitions.Valid {
+			metrics.NumPartitions = int(partitions.Int64)
+		}
+		if leaders.Valid {
+			metrics.NumLeaders = int(leaders.Int64)
+		}
+		if actControllers.Valid {
+			metrics.NumActControllers = int(actControllers.Int64)
+		}
+		if offlinePart.Valid {
+			metrics.OfflinePartitions = int(offlinePart.Int64)
+		}
+		if underReplicated.Valid {
+			metrics.UnderReplicated = int(underReplicated.Int64)
+		}
+		metrics.ByteInRate = bytesIn
+		metrics.ByteOutRate =- bytesOut
+		if mesgRate.Valid {
+			metrics.MessageRate = int(mesgRate.Int64)
+		}
+		if isrExp.Valid {
+			metrics.IsrExpansionRate = isrExp.Float64
+		}
+		if isrShrink.Valid {
+			metrics.IsrShrinkRate = isrShrink.Float64
+		}
+		if sendTime.Valid {
+			metrics.ResponseTime = sendTime.Float64
+		}
+		if queueTime.Valid {
+			metrics.QueueTime = queueTime.Float64
+		}
+		if remoteTime.Valid {
+			metrics.RemoteTime = remoteTime.Float64
+		}
+		if localTime.Valid {
+			metrics.LocalTIme = localTime.Float64
+		}
+		if totalTime.Valid {
+			metrics.TotalReqTime = totalTime.Float64
+		}
+		if netIdle.Valid {
+			metrics.NetworkProcAvgIdlePercent = netIdle.Float64
+		}
+		if maxLag.Valid {
+			metrics.MaxLagBtwLeadAndRepl = maxLag.Float64
+		}
+		if uncleanLeadElec.Valid {
+			metrics.UncleanLeadElec = uncleanLeadElec.Float64
+		}
+		if failedFetch.Valid {
+			metrics.FailedFetchReqRate = failedFetch.Float64
+		}
+		if failedProd.Valid {
+			metrics.FailedProdReqRate = failedProd.Float64
+		}
+
+		brokerMetrics[ts] = metrics
+	}
+
+	err = rows.Err()
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred when scanning rows", err)
+		return
+	}
+	return
+}
+
+//func GetBrokerMetrics(ctx context.Context, host string) (byteRateIn, byteRateOut map[int64]int64, err error) {
+//
+//	byteRateIn = make(map[int64]int64)
+//	byteRateOut = make(map[int64]int64)
+//
+//	rows, err := Db.Query("SELECT bytes_in, UNIX_TIMESTAMP(created_at) FROM " + brokerBytesInTable + ` WHERE host="` + host + `" ORDER BY ID DESC LIMIT ` + strconv.Itoa(metricsLimit) + `;`)
 //	if err != nil {
 //		log.Logger.ErrorContext(ctx, "get broker bytes in query failed", err)
 //		return nil, nil, err
@@ -182,57 +274,3 @@ func DeleteBrokersOfCluster(ctx context.Context, clusterID int) (err error) {
 //
 //	return
 //}
-
-func GetBrokerMetrics(ctx context.Context, host string) (byteRateIn, byteRateOut map[int64]int64, err error) {
-
-	byteRateIn = make(map[int64]int64)
-	byteRateOut = make(map[int64]int64)
-
-	rows, err := Db.Query("SELECT bytes_in, UNIX_TIMESTAMP(created_at) FROM " + brokerBytesInTable + ` WHERE host="` + host + `" ORDER BY ID DESC LIMIT ` + strconv.Itoa(metricsLimit) + `;`)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "get broker bytes in query failed", err)
-		return nil, nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var byteRate, ts int64
-		err = rows.Scan(&byteRate, &ts)
-		if err != nil {
-			log.Logger.ErrorContext(ctx, "scanning rows in broker bytes in table failed", err)
-			return
-		}
-
-		byteRateIn[ts] = byteRate
-	}
-
-	err = rows.Err()
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "error occurred when scanning rows", err)
-		return
-	}
-
-	rows, err = Db.Query("SELECT bytes_out, UNIX_TIMESTAMP(created_at) FROM " + brokerBytesOutTable + ` WHERE host="` + host + `" ORDER BY ID DESC LIMIT ` + strconv.Itoa(metricsLimit) + `;`)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "get broker bytes out query failed", err)
-		return nil, nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var byteRate, ts int64
-		err = rows.Scan(&byteRate, &ts)
-		if err != nil {
-			log.Logger.ErrorContext(ctx, "scanning rows in broker bytes out table failed", err)
-			return
-		}
-
-		byteRateOut[ts] = byteRate
-	}
-
-	err = rows.Err()
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "error occurred when scanning rows", err)
-		return
-	}
-
-	return
-}

@@ -16,6 +16,21 @@ const (
 	partitions 			= "partitions"
 	leaders				= "leaders"
 	activeControllers	= "active_controllers"
+	offlinePartitions	= "offline_partitions"
+	underReplicated 	= "under_replicated"
+	messageRate 		= "message_rate"
+	isrExpansionRate	= "isr_expansion_rate"
+	isrShrinkRate		= "isr_shrink_rate"
+	networkProcIdlePerc = "network_processor_avg_idle_percent"
+	responseTime 		= "response_time"
+	queueTime			= "queue_time"
+	remoteTime 			= "remote_time"
+	localTime			= "local_time"
+	totalTime 			= "total_time"
+	maxLagBtwLeadAndRep = "max_message_lag_between_leader_and_replica"
+	uncleanLeadElec		= "unclean_leader_election"
+	failedFetchRate		= "failed_fetch_req_rate"
+	failedProdRate		= "failed_prod_req_rate"
 	bytesIn				= "bytes_in"
 	bytesOut			= "bytes_out"
 )
@@ -25,6 +40,21 @@ var (
 		partitions: "query?query=kafka_server_replicamanager_partitioncount&time=",
 		leaders: "query?query=kafka_server_replicamanager_leadercount&time=",
 		activeControllers: "query?query=kafka_controller_kafkacontroller_activecontrollercount&time=",
+		offlinePartitions: "query?query=kafka_controller_kafkacontroller_offlinepartitionscount&time=",
+		underReplicated: "query?query=kafka_server_replicamanager_underreplicatedpartitions&time=",
+		messageRate: "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_messagesin_total%5B1m%5D))&time=",
+		isrExpansionRate: "query?query=kafka_server_replicamanager_isrexpands_total&time=",
+		isrShrinkRate: "query?query=kafka_server_replicamanager_isrshrinks_total&time=",
+		networkProcIdlePerc: "kafka_network_socketserver_networkprocessoravgidlepercent",
+		responseTime: "query?query=sum%20by%20(instance)%20(rate(kafka_network_requestmetrics_responsesendtimems%5B1m%5D))&time=",
+		queueTime: "query?query=sum%20by%20(instance)%20(rate(kafka_network_requestmetrics_requestqueuetimems%5B1m%5D))&time=",
+		remoteTime: "query?query=sum%20by%20(instance)%20(rate(kafka_network_requestmetrics_remotetimems%5B1m%5D))&time=",
+		localTime: "query?query=sum%20by%20(instance)%20(rate(kafka_network_requestmetrics_localtimems%5B1m%5D))&time=",
+		totalTime: "query?query=sum%20by%20(instance)%20(rate(kafka_network_requestmetrics_totaltimems%5B1m%5D))&time=",
+		maxLagBtwLeadAndRep: "query?query=kafka_server_replicafetchermanager_minfetchrate&time=",
+		uncleanLeadElec: "query?query=kafka_controller_controllerstats_uncleanleaderelectionspersec&time=",
+		failedFetchRate: "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_failedfetchrequests_total%5B1m%5D))&time=",
+		failedProdRate: "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_failedproducerequests_total%5B1m%5D))&time=",
 		bytesIn: "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesin_total%5B1m%5D))&time=",
 		bytesOut: "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesout_total%5B1m%5D))&time=",
 	}
@@ -112,7 +142,6 @@ func Init() {
 //query topics, leaders, replicas, mesgs, insync stats of brokers
 //store all stats in broker table
 //send a halting channel as this runs in a separate go routine. do these for all such process in project
-//todo run each of these in go routines
 func SyncBrokerMetrics(ctx context.Context) {
 	currentTime := time.Now()
 	ts := int(currentTime.Unix())
@@ -124,34 +153,113 @@ func SyncBrokerMetrics(ctx context.Context) {
 	}
 
 	for key, query := range queryList {
-		req := promUrl + query + strconv.Itoa(ts)
-		switch key {
-		case partitions:
-			err := setIntMetrics(ctx, ts, req, database.UpdateBrokerPartitionCount)
-			if err != nil {
-				log.Logger.ErrorContext(ctx, "broker partition metrics failed")
+		go func() {
+			req := promUrl + query + strconv.Itoa(ts)
+			switch key {
+			case partitions:
+				err := setIntMetrics(ctx, ts, req, database.UpdateBrokerPartitionCount)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker partition metrics failed")
+				}
+			case leaders:
+				err := setIntMetrics(ctx, ts, req, database.UpdateBrokerLeaderCount)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker leader metrics failed")
+				}
+			case activeControllers:
+				err := setIntMetrics(ctx, ts, req, database.UpdateBrokerActControllerCount)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker active controller metrics failed")
+				}
+			case  offlinePartitions:
+				err := setIntMetrics(ctx, ts, req, database.UpdateBrokerOfflinePartCount)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker active controller metrics failed")
+				}
+			case underReplicated:
+				err := setIntMetrics(ctx, ts, req, database.UpdateBrokerUnderReplicatedCount)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker active controller metrics failed")
+				}
+			case messageRate:
+				err := setIntMetrics(ctx, ts, req, database.UpdateBrokerMessageRate)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker active controller metrics failed")
+				}
+			case isrExpansionRate:
+				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerIsrExpRate)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
+				}
+			case isrShrinkRate:
+				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerIsrShrinkRate)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
+				}
+			case networkProcIdlePerc:
+				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerNetworkIdlePercentage)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
+				}
+			case responseTime:
+				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerResponseTime)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
+				}
+			case queueTime:
+				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerQueueTime)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
+				}
+			case remoteTime:
+				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerRemoteTime)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
+				}
+			case localTime:
+				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerLocalTime)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
+				}
+			case totalTime:
+				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerTotalTime)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
+				}
+			case maxLagBtwLeadAndRep:
+				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerMaxLag)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
+				}
+			case uncleanLeadElec:
+				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerUncleanLeaderElection)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
+				}
+			case failedFetchRate:
+				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerFailedFetchRate)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
+				}
+			case failedProdRate:
+				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerFailedProdRate)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
+				}
+			case bytesIn:
+				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerByteInRate)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
+				}
+			case bytesOut:
+				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerByteOutRate)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker bytes out metrics failed")
+				}
 			}
-		case leaders:
-			err := setIntMetrics(ctx, ts, req, database.UpdateBrokerLeaderCount)
-			if err != nil {
-				log.Logger.ErrorContext(ctx, "broker leader metrics failed")
-			}
-		case activeControllers:
-			err := setIntMetrics(ctx, ts, req, database.UpdateBrokerActControllerCount)
-			if err != nil {
-				log.Logger.ErrorContext(ctx, "broker active controller metrics failed")
-			}
-		case bytesIn:
-			err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerByteInRate)
-			if err != nil {
-				log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
-			}
-		case bytesOut:
-			err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerByteOutRate)
-			if err != nil {
-				log.Logger.ErrorContext(ctx, "broker bytes out metrics failed")
-			}
-		}
+
+			//todo some float metrics are collected as int
+		}()
 	}
 	log.Logger.TraceContext(ctx, "updated metrics")
 }

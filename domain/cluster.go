@@ -36,13 +36,16 @@ type ClusterOverview struct {
 	ActiveController          string          		`json:"active_controller"`
 	ZookeeperAvail            bool            		`json:"zookeeper_avail"`
 	KafkaVersion              string          		`json:"kafka_version"`
-	Brokers                   []BrokerMetrics 		`json:"brokers"`
+	Brokers                   []BrokerOverview 		`json:"brokers"`
+}
+
+type BrokerOverview struct {
+	Host 						string					`json:"host"`
+	Port 						int						`json:"port"`
+	Metrics 					map[int64]BrokerMetrics	`json:"metrics"`
 }
 
 type BrokerMetrics struct {
-	Host 						string				`json:"host"`
-	Port 						int					`json:"port"`
-
 	NumPartitions				int					`json:"partitions"`
 	NumLeaders	 				int					`json:"leaders"`
 	NumActControllers			int					`json:"act_controllers"`
@@ -51,17 +54,19 @@ type BrokerMetrics struct {
 	MessageRate					int					`json:"message_rate"`
 	IsrExpansionRate			float64				`json:"isr_expansion_rate"`		//todo could be brought into a graph
 	IsrShrinkRate				float64				`json:"isr_shrink_rate"`		//todo could be brought into a graph
-	TimeToSendResProduce		float64				`json:"time_to_send_res_produce"` //todo could be brought into a graph
 	NetworkProcAvgIdlePercent	float64				`json:"network_proc_avg_idle_percent"`
-	ReqQueueWaitingTime			float64				`json:"req_queue_waiting_time"`
-	ReqWaitForFollowerProd		float64				`json:"req_wait_for_follower_prod"`
-	LeaderProcessTime			float64				`json:"leader_process_time"`
-	TotalReqTimeRate			float64				`json:"total_req_time_rate"`
+	ResponseTime				float64				`json:"response_time"` //todo could be brought into a graph
+	QueueTime					float64				`json:"queue_time"`
+	RemoteTime					float64				`json:"remote_time"`
+	LocalTIme					float64				`json:"local_time"`
+	TotalReqTime				float64				`json:"total_req_time"`
 	MaxLagBtwLeadAndRepl		float64				`json:"max_lag_btw_lead_and_repl"`
 	UncleanLeadElec				float64				`json:"unclean_lead_elec"`
 	FailedFetchReqRate			float64				`json:"failed_fetch_req_rate"`
 	FailedProdReqRate			float64				`json:"failed_prod_req_rate"`
+	ByteInRate 					int64				`json:"byte_in_rate"`
+	ByteOutRate					int64				`json:"byte_out_rate"`
 
-	ByteInRate 					map[int64]int64		`json:"byte_in_rate"`
-	ByteOutRate					map[int64]int64		`json:"byte_out_rate"`
+	//ByteInRate 					map[int64]int64		`json:"byte_in_rate"`
+	//ByteOutRate					map[int64]int64		`json:"byte_out_rate"`
 }
