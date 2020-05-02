@@ -72,7 +72,7 @@ func GetSecretInternal(ctx context.Context, OwnerId string, Provider string, Sec
 func GetAksSecret(ctx context.Context, OwnerId string, SecretName string) (result domain.DAOResult) {
 
 	query := "SELECT id, aksClientId, aksClientSecret, aksTenantId, aksSubscriptionId FROM " + cloudSecretTable +
-		" WHERE OwnerId = " + OwnerId + " AND Name = '" + SecretName + "';"
+		" WHERE OwnerId = " + OwnerId + " AND Provider = 'microsoft' AND Name = '" + SecretName + "';"
 
 	rows, err := Db.Query(query)
 
@@ -97,9 +97,9 @@ func GetAksSecret(ctx context.Context, OwnerId string, SecretName string) (resul
 
 func GetGkeSecret(ctx context.Context, OwnerId string, SecretName string) (result domain.DAOResult) {
 
-	query := "SELECT id, secretType, projectId, privateKeyId, privateKey, clientEmail, clientId, authUri, tokenUri," +
-		" authCertUrl, clientCertUrl, secretKeyId, secretAccessKey FROM " + cloudSecretTable + " WHERE OwnerId = " +
-		OwnerId + " AND Name = '" + SecretName + "';"
+	query := "SELECT id, gkeSecretType, gkeProjectId, gkePrivateKeyId, gkePrivateKey, gkeClientEmail, " +
+		"gkeClientId, gkeAuthUri, gkeTokenUri, gkeAuthCertUrl, gkeClientCertUrl FROM " + cloudSecretTable +
+		" WHERE OwnerId = " + OwnerId + " AND Provider = 'google' AND Name = '" + SecretName + "';"
 
 	rows, err := Db.Query(query)
 
@@ -127,8 +127,8 @@ func GetGkeSecret(ctx context.Context, OwnerId string, SecretName string) (resul
 
 func GetEksSecret(ctx context.Context, OwnerId string, SecretName string) (result domain.DAOResult) {
 
-	query := "SELECT id, accessKeyId, secretAccessKey FROM " + cloudSecretTable + " WHERE OwnerId = " +
-		OwnerId + " AND Name = '" + SecretName + "';"
+	query := "SELECT id, eksAccessKeyId, eksSecretAccessKey FROM " + cloudSecretTable + " WHERE OwnerId = " +
+		OwnerId + " AND Provider = 'amazon' AND Name = '" + SecretName + "';"
 
 	rows, err := Db.Query(query)
 
@@ -153,8 +153,10 @@ func GetEksSecret(ctx context.Context, OwnerId string, SecretName string) (resul
 
 func AddEksSecret(ctx context.Context, UserId string, SecretName string, Tags string,
 	EksAccessKeyId string, EksSecretAccessKey string) (err error) {
+	//TODO: validate req params
+	//TODO: call a stored procedure
 	query := "INSERT INTO kdb.cloud_secret (ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
-		" modifiedOn, activated, deleted, accessKeyId, secretAccessKey) VALUES(" +
+		" modifiedOn, activated, deleted, eksAccessKeyId, eksSecretAccessKey) VALUES(" +
 		UserId + ",'" + SecretName + "','" + "amazon" + "','" + Tags + "'," +
 		UserId + ", CURRENT_TIMESTAMP, '', '', 0, 0,'" + EksAccessKeyId + "','" + EksSecretAccessKey + "')"
 
@@ -172,7 +174,7 @@ func AddEksSecret(ctx context.Context, UserId string, SecretName string, Tags st
 
 func AddAksSecret(ctx context.Context, UserId string, SecretName string, Tags string,
 	AksClientId string, AksClientSecret string, AksTenantId string, AksSubscriptionId string) (err error) {
-
+	//TODO: validate req params
 	//TODO: call a stored procedure
 	query := "INSERT INTO kdb.cloud_secret (ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
 		" modifiedOn, activated, deleted, aksClientId, aksClientSecret, aksTenantId, aksSubscriptionId) VALUES(" +
@@ -196,14 +198,14 @@ func AddAksSecret(ctx context.Context, UserId string, SecretName string, Tags st
 func AddGkeSecret(ctx context.Context, UserId string, SecretName string, Tags string, GkeType string, GkeProjectId string,
 	GkePrivateKeyId string, GkePrivateKey string, GkeClientMail string, GkeClientId string, GkeAuthUri string,
 	GkeTokenUri string, GkeAuthCertUrl string, GkeClientCertUrl string) (err error) {
-
+	//TODO: validate req params
 	//TODO: call a stored procedure
 	query := "INSERT INTO kdb.cloud_secret (ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
-		" modifiedOn, activated, deleted, secretType, projectId, privateKeyId, privateKey, clientEmail, clientId," +
-		" authUri, tokenUri, authCertUrl, clientCertUrl) VALUES(" + UserId + ",'" + SecretName + "','" + "google" +
-		"','" + Tags + "'," + UserId + ", CURRENT_TIMESTAMP, '', '', 0, 0,'" + GkeType + "','" + GkeProjectId + "','" +
-		GkePrivateKeyId + "','" + GkePrivateKey + "','" + GkeClientMail + "','" + GkeClientId + "','" + GkeAuthUri +
-		"','" + GkeTokenUri + "','" + GkeAuthCertUrl + "','" + GkeClientCertUrl + "')"
+		" modifiedOn, activated, deleted, gkeSecretType, gkeProjectId, gkePrivateKeyId, gkePrivateKey, gkeClientEmail, " +
+		"gkeClientId, gkeAuthUri, gkeTokenUri, gkeAuthCertUrl, gkeClientCertUrl) VALUES(" + UserId + ",'" + SecretName +
+		"','" + "google" + "','" + Tags + "'," + UserId + ", CURRENT_TIMESTAMP, '', '', 0, 0,'" + GkeType + "','" +
+		GkeProjectId + "','" + GkePrivateKeyId + "','" + GkePrivateKey + "','" + GkeClientMail + "','" + GkeClientId +
+		"','" + GkeAuthUri + "','" + GkeTokenUri + "','" + GkeAuthCertUrl + "','" + GkeClientCertUrl + "')"
 
 	insert, err := Db.Query(query)
 
