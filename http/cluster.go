@@ -663,8 +663,8 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 
 					var brokerMetrics domain.BrokerMetrics
 					brokerMetrics.Host, brokerMetrics.Port = broker.Host, broker.Port
-					brokerMetrics.MesgInByteRate = bytesIn
-					brokerMetrics.MesgOutByteRate = bytesOut
+					brokerMetrics.ByteInRate = bytesIn
+					brokerMetrics.ByteOutRate = bytesOut
 
 					for key, val := range bytesIn {
 						totalBytesIn[key] += val
@@ -714,8 +714,8 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 				//}
 
 				//cluster.ClusterOverview.Brokers = clustBrokers
-				cluster.ClusterOverview.TotalMesgByteInRate = totalBytesIn
-				cluster.ClusterOverview.TotalMesgByteOutRate = totalBytesOut
+				cluster.ClusterOverview.TotalByteInRate = totalBytesIn
+				cluster.ClusterOverview.TotalByteOutRate = totalBytesOut
 				overviewRes = cluster.ClusterOverview
 				res.WriteHeader(http.StatusOK)
 				err = json.NewEncoder(res).Encode(overviewRes)

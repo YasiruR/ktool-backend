@@ -14,6 +14,7 @@ const (
 	userTable			= 	"user"
 	brokerBytesInTable	= 	"broker_bytes_in"
 	brokerBytesOutTable	= 	"broker_bytes_out"
+	brokerMetricsTable	= 	"broker_metrics"
 	metricsLimit 		= 	5
 )
 

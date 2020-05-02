@@ -44,7 +44,7 @@ func main() {
 		for {
 			select {
 			case <- metricsTicker.C:
-				prometheus.SyncBrokerData(syncContext)
+				prometheus.SyncBrokerMetrics(syncContext)
 			}
 		}
 	}()

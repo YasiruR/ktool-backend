@@ -7,7 +7,6 @@ import (
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/google/uuid"
 	traceable_context "github.com/pickme-go/traceable-context"
-	"github.com/rcrowley/go-metrics"
 	"strconv"
 )
 
@@ -82,9 +81,9 @@ func InitAllClusters() {
 		//to store all broker overview in a cluster
 		//clustClient.ClusterOverview.Brokers = make(map[int32]domain.BrokerMetrics)
 
-		//todo: unregister all these metrics on app termination and close brokers
-		clustClient.ClusterOverview.TotalIncomingRate = metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).RateMean()/1024
-		clustClient.ClusterOverview.TotalOutgoingRate = metrics.GetOrRegisterMeter("outgoing-byte-rate", config.MetricRegistry).RateMean()/1024
+		////todo: unregister all these metrics on app termination and close brokers
+		//clustClient.ClusterOverview.TotalIncomingRate = metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).RateMean()/1024
+		//clustClient.ClusterOverview.TotalOutgoingRate = metrics.GetOrRegisterMeter("outgoing-byte-rate", config.MetricRegistry).RateMean()/1024
 
 		//clustClient.ClusterOverview.TotalRequestRate = metrics.GetOrRegisterMeter("request-rate", config.MetricRegistry).RateMean()
 		//clustClient.ClusterOverview.TotalResponseRate = metrics.GetOrRegisterMeter("response-rate", config.MetricRegistry).RateMean()

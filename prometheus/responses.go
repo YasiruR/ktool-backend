@@ -1,6 +1,6 @@
 package prometheus
 
-type BrokerBytes struct {
+type BrokerMetricsResponse struct {
 	Status 		string 	`json:"status"`
 	Data   		struct {
 		ResultType 	string 	`json:"resultType"`

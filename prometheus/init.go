@@ -2,9 +2,32 @@ package prometheus
 
 import (
 	"context"
+	"github.com/YasiruR/ktool-backend/database"
+	"github.com/YasiruR/ktool-backend/kafka"
 	"github.com/YasiruR/ktool-backend/log"
 	"os"
 	"os/exec"
+	"strconv"
+	"time"
+)
+
+const (
+	promUrl 			= "http://localhost:9090/api/v1/"
+	partitions 			= "partitions"
+	leaders				= "leaders"
+	activeControllers	= "active_controllers"
+	bytesIn				= "bytes_in"
+	bytesOut			= "bytes_out"
+)
+
+var (
+	queryList = map[string]string{
+		partitions: "query?query=kafka_server_replicamanager_partitioncount&time=",
+		leaders: "query?query=kafka_server_replicamanager_leadercount&time=",
+		activeControllers: "query?query=kafka_controller_kafkacontroller_activecontrollercount&time=",
+		bytesIn: "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesin_total%5B1m%5D))&time=",
+		bytesOut: "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesout_total%5B1m%5D))&time=",
+	}
 )
 
 func Init() {
@@ -89,16 +112,67 @@ func Init() {
 //query topics, leaders, replicas, mesgs, insync stats of brokers
 //store all stats in broker table
 //send a halting channel as this runs in a separate go routine. do these for all such process in project
-func SyncBrokerData(ctx context.Context) {
-	err := setBrokerBytesIn(ctx)
+//todo run each of these in go routines
+func SyncBrokerMetrics(ctx context.Context) {
+	currentTime := time.Now()
+	ts := int(currentTime.Unix())
+
+	err := initDbRows(ctx, ts)
 	if err != nil {
-		log.Logger.ErrorContext(ctx, "setting broker bytes in failed")
+		log.Logger.ErrorContext(ctx, "broker metrics update failed")
+		return
 	}
 
-	err = setBrokerBytesOut(ctx)
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "setting broker bytes out failed")
+	for key, query := range queryList {
+		req := promUrl + query + strconv.Itoa(ts)
+		switch key {
+		case partitions:
+			err := setIntMetrics(ctx, ts, req, database.UpdateBrokerPartitionCount)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, "broker partition metrics failed")
+			}
+		case leaders:
+			err := setIntMetrics(ctx, ts, req, database.UpdateBrokerLeaderCount)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, "broker leader metrics failed")
+			}
+		case activeControllers:
+			err := setIntMetrics(ctx, ts, req, database.UpdateBrokerActControllerCount)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, "broker active controller metrics failed")
+			}
+		case bytesIn:
+			err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerByteInRate)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
+			}
+		case bytesOut:
+			err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerByteOutRate)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, "broker bytes out metrics failed")
+			}
+		}
 	}
-
 	log.Logger.TraceContext(ctx, "updated metrics")
+}
+
+func initDbRows(ctx context.Context, ts int) (err error) {
+	for _, cluster := range kafka.ClusterList {
+		if cluster.Available == true {
+			//get all brokers for the cluster
+			brokers, err := database.GetBrokersByClusterId(ctx, cluster.ClusterID)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, "getting brokers for cluster failed", cluster.ClusterID)
+				return err
+			}
+			for _, broker := range brokers {
+				err = database.AddMetricsRow(ctx, broker.Host, ts)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker metrics update failed")
+					return err
+				}
+			}
+		}
+	}
+	return
 }
