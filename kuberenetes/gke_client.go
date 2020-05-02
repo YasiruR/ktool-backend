@@ -1,10 +1,9 @@
-package main
+package kubernetes
 
 import (
 	container "cloud.google.com/go/container/apiv1"
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
@@ -14,18 +13,18 @@ import (
 
 // todo: maintain a map of credentials
 
-func main() {
-	ctx := context.Background()
-	res, err := ListClusters("1")
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "Could not retrieve cluster list")
-		return
-	}
-	log.Logger.InfoContext(ctx, "Successfully retrieved cluster list from GKE")
-	fmt.Println(res)
-}
+//func main() {
+//	ctx := context.Background()
+//	res, err := ListGkeClusters("1")
+//	if err != nil {
+//		log.Logger.ErrorContext(ctx, "Could not retrieve cluster list")
+//		return
+//	}
+//	log.Logger.InfoContext(ctx, "Successfully retrieved cluster list from GKE")
+//	fmt.Println(res)
+//}
 
-func ListClusters(userId string) (*containerpb.ListClustersResponse, error) {
+func ListGkeClusters(userId string) (*containerpb.ListClustersResponse, error) {
 	ctx := context.Background()
 	b, cred, err := GetGkeCredentialsForUser(userId)
 	if err != nil {
@@ -47,24 +46,23 @@ func ListClusters(userId string) (*containerpb.ListClustersResponse, error) {
 
 func GetGkeCredentialsForUser(userId string) ([]byte, domain.GkeSecret, error) {
 	ctx := context.Background()
-	secretDao := database.GetAllSecretsByUserInternal(ctx, userId, `Google`)
+	secretDao := database.GetSecretInternal(ctx, userId, `Google`, `gke-ktool`)
 
 	if err := secretDao.Error; err != nil {
 		log.Logger.ErrorContext(ctx, "Error occurred while fetching eks secret for client %s", userId)
 		return nil, domain.GkeSecret{}, err
 	}
-	firstSecret := secretDao.SecretList[1]
 	cred := domain.GkeSecret{
-		Type:              firstSecret.Type,
-		ProjectId:         firstSecret.ProjectId,
-		PrivateKeyId:      firstSecret.PrivateKeyId,
-		PrivateKey:        firstSecret.PrivateKey,
-		ClientMail:        firstSecret.ClientMail,
-		ClientId:          firstSecret.ClientId,
-		AuthUri:           firstSecret.AuthUri,
-		TokenUri:          firstSecret.TokenUri,
-		AuthX509CertUrl:   firstSecret.AuthX509CertUrl,
-		ClientX509CertUrl: firstSecret.ClientX509CertUrl,
+		Type:              secretDao.Secret.GkeType,
+		ProjectId:         secretDao.Secret.GkeProjectId,
+		PrivateKeyId:      secretDao.Secret.GkePrivateKeyId,
+		PrivateKey:        secretDao.Secret.GkePrivateKey,
+		ClientMail:        secretDao.Secret.GkeClientMail,
+		ClientId:          secretDao.Secret.GkeClientId,
+		AuthUri:           secretDao.Secret.GkeAuthUri,
+		TokenUri:          secretDao.Secret.GkeTokenUri,
+		AuthX509CertUrl:   secretDao.Secret.GkeAuthX509CertUrl,
+		ClientX509CertUrl: secretDao.Secret.GkeClientX509CertUrl,
 	}
 	bytes, err := json.Marshal(&cred)
 	if err != nil {

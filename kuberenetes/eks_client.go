@@ -1,4 +1,4 @@
-package main
+package kubernetes
 
 import (
 	"context"
@@ -54,11 +54,11 @@ func main() {
 	fmt.Println(result)
 }
 
-func ListClusers(userID string) eks.ListClustersOutput {
+func ListEksClusers(userID string) eks.ListClustersOutput {
 	region := "us-east-2" //TODO: how to get this?
 	cred, err := GetEksCredentialsForUser(userID)
 	if err != nil {
-		log.Logger.ErrorContext(context.Background(), "Error occurred while fetching eks secret for client %s", userId)
+		log.Logger.ErrorContext(context.Background(), "Error occurred while fetching eks secret for client %s", userID)
 		return eks.ListClustersOutput{}
 	}
 	config := aws.Config{
@@ -96,13 +96,12 @@ func ListClusers(userID string) eks.ListClustersOutput {
 
 func GetEksCredentialsForUser(userId string) (*credentials.Credentials, error) {
 	ctx := context.Background()
-	secretDao := database.GetAllSecretsByUserInternal(ctx, userId, `Amazon`)
+	secretDao := database.GetSecretInternal(ctx, userId, `Amazon`, `aws-ktool`)
 
 	if err := secretDao.Error; err != nil {
 		log.Logger.ErrorContext(ctx, "Error occurred while fetching eks secret for client %s", userId)
 		return &credentials.Credentials{}, err
 	}
-	secret := &secretDao.SecretList[0]
-	cred := credentials.NewStaticCredentials(secret.AccessKeyId, secret.SecretAccessKey, "")
+	cred := credentials.NewStaticCredentials(secretDao.Secret.EksAccessKeyId, secretDao.Secret.EksSecretAccessKey, "")
 	return cred, nil
 }

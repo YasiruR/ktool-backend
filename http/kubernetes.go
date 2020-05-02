@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/YasiruR/ktool-backend/database"
-	"github.com/YasiruR/ktool-backend/kuberenetes"
+	kubernetes "github.com/YasiruR/ktool-backend/kuberenetes"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/google/uuid"
 	traceableContext "github.com/pickme-go/traceable-context"
@@ -38,16 +38,16 @@ func handleGetAllGkeKubClusters(res http.ResponseWriter, req *http.Request) {
 	}
 
 	UserId := string(content)
-	//err = json.Unmarshal(content, &UserId)
-	//if err != nil {
-	//	log.Logger.ErrorContext(ctx, "unmarshal error", err)
-	//	res.WriteHeader(http.StatusBadRequest)
-	//	return
-	//}
+	err = json.Unmarshal(content, &UserId)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "unmarshal error", err)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	fmt.Printf("List Kub clusters request received %s\n", UserId)
 	// todo: replace with external call
-	result, err := kuberenetes.ListClusters(UserId)
+	result, err := kubernetes.ListGkeClusters(UserId)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "Could not retrieve cluster list")
 		res.WriteHeader(http.StatusInternalServerError)

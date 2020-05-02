@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/YasiruR/ktool-backend/database"
+	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/google/uuid"
 	traceableContext "github.com/pickme-go/traceable-context"
@@ -14,7 +15,7 @@ import (
 
 func handleAddSecret(res http.ResponseWriter, req *http.Request) {
 	ctx := traceableContext.WithUUID(uuid.New())
-	var addSecretRequest AddSecretRequest
+	var addSecretRequest domain.CloudSecret
 
 	//user validation by token header
 	token := req.Header.Get("Authorization")
@@ -45,7 +46,7 @@ func handleAddSecret(res http.ResponseWriter, req *http.Request) {
 	}
 
 	fmt.Println("Add secret request received")
-	result := database.AddSecret(ctx, addSecretRequest.UserId, addSecretRequest.SecretName, addSecretRequest.ServiceProvider, addSecretRequest.Tags, addSecretRequest.GkeType, addSecretRequest.GkeProjectId, addSecretRequest.GkePrivateKeyId, addSecretRequest.GkePrivateKey, addSecretRequest.GkeClientMail, addSecretRequest.GkeClientId, addSecretRequest.GkeAuthUri, addSecretRequest.GkeTokenUri, addSecretRequest.GkeAuthCertUrl, addSecretRequest.GkeClientCertUrl)
+	result := database.AddSecret(ctx, addSecretRequest)
 	res.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(res).Encode(&result)
 	if err != nil {
