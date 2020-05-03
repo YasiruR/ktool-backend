@@ -33,6 +33,7 @@ const (
 	failedProdRate		= "failed_prod_req_rate"
 	bytesIn				= "bytes_in"
 	bytesOut			= "bytes_out"
+	totalMessages 		= "total_messages"
 )
 
 var (
@@ -45,7 +46,7 @@ var (
 		messageRate: "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_messagesin_total%5B1m%5D))&time=",
 		isrExpansionRate: "query?query=kafka_server_replicamanager_isrexpands_total&time=",
 		isrShrinkRate: "query?query=kafka_server_replicamanager_isrshrinks_total&time=",
-		networkProcIdlePerc: "kafka_network_socketserver_networkprocessoravgidlepercent",
+		networkProcIdlePerc: "query?query=kafka_network_socketserver_networkprocessoravgidlepercent&time=",
 		responseTime: "query?query=sum%20by%20(instance)%20(rate(kafka_network_requestmetrics_responsesendtimems%5B1m%5D))&time=",
 		queueTime: "query?query=sum%20by%20(instance)%20(rate(kafka_network_requestmetrics_requestqueuetimems%5B1m%5D))&time=",
 		remoteTime: "query?query=sum%20by%20(instance)%20(rate(kafka_network_requestmetrics_remotetimems%5B1m%5D))&time=",
@@ -57,6 +58,7 @@ var (
 		failedProdRate: "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_failedproducerequests_total%5B1m%5D))&time=",
 		bytesIn: "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesin_total%5B1m%5D))&time=",
 		bytesOut: "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesout_total%5B1m%5D))&time=",
+		totalMessages: "query?query=sum%20by%20(instance)%20(kafka_server_brokertopicmetrics_messagesin_total)&time=",
 	}
 )
 
@@ -153,114 +155,158 @@ func SyncBrokerMetrics(ctx context.Context) {
 	}
 
 	for key, query := range queryList {
-		go func() {
-			req := promUrl + query + strconv.Itoa(ts)
-			switch key {
-			case partitions:
+		req := promUrl + query + strconv.Itoa(ts)
+		switch key {
+		case partitions:
+			go func() {
 				err := setIntMetrics(ctx, ts, req, database.UpdateBrokerPartitionCount)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker partition metrics failed")
 				}
-			case leaders:
+			}()
+		case leaders:
+			go func() {
 				err := setIntMetrics(ctx, ts, req, database.UpdateBrokerLeaderCount)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker leader metrics failed")
 				}
-			case activeControllers:
+			}()
+		case activeControllers:
+			go func() {
 				err := setIntMetrics(ctx, ts, req, database.UpdateBrokerActControllerCount)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker active controller metrics failed")
 				}
-			case  offlinePartitions:
+			}()
+		case  offlinePartitions:
+			go func() {
 				err := setIntMetrics(ctx, ts, req, database.UpdateBrokerOfflinePartCount)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker active controller metrics failed")
 				}
-			case underReplicated:
+			}()
+		case underReplicated:
+			go func() {
 				err := setIntMetrics(ctx, ts, req, database.UpdateBrokerUnderReplicatedCount)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker active controller metrics failed")
 				}
-			case messageRate:
-				err := setIntMetrics(ctx, ts, req, database.UpdateBrokerMessageRate)
+			}()
+		case messageRate:
+			go func() {
+				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerMessageRate)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker active controller metrics failed")
 				}
-			case isrExpansionRate:
+			}()
+		case isrExpansionRate:
+			go func() {
 				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerIsrExpRate)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
 				}
-			case isrShrinkRate:
+			}()
+		case isrShrinkRate:
+			go func() {
 				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerIsrShrinkRate)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
 				}
-			case networkProcIdlePerc:
+			}()
+		case networkProcIdlePerc:
+			go func() {
 				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerNetworkIdlePercentage)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
 				}
-			case responseTime:
+			}()
+		case responseTime:
+			go func() {
 				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerResponseTime)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
 				}
-			case queueTime:
+			}()
+		case queueTime:
+			go func() {
 				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerQueueTime)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
 				}
-			case remoteTime:
+			}()
+		case remoteTime:
+			go func() {
 				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerRemoteTime)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
 				}
-			case localTime:
+			}()
+		case localTime:
+			go func() {
 				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerLocalTime)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
 				}
-			case totalTime:
+			}()
+		case totalTime:
+			go func() {
 				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerTotalTime)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
 				}
-			case maxLagBtwLeadAndRep:
+			}()
+		case maxLagBtwLeadAndRep:
+			go func() {
 				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerMaxLag)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
 				}
-			case uncleanLeadElec:
+			}()
+		case uncleanLeadElec:
+			go func() {
 				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerUncleanLeaderElection)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
 				}
-			case failedFetchRate:
+			}()
+		case failedFetchRate:
+			go func() {
 				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerFailedFetchRate)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
 				}
-			case failedProdRate:
+			}()
+		case failedProdRate:
+			go func() {
 				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerFailedProdRate)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
 				}
-			case bytesIn:
+			}()
+		case bytesIn:
+			go func() {
 				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerByteInRate)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker bytes in metrics failed")
 				}
-			case bytesOut:
+			}()
+		case bytesOut:
+			go func() {
 				err := setFloatMetrics(ctx, ts, req, database.UpdateBrokerByteOutRate)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker bytes out metrics failed")
 				}
-			}
-
-			//todo some float metrics are collected as int
-		}()
+			}()
+		case totalMessages:
+			go func() {
+				err := setIntMetrics(ctx, ts, req, database.UpdateBrokerTotalMessages)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker total message metrics failed")
+				}
+			}()
+		}
 	}
+	//todo some float metrics are collected as int
 	log.Logger.TraceContext(ctx, "updated metrics")
 }
 

@@ -78,44 +78,6 @@ func InitAllClusters() {
 			continue
 		}
 
-		//to store all broker overview in a cluster
-		//clustClient.ClusterOverview.Brokers = make(map[int32]domain.BrokerMetrics)
-
-		////todo: unregister all these metrics on app termination and close brokers
-		//clustClient.ClusterOverview.TotalIncomingRate = metrics.GetOrRegisterMeter("incoming-byte-rate", config.MetricRegistry).RateMean()/1024
-		//clustClient.ClusterOverview.TotalOutgoingRate = metrics.GetOrRegisterMeter("outgoing-byte-rate", config.MetricRegistry).RateMean()/1024
-
-		//clustClient.ClusterOverview.TotalRequestRate = metrics.GetOrRegisterMeter("request-rate", config.MetricRegistry).RateMean()
-		//clustClient.ClusterOverview.TotalResponseRate = metrics.GetOrRegisterMeter("response-rate", config.MetricRegistry).RateMean()
-		//
-		////user GetOrRegister in metrics library if this does not work, as used in sarama broker
-		//clustClient.ClusterOverview.TotalRequestLatency = metrics.GetOrRegisterHistogram("request-latency-in-ms", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Mean()
-		//clustClient.ClusterOverview.TotalRequestSize = metrics.GetOrRegisterHistogram("request-size", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Mean()
-		//clustClient.ClusterOverview.TotalResponseSize = metrics.GetOrRegisterHistogram("response-size", config.MetricRegistry, metrics.NewExpDecaySample(metricsReservoirSize, metricsAlphaFactor)).Mean()
-
-		////open broker connections to establish metrics along with config
-		//for _, broker := range saramaBrokers {
-		//	//check if broker is already connected
-		//	connected, err := broker.Connected()
-		//	if err != nil {
-		//		log.Logger.ErrorContext(ctx, err,"checking broker connection with sarama failed", broker.ID(), cluster.ClusterName)
-		//		clustClient.Available = false
-		//		tempClustList = append(tempClustList, clustClient)
-		//		continue
-		//	}
-		//
-		//	if !connected {
-		//		err = broker.Open(config)
-		//		if err != nil {
-		//			log.Logger.ErrorContext(ctx, err,"connecting broker to sarama failed", broker.ID(), cluster.ClusterName)
-		//			clustClient.Available = false
-		//			tempClustList = append(tempClustList, clustClient)
-		//			continue
-		//		}
-		//		log.Logger.TraceContext(ctx, "new broker connection opened since it was not connected previously", broker.Addr())
-		//	}
-		//}
-
 		topics, err := GetTopicList(ctx, saramaConsumer)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "topic list could not be fetched", cluster.ClusterName)
@@ -124,7 +86,7 @@ func InitAllClusters() {
 			continue
 		}
 
-		var numOfPartitions, numOfReplicas, numOfOfflineRepl, numOfInSyncRepl, numOfOnlinePartitions int
+		var numOfLeaders, numOfReplicas, numOfOfflineRepl, numOfInSyncRepl, numOfOnlinePartitions int
 		for _, topic := range topics {
 			var clusterTopic domain.KTopic
 			clusterTopic.Name = topic
@@ -135,7 +97,7 @@ func InitAllClusters() {
 				tempClustList = append(ClusterList, clustClient)
 				continue clusterLoop
 			}
-			numOfPartitions += len(clusterTopic.Partitions)
+			numOfLeaders += len(clusterTopic.Partitions)
 			clustClient.Topics = append(clustClient.Topics, clusterTopic)
 
 			onlineReplicas, err := client.WritablePartitions(topic)
@@ -180,12 +142,12 @@ func InitAllClusters() {
 		}
 
 		//updating all collected broker metrics to the cluster
-		clustClient.ClusterOverview.TotalPartitions = numOfPartitions
+		clustClient.ClusterOverview.TotalLeaders = numOfLeaders
 		clustClient.ClusterOverview.TotalTopics = len(topics)
 		clustClient.ClusterOverview.TotalReplicas = numOfReplicas
 		clustClient.ClusterOverview.UnderReplicatedPartitions = numOfReplicas - numOfInSyncRepl
 		clustClient.ClusterOverview.OfflineReplicas = numOfOfflineRepl
-		clustClient.ClusterOverview.OfflinePartitions = numOfPartitions - numOfOnlinePartitions
+		clustClient.ClusterOverview.OfflinePartitions = numOfLeaders - numOfOnlinePartitions
 
 		clustClient.Consumer = saramaConsumer
 		clustClient.Client = client

@@ -49,5 +49,17 @@ func main() {
 		}
 	}()
 
+	//run metrics clean job
+	cleanTicker := time.NewTicker(time.Duration(service.Cfg.MetricsCleanInterval) * time.Second)
+	cleanContext := traceable_context.WithUUID(uuid.New())
+	go func() {
+		for {
+			select {
+			case <- cleanTicker.C:
+				database.CleanMetricsTable(cleanContext)
+			}
+		}
+	}()
+
 	http.InitRouter()
 }

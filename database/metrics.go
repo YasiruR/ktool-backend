@@ -17,7 +17,14 @@ func AddMetricsRow(ctx context.Context, host string, ts int) (err error) {
 	return nil
 }
 
-//todo run a separate job to clean these broker metrics table
+func CleanMetricsTable(ctx context.Context) {
+	query := "DELETE FROM " + brokerMetricsTable + " WHERE id NOT IN (SELECT id FROM (SELECT id FROM " + brokerMetricsTable + " ORDER BY id DESC LIMIT " + strconv.Itoa(metricTableMaxSize) + ") subQuery);"
+	_, err := Db.Exec(query)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, err,"cleaning broker metrics table failed")
+	}
+}
+
 func UpdateBrokerByteInRate(ctx context.Context, bytesIn float64, host string, ts int) (err error) {
 	query := "UPDATE " + brokerMetricsTable + " SET bytes_in=" + strconv.FormatFloat(bytesIn, 'f', -1, 64) + " WHERE timestamp=" + strconv.Itoa(ts) + ` AND host="` + host + `";`
 	_, err = Db.Exec(query)
@@ -88,8 +95,8 @@ func UpdateBrokerUnderReplicatedCount(ctx context.Context, count int, host strin
 	return nil
 }
 
-func UpdateBrokerMessageRate(ctx context.Context, count int, host string, ts int) (err error) {
-	query := "UPDATE " + brokerMetricsTable + " SET mesg_rate=" + strconv.Itoa(count) + " WHERE timestamp=" + strconv.Itoa(ts) + ` AND host="` + host + `";`
+func UpdateBrokerMessageRate(ctx context.Context, rate float64, host string, ts int) (err error) {
+	query := "UPDATE " + brokerMetricsTable + " SET mesg_rate=" + strconv.FormatFloat(rate, 'f', -1, 64) + " WHERE timestamp=" + strconv.Itoa(ts) + ` AND host="` + host + `";`
 	_, err = Db.Exec(query)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, fmt.Sprintf("message rate update to %s table failed", brokerMetricsTable), err)
@@ -119,7 +126,7 @@ func UpdateBrokerIsrShrinkRate(ctx context.Context, count float64, host string, 
 }
 
 func UpdateBrokerNetworkIdlePercentage(ctx context.Context, count float64, host string, ts int) (err error) {
-	query := "UPDATE " + brokerMetricsTable + " SET net_proc_avg_idle_perc=" + strconv.FormatFloat(count, 'f', -1, 64) + " WHERE timestamp=" + strconv.Itoa(ts) + ` AND host="` + host + `";`
+	query := "UPDATE " + brokerMetricsTable + " SET net_proc_avg_idle_perc=" + strconv.FormatFloat(count*100.0, 'f', -1, 64) + " WHERE timestamp=" + strconv.Itoa(ts) + ` AND host="` + host + `";`
 	_, err = Db.Exec(query)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, fmt.Sprintf("net_proc_avg_idle_perc update to %s table failed", brokerMetricsTable), err)
@@ -213,6 +220,16 @@ func UpdateBrokerFailedProdRate(ctx context.Context, value float64, host string,
 	_, err = Db.Exec(query)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, fmt.Sprintf("failed produce rate election update to %s table failed", brokerMetricsTable), err)
+		return err
+	}
+	return nil
+}
+
+func UpdateBrokerTotalMessages(ctx context.Context, count int, host string, ts int) (err error) {
+	query := "UPDATE " + brokerMetricsTable + " SET total_messages=" + strconv.Itoa(count) + " WHERE timestamp=" + strconv.Itoa(ts) + ` AND host="` + host + `";`
+	_, err = Db.Exec(query)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("total message update to %s table failed", brokerMetricsTable), err)
 		return err
 	}
 	return nil
