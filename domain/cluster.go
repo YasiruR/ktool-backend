@@ -52,10 +52,10 @@ type BrokerMetrics struct {
 	OfflinePartitions			int					`json:"offline_partitions"`
 	UnderReplicated				int					`json:"under_replicated"`
 	MessageRate					float64				`json:"message_rate"`
-	IsrExpansionRate			float64				`json:"isr_expansion_rate"`		//todo could be brought into a graph
-	IsrShrinkRate				float64				`json:"isr_shrink_rate"`		//todo could be brought into a graph
+	IsrExpansionRate			float64				`json:"isr_expansion_rate"`
+	IsrShrinkRate				float64				`json:"isr_shrink_rate"`
 	NetworkProcAvgIdlePercent	float64				`json:"network_proc_avg_idle_percent"`
-	ResponseTime				float64				`json:"response_time"` //todo could be brought into a graph
+	ResponseTime				float64				`json:"response_time"`
 	QueueTime					float64				`json:"queue_time"`
 	RemoteTime					float64				`json:"remote_time"`
 	LocalTIme					float64				`json:"local_time"`

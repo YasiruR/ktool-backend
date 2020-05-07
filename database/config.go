@@ -12,6 +12,7 @@ type Config struct {
 	Port 			int			`yaml:"port"`
 	Username 		string 		`yaml:"username"`
 	Password 		string 		`yaml:"password"`
+	MetricsMaxSize	int			`yaml:"metricsTableMaxSize"`
 }
 
 var Cfg = new(Config)

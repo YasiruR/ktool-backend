@@ -14,7 +14,6 @@ const (
 	userTable			= 	"user"
 	brokerMetricsTable	= 	"broker_metrics"
 	metricsLimit 		= 	5
-	metricTableMaxSize	= 	1000
 )
 
 var Db *sql.DB

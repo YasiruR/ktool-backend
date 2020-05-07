@@ -18,7 +18,7 @@ func AddMetricsRow(ctx context.Context, host string, ts int) (err error) {
 }
 
 func CleanMetricsTable(ctx context.Context) {
-	query := "DELETE FROM " + brokerMetricsTable + " WHERE id NOT IN (SELECT id FROM (SELECT id FROM " + brokerMetricsTable + " ORDER BY id DESC LIMIT " + strconv.Itoa(metricTableMaxSize) + ") subQuery);"
+	query := "DELETE FROM " + brokerMetricsTable + " WHERE id NOT IN (SELECT id FROM (SELECT id FROM " + brokerMetricsTable + " ORDER BY id DESC LIMIT " + strconv.Itoa(Cfg.MetricsMaxSize) + ") subQuery);"
 	_, err := Db.Exec(query)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, err,"cleaning broker metrics table failed")

@@ -163,7 +163,7 @@ func handleLogout(res http.ResponseWriter, req *http.Request) {
 	}
 
 	token := strings.TrimSpace(strings.Split(tokenHeader, "Bearer")[1])
-	_, ok, err := database.ValidateUserByToken(ctx, token)
+	userID, ok, err := database.ValidateUserByToken(ctx, token)
 	if !ok {
 		log.Logger.DebugContext(ctx, "invalid user", token)
 		res.WriteHeader(http.StatusUnauthorized)
@@ -175,14 +175,26 @@ func handleLogout(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	user, _, err := database.GetUserByToken(ctx, token)
+	user, ok := domain.LoggedInUserMap[userID]
+	if ok {
+		//deleting all the connected clusters from user list
+		user.ConnectedClusters = []domain.KCluster{}
+		domain.LoggedInUserMap[userID] = user
+		log.Logger.DebugContext(ctx, "removed all connected clusters for the user", userID)
+	} else {
+		log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", userID)
+		res.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	username, _, err := database.GetUserByToken(ctx, token)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "logout request failed")
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	err = database.UpdateToken(ctx, user, "")
+	err = database.UpdateToken(ctx, username, "")
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "logout request failed")
 		res.WriteHeader(http.StatusInternalServerError)

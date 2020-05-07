@@ -63,12 +63,14 @@ var (
 )
 
 func Init() {
-	//todo install docker if it does not exist
+	//docker will anyway be available since the tool will be deployed as a docker container
 	//check if docker prometheus is installed already
 	checkCmd := exec.Command("/bin/sh", "-c", "sudo docker images | grep prom/prometheus")
 	promCheck, err := checkCmd.Output()
 	if err != nil {
-		log.Logger.Fatal(err,"looking for pre-installations of prometheus docker images failed")
+		if err.Error() != "exit status 1" && string(promCheck) != "" {
+			log.Logger.Fatal(err,"looking for pre-installations of prometheus docker images failed")
+		}
 	}
 
 	//if does not exist, install it
@@ -306,7 +308,6 @@ func SyncBrokerMetrics(ctx context.Context) {
 			}()
 		}
 	}
-	//todo some float metrics are collected as int
 	log.Logger.TraceContext(ctx, "updated metrics")
 }
 
