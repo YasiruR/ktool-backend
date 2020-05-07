@@ -48,7 +48,6 @@ type CloudSecret struct {
 	ID              int
 	Name            string
 	OwnerId         string
-	Provider        string
 	CreatedOn       string
 	CreatedBy       string
 	ModifiedOn      string
@@ -57,24 +56,42 @@ type CloudSecret struct {
 	Deleted         bool
 	Tags            string
 	// gke specific
-	GkeType              string `json:"gke_type"`
-	GkeProjectId         string `json:"gke_project_id"`
-	GkePrivateKeyId      string `json:"gke_private_key_id"`
-	GkePrivateKey        string `json:"gke_private_key"`
-	GkeClientMail        string `json:"gke_client_email"`
-	GkeClientId          string `json:"gke_client_id"`
-	GkeAuthUri           string `json:"gke_auth_uri"`
-	GkeTokenUri          string `json:"gke_token_uri"`
-	GkeAuthX509CertUrl   string `json:"gke_auth_provider_x509_cert_url"`
-	GkeClientX509CertUrl string `json:"gke_client_x509_cert_url"`
+	GkeType              string
+	GkeProjectId         string
+	GkePrivateKeyId      string
+	GkePrivateKey        string
+	GkeClientMail        string
+	GkeClientId          string
+	GkeAuthUri           string
+	GkeTokenUri          string
+	GkeAuthX509CertUrl   string
+	GkeClientX509CertUrl string
 	// aws specific
-	EksAccessKeyId     string `json:"eks_access_key_id"`
-	EksSecretAccessKey string `json:"eks_secret_access_key"`
+	EksAccessKeyId     string
+	EksSecretAccessKey string
 	// azure specific
-	AksClientId       string `json:"aks_client_id"`
-	AksClientSecret   string `json:"aks_client_secret"`
-	AksTenantId       string `json:"aks_tenant_id"`
-	AksSubscriptionId string `json:"aks_subscription_id"`
+	AksClientId       string
+	AksClientSecret   string
+	AksTenantId       string
+	AksSubscriptionId string
+	//GkeType              string `json:"gke_type"`
+	//GkeProjectId         string `json:"gke_project_id"`
+	//GkePrivateKeyId      string `json:"gke_private_key_id"`
+	//GkePrivateKey        string `json:"gke_private_key"`
+	//GkeClientMail        string `json:"gke_client_email"`
+	//GkeClientId          string `json:"gke_client_id"`
+	//GkeAuthUri           string `json:"gke_auth_uri"`
+	//GkeTokenUri          string `json:"gke_token_uri"`
+	//GkeAuthX509CertUrl   string `json:"gke_auth_provider_x509_cert_url"`
+	//GkeClientX509CertUrl string `json:"gke_client_x509_cert_url"`
+	//// aws specific
+	//EksAccessKeyId     string `json:"eks_access_key_id"`
+	//EksSecretAccessKey string `json:"eks_secret_access_key"`
+	//// azure specific
+	//AksClientId       string `json:"aks_client_id"`
+	//AksClientSecret   string `json:"aks_client_secret"`
+	//AksTenantId       string `json:"aks_tenant_id"`
+	//AksSubscriptionId string `json:"aks_subscription_id"`
 }
 
 type Result struct {

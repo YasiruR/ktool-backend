@@ -35,8 +35,10 @@ func InitRouter() {
 	router.HandleFunc("/brokers", handleGetBrokersForCluster).Methods("GET")
 
 	router.HandleFunc("/secret/create", handleAddSecret).Methods("POST")
-	router.HandleFunc("/secret/get", handleGetAllSecrets).Methods("POST")
+	router.HandleFunc("/secret/get/all", handleGetAllSecrets).Methods("GET")
+	router.HandleFunc("/secret/get", handleGetSecret).Methods("GET")
 	router.HandleFunc("/secret/delete", handleDeleteSecret).Methods("DELETE")
+	router.HandleFunc("/secret/update", handleUpdateSecret).Methods("PATCH")
 
 	router.HandleFunc("/kubernetes/gke/list", handleGetAllGkeKubClusters).Methods("POST")
 

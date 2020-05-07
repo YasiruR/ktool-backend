@@ -46,11 +46,11 @@ func handleAddSecret(res http.ResponseWriter, req *http.Request) {
 	}
 
 	fmt.Println("Add secret request received")
-	result := database.AddSecret(ctx, addSecretRequest)
+	result := database.AddSecret(ctx, &addSecretRequest)
 	res.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(res).Encode(&result)
 	if err != nil {
-		res.WriteHeader(http.StatusOK)
+		res.WriteHeader(http.StatusInternalServerError)
 		log.Logger.ErrorContext(ctx, "response json conversion failed", addSecretRequest.UserId)
 	}
 	log.Logger.TraceContext(ctx, "add secret request successful", addSecretRequest.UserId)
@@ -58,7 +58,120 @@ func handleAddSecret(res http.ResponseWriter, req *http.Request) {
 
 func handleGetAllSecrets(res http.ResponseWriter, req *http.Request) {
 	ctx := traceableContext.WithUUID(uuid.New())
-	var searchSecretRequest SearchSecretsRequest
+	//var searchSecretRequest SearchSecretsRequest
+
+	//user validation by token header
+	token := req.Header.Get("Authorization")
+	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
+	if !ok {
+		log.Logger.DebugContext(ctx, "invalid user", token)
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	OwnerId := req.FormValue("owner_id")
+	ServiceProvider := req.FormValue("service_provider")
+
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "unmarshal error", err)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	result := database.GetAllSecretsByUserExternal(ctx, OwnerId, ServiceProvider)
+
+	res.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(res).Encode(&result)
+	if err != nil {
+		res.WriteHeader(http.StatusOK)
+		log.Logger.ErrorContext(ctx, "response json conversion failed", OwnerId)
+	}
+	log.Logger.TraceContext(ctx, "search secret request successful", OwnerId)
+}
+
+func handleGetSecret(res http.ResponseWriter, req *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+	//var searchSecretRequest SearchSecretsRequest
+
+	//user validation by token header
+	token := req.Header.Get("Authorization")
+	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
+	if !ok {
+		log.Logger.DebugContext(ctx, "invalid user", token)
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	//Name := req.FormValue("name")
+	//OwnerId := req.FormValue("owner_id")
+	Provider := req.FormValue("service_provider")
+	SecretId := req.FormValue("secret_id")
+
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "unmarshal error", err)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//result := database.GetSecretInternal(ctx, Name, OwnerId, Provider)
+	result := database.GetSecretExternal(ctx, SecretId, Provider)
+
+	res.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(res).Encode(&result)
+	if err != nil {
+		res.WriteHeader(http.StatusOK)
+		log.Logger.ErrorContext(ctx, "response json conversion failed", SecretId)
+	}
+	log.Logger.TraceContext(ctx, "search secret request successful", SecretId)
+}
+
+func handleDeleteSecret(res http.ResponseWriter, req *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+
+	//user validation by token header
+	token := req.Header.Get("Authorization")
+	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
+	if !ok {
+		log.Logger.DebugContext(ctx, "invalid user", token)
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	secretId := req.FormValue("secret_id")
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "unmarshal error", err)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	log.Logger.TraceContext(ctx, "Delete secret request received")
+	result, err := database.DeleteSecret(ctx, secretId)
+
+	if (err != nil) || (result != true) {
+		res.WriteHeader(http.StatusInternalServerError)
+		log.Logger.ErrorContext(ctx, "delete secret failed. secretid: ", secretId)
+	} else {
+		res.WriteHeader(http.StatusOK)
+		log.Logger.TraceContext(ctx, "delete secret request successful. secretid: ", secretId)
+	}
+}
+
+func handleUpdateSecret(res http.ResponseWriter, req *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
 
 	//user validation by token header
 	token := req.Header.Get("Authorization")
@@ -81,26 +194,23 @@ func handleGetAllSecrets(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err = json.Unmarshal(content, &searchSecretRequest)
+	var updateSecretRequest domain.CloudSecret
+	err = json.Unmarshal(content, &updateSecretRequest)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "unmarshal error", err)
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	fmt.Println("Search secret request received")
-	fmt.Println(&searchSecretRequest)
+	log.Logger.TraceContext(ctx, "Delete secret request received")
 	// todo: replace with external call
-	result := database.GetAllSecretsByUserExternal(ctx, searchSecretRequest.OwnerId, searchSecretRequest.ServiceProvider)
+	result := database.UpdateSecret(ctx, &updateSecretRequest)
 
 	res.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(res).Encode(&result)
 	if err != nil {
-		res.WriteHeader(http.StatusOK)
-		log.Logger.ErrorContext(ctx, "response json conversion failed", searchSecretRequest.OwnerId)
+		res.WriteHeader(http.StatusInternalServerError)
+		log.Logger.ErrorContext(ctx, "response json conversion failed", updateSecretRequest.UserId)
 	}
-	log.Logger.TraceContext(ctx, "search secret request successful", searchSecretRequest.OwnerId)
-}
-
-func handleDeleteSecret(res http.ResponseWriter, req *http.Request) {
+	log.Logger.TraceContext(ctx, "update secret request successful", updateSecretRequest.UserId)
 }
