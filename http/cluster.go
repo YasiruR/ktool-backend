@@ -7,6 +7,7 @@ import (
 	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/kafka"
 	"github.com/YasiruR/ktool-backend/log"
+	"github.com/YasiruR/ktool-backend/prometheus"
 	"github.com/google/uuid"
 	traceable_context "github.com/pickme-go/traceable-context"
 	"io/ioutil"
@@ -155,8 +156,24 @@ checkIfClusterExists:
 			ports = append(ports, port)
 		}
 
+		//add new cluster and brokers to prom config if metrics enabled
+		if addClusterReq.JmxEnabled == true {
+			err = prometheus.AddNewJob(ctx, addClusterReq.ClusterName, addClusterReq.Brokers)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, "failed adding new cluster to prom config", addClusterReq.ClusterName)
+				var errRes errorMessage
+				res.WriteHeader(http.StatusFailedDependency)
+				errRes.Mesg = "Adding new cluster could not be completed. Please delete the added cluster and try creating it again."
+				err := json.NewEncoder(res).Encode(errRes)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "encoding error response for add cluster req failed")
+				}
+				return
+			}
+		}
+
 		//proceeds to db query
-		//note : frontend validations should be added to request parameters
+		//note : frontend validations should be added to request
 		err = database.AddNewCluster(ctx, addClusterReq.ClusterName, addClusterReq.KafkaVersion)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "add new cluster db transaction failed")
@@ -355,6 +372,11 @@ func handleDeleteCluster(res http.ResponseWriter, req *http.Request) {
 		log.Logger.ErrorContext(ctx, fmt.Sprintf("deleting cluster from list failed - %v", clusterName), err)
 		res.WriteHeader(http.StatusInternalServerError)
 		return
+	}
+
+	err = prometheus.DeleteJob(ctx, clusterName)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "failed deleting prom configs for the cluster", clusterID)
 	}
 
 	err = database.DeleteCluster(ctx, clusterName)

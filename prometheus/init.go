@@ -68,7 +68,7 @@ func Init() {
 	checkCmd := exec.Command("/bin/sh", "-c", "sudo docker images | grep prom/prometheus")
 	promCheck, err := checkCmd.Output()
 	if err != nil {
-		if err.Error() != "exit status 1" && string(promCheck) != "" {
+		if string(promCheck) != "" {
 			log.Logger.Fatal(err,"looking for pre-installations of prometheus docker images failed")
 		}
 	}

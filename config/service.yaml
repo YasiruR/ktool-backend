@@ -8,3 +8,6 @@ client_init_timeout: 1
 cluster_refresh_interval: 500
 metrics_update_interval: 10
 metrics_table_clean_interval: 5000
+
+default_prom_scrape_interval: 15s
+default_prom_scrape_timeout: 15s

@@ -14,6 +14,8 @@ type Config struct {
 	ClusterRefreshInterval	int			`yaml:"cluster_refresh_interval"`
 	MetricsUpdateInterval 	int			`yaml:"metrics_update_interval"`
 	MetricsCleanInterval	int			`yaml:"metrics_table_clean_interval"`
+	PromScrapeInterval		string		`yaml:"default_prom_scrape_interval"`
+	PromScrapeTimeout		string		`yaml:"default_prom_scrape_timeout"`
 }
 
 var Cfg = new(Config)

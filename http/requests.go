@@ -1,16 +1,14 @@
 package http
 
+import "github.com/YasiruR/ktool-backend/domain"
+
 //--------------------------add cluster req------------------------------//
 
 type addExistingCluster struct {
 	ClusterName 		string 			`json:"cluster_name"`
 	KafkaVersion 		string			`json:"kafka_version"`
-	Brokers 			[]server		`json:"brokers"`
-}
-
-type server struct {
-	Host 		string 			`json:"host"`
-	Port 		int				`json:"port"`
+	JmxEnabled 			bool			`json:"jmx_enabled"`
+	Brokers 			[]domain.Server	`json:"brokers"`
 }
 
 //----------------------------add user req--------------------------------//

@@ -19,8 +19,6 @@ func main() {
 	database.Cfg.LoadConfigurations()
 	database.Init()
 
-	//cloud.Init()
-
 	service.Cfg.LoadConfigurations()
 
 	kafka.InitAllClusters()

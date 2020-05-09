@@ -31,8 +31,14 @@ func handleAddNewUser(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	//todo : token retry ?
+	tokenRetry:
 	token := generateToken()
+
+	_, ok, err := database.GetUserByToken(ctx, token)
+	if ok {
+		log.Logger.ErrorContext(ctx, "generated token already exists in the database")
+		goto tokenRetry
+	}
 
 	exists, err := database.AddNewUser(ctx, addUserReq.Username, addUserReq.Password, token, addUserReq.AccessLevel, addUserReq.FirstName, addUserReq.LastName, addUserReq.Email)
 	if err != nil {
