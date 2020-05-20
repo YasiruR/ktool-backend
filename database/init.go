@@ -13,7 +13,7 @@ const (
 	brokerTable			=	"broker"
 	userTable			= 	"user"
 	brokerMetricsTable	= 	"broker_metrics"
-	metricsLimit 		= 	5
+	metricsLimit 		= 	1
 )
 
 var Db *sql.DB

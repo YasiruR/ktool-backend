@@ -25,7 +25,7 @@ type KCluster struct{
 }
 
 type ClusterOverview struct {
-	TotalLeaders	          int             		`json:"part_leaders"`
+	TotalLeaders	          int             		`json:"leaders"`
 	TotalTopics               int             		`json:"topics"`
 	TotalReplicas             int             		`json:"replicas"`
 	UnderReplicatedPartitions int             		`json:"under_replicated_partitions"`
@@ -46,11 +46,13 @@ type BrokerOverview struct {
 }
 
 type BrokerMetrics struct {
-	NumReplicas					int					`json:"replicas"`
 	NumLeaders	 				int					`json:"leaders"`
+	NumReplicas					int					`json:"replicas"`
 	NumActControllers			int					`json:"act_controllers"`
 	OfflinePartitions			int					`json:"offline_partitions"`
 	UnderReplicated				int					`json:"under_replicated"`
+	Messages 					int64				`json:"messages"`
+	Topics 						int					`json:"topics"`
 	MessageRate					float64				`json:"message_rate"`
 	IsrExpansionRate			float64				`json:"isr_expansion_rate"`
 	IsrShrinkRate				float64				`json:"isr_shrink_rate"`
@@ -66,8 +68,4 @@ type BrokerMetrics struct {
 	FailedProdReqRate			float64				`json:"failed_prod_req_rate"`
 	ByteInRate 					int64				`json:"byte_in_rate"`
 	ByteOutRate					int64				`json:"byte_out_rate"`
-	Messages 					int64				`json:"messages"`
-
-	//ByteInRate 					map[int64]int64		`json:"byte_in_rate"`
-	//ByteOutRate					map[int64]int64		`json:"byte_out_rate"`
 }

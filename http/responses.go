@@ -12,6 +12,7 @@ type clusterInfo struct {
 	Brokers 			[]string	`json:"brokers"`
 	Topics 				[]topic 	`json:"topics"`
 	Available 			bool		`json:"available"`
+	Connected			bool		`json:"connected"`
 }
 
 type topic struct {

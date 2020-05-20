@@ -140,7 +140,7 @@ func GetBrokerMetrics(ctx context.Context, host string) (brokerMetrics map[int64
 	rows, err := Db.Query("SELECT timestamp, partitions, leaders, act_controller, offline_part, under_replicated, bytes_in, bytes_out, mesg_rate, isr_exp_rate, isr_shrink_rate, send_time, queue_time, remote_time, local_time, total_time, net_proc_avg_idle_perc, max_lag, unclean_lead_elec, failed_fetch_rate, failed_prod_rate, total_messages FROM " + brokerMetricsTable + ` WHERE host="` + host + `" ORDER BY ID DESC LIMIT ` + strconv.Itoa(metricsLimit) + `;`)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "get broker metrics query failed", err)
-		return
+		return brokerMetrics, err
 	}
 	defer rows.Close()
 	for rows.Next() {

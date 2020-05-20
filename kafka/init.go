@@ -12,7 +12,7 @@ import (
 
 var (
 	ClusterList 			[]domain.KCluster
-	RegisteredMetrics 		= 	[]string{"incoming-byte-rate", "outgoing-byte-rate", "request-rate"}
+	BrokerTopicMap			= 	make(map[string][]string)
 )
 
 //taken from sarama library for histogram sample
@@ -87,6 +87,7 @@ func InitAllClusters() {
 		}
 
 		var numOfLeaders, numOfReplicas, numOfOfflineRepl, numOfInSyncRepl, numOfOnlinePartitions int
+		tmpBrokerMap := make(map[string][]string)
 		for _, topic := range topics {
 			var clusterTopic domain.KTopic
 			clusterTopic.Name = topic
@@ -130,8 +131,18 @@ func InitAllClusters() {
 					continue partitionLoop
 				}
 				numOfOfflineRepl += len(offlineReplicas)
+
+				//add leader broker of topic to the broker topic map
+				b, err := client.Leader(clusterTopic.Name, partitionID)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, err, fmt.Sprintf("leader broker could not be fetched for %v topic and %v paritition in %v cluster", topic, partitionID, cluster.ClusterName))
+					continue partitionLoop
+				}
+				tmpBrokerMap[b.Addr()] = append(tmpBrokerMap[b.Addr()], clusterTopic.Name)
 			}
 		}
+
+		BrokerTopicMap = tmpBrokerMap
 
 		//getting cluster controller id
 		controller, err := client.Controller()

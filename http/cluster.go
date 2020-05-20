@@ -402,7 +402,7 @@ func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
+	userID, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
 	if !ok {
 		log.Logger.DebugContext(ctx, "invalid user", token)
 		res.WriteHeader(http.StatusUnauthorized)
@@ -431,6 +431,15 @@ func handleGetAllClusters(res http.ResponseWriter, req *http.Request) {
 		}
 
 		clusterListRes.Clusters = append(clusterListRes.Clusters, clusterRes)
+	}
+
+	for _, connectedCluster := range domain.LoggedInUserMap[userID].ConnectedClusters {
+		for index, cluster := range clusterListRes.Clusters {
+			if connectedCluster.ClusterName == cluster.ClusterName {
+				clusterListRes.Clusters[index].Connected = true
+				break
+			}
+		}
 	}
 
 	res.WriteHeader(http.StatusOK)
@@ -486,7 +495,7 @@ func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
 					res.WriteHeader(http.StatusOK)
 					return
 				}
-				log.Logger.WarnContext(ctx, "cluster is not available", cluster.ClusterName)
+				log.Logger.WarnContext(ctx, "cluster is not available", clusterID)
 				break
 			}
 		}
@@ -630,6 +639,12 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 	ctx := traceable_context.WithUUID(uuid.New())
 	//user validation by token header
 	tokenHeader := req.Header.Get("Authorization")
+	if len(strings.Split(tokenHeader, "Bearer")) < 2 {
+		log.Logger.ErrorContext(ctx, "token format is invalid", tokenHeader)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	token := strings.TrimSpace(strings.Split(tokenHeader, "Bearer")[1])
 	userID, ok, err := database.ValidateUserByToken(ctx, token)
 	if !ok {
@@ -685,11 +700,15 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 
 					var brokerOverview domain.BrokerOverview
 					brokerOverview.Host, brokerOverview.Port = broker.Host, broker.Port
-					brokerOverview.Metrics = brokerMetrics
+					brokerOverview.Metrics = make(map[int64]domain.BrokerMetrics)
 
+					//iterating over keys and values, to add no of topics broker-wise and byte in out rates
 					for t, val := range brokerMetrics {
 						totalBytesIn[t] += val.ByteInRate
 						totalBytesOut[t] += val.ByteOutRate
+
+						val.Topics = len(kafka.BrokerTopicMap[broker.Host + ":" + strconv.Itoa(broker.Port)])
+						brokerOverview.Metrics[t] = val
 					}
 
 					cluster.ClusterOverview.Brokers = append(cluster.ClusterOverview.Brokers, brokerOverview)
@@ -709,7 +728,7 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 			}
 		}
 		log.Logger.ErrorContext(ctx, "user has not connected to the requested cluster to get broker overall metrics", clusterID)
-		res.WriteHeader(http.StatusBadRequest)
+		res.WriteHeader(http.StatusConflict)
 	} else {
 		log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", token)
 		res.WriteHeader(http.StatusForbidden)

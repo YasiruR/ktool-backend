@@ -14,7 +14,6 @@ import (
 
 func handleAddNewUser(res http.ResponseWriter, req *http.Request) {
 	var addUserReq addUserReq
-
 	ctx := traceable_context.WithUUID(uuid.New())
 
 	content, err := ioutil.ReadAll(req.Body)
@@ -125,6 +124,8 @@ func handleLogin(res http.ResponseWriter, req *http.Request) {
 		user, ok := domain.LoggedInUserMap[userID]
 		if ok {
 			user.Token = token
+			//todo : added to overcome the inconsistency in connected clusters between fe and be. hence, fe should too clear cache upon login.
+			user.ConnectedClusters = []domain.KCluster{}
 		} else {
 			user.Username = loginUserReq.Username
 			user.Token = token

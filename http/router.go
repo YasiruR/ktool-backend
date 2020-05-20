@@ -31,10 +31,10 @@ func InitRouter() {
 	router.HandleFunc("/clusters", handleGetAllClusters).Methods(http.MethodGet)
 	router.HandleFunc("/cluster/connect", handleConnectToCluster).Methods(http.MethodGet)
 	router.HandleFunc("/cluster/disconnect", handleDisconnectCluster).Methods(http.MethodGet)
+	router.HandleFunc("/cluster/broker_overview", handleGetBrokerOverview).Methods(http.MethodGet)
 
 	router.HandleFunc("/topics", handleGetTopicsForCluster).Methods(http.MethodGet)
 	router.HandleFunc("/brokers", handleGetBrokersForCluster).Methods(http.MethodGet)
-	router.HandleFunc("/cluster/broker_overview", handleGetBrokerOverview).Methods(http.MethodGet)
 
 	osChannel := make(chan os.Signal, 1)
 	signal.Notify(osChannel, syscall.SIGINT, syscall.SIGKILL)
