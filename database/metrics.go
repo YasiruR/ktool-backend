@@ -234,3 +234,13 @@ func UpdateBrokerTotalMessages(ctx context.Context, count int, host string, ts i
 	}
 	return nil
 }
+
+func UpdateBrokerTotalTopics(ctx context.Context, count int, host string, ts int) (err error) {
+	query := "UPDATE " + brokerMetricsTable + " SET topics=" + strconv.Itoa(count) + " WHERE timestamp=" + strconv.Itoa(ts) + ` AND host="` + host + `";`
+	_, err = Db.Exec(query)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("total topics update to %s table failed", brokerMetricsTable), err)
+		return err
+	}
+	return nil
+}

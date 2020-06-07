@@ -134,10 +134,11 @@ func DeleteBrokersOfCluster(ctx context.Context, clusterID int) (err error) {
 	return nil
 }
 
-func GetBrokerMetrics(ctx context.Context, host string) (brokerMetrics map[int64]domain.BrokerMetrics, err error) {
+//returns metrics of a broker wrt a timestamp
+func GetBrokerMetrics(ctx context.Context, host string, tsCount int) (brokerMetrics map[int64]domain.BrokerMetrics, err error) {
 	brokerMetrics = make(map[int64]domain.BrokerMetrics)
 	var metrics domain.BrokerMetrics
-	rows, err := Db.Query("SELECT timestamp, partitions, leaders, act_controller, offline_part, under_replicated, bytes_in, bytes_out, mesg_rate, isr_exp_rate, isr_shrink_rate, send_time, queue_time, remote_time, local_time, total_time, net_proc_avg_idle_perc, max_lag, unclean_lead_elec, failed_fetch_rate, failed_prod_rate, total_messages FROM " + brokerMetricsTable + ` WHERE host="` + host + `" ORDER BY ID DESC LIMIT ` + strconv.Itoa(metricsLimit) + `;`)
+	rows, err := Db.Query("SELECT timestamp, partitions, leaders, act_controller, offline_part, under_replicated, bytes_in, bytes_out, mesg_rate, isr_exp_rate, isr_shrink_rate, send_time, queue_time, remote_time, local_time, total_time, net_proc_avg_idle_perc, max_lag, unclean_lead_elec, failed_fetch_rate, failed_prod_rate, total_messages, topics FROM " + brokerMetricsTable + ` WHERE host="` + host + `" ORDER BY ID DESC LIMIT ` + strconv.Itoa(tsCount) + `;`)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "get broker metrics query failed", err)
 		return brokerMetrics, err
@@ -145,9 +146,9 @@ func GetBrokerMetrics(ctx context.Context, host string) (brokerMetrics map[int64
 	defer rows.Close()
 	for rows.Next() {
 		var ts, bytesIn, bytesOut int64
-		var partitions, leaders, actControllers, offlinePart, underReplicated, messages sql.NullInt64
+		var partitions, leaders, actControllers, offlinePart, underReplicated, messages, topics sql.NullInt64
 		var isrExp, isrShrink, sendTime, queueTime, localTime, remoteTime, totalTime, netIdle, maxLag, uncleanLeadElec, failedFetch, failedProd, mesgRate sql.NullFloat64
-		err = rows.Scan(&ts, &partitions, &leaders, &actControllers, &offlinePart, &underReplicated, &bytesIn, &bytesOut, &mesgRate, &isrExp, &isrShrink, &sendTime, &queueTime, &remoteTime, &localTime, &totalTime, &netIdle, &maxLag, &uncleanLeadElec, &failedFetch, &failedProd, &messages)
+		err = rows.Scan(&ts, &partitions, &leaders, &actControllers, &offlinePart, &underReplicated, &bytesIn, &bytesOut, &mesgRate, &isrExp, &isrShrink, &sendTime, &queueTime, &remoteTime, &localTime, &totalTime, &netIdle, &maxLag, &uncleanLeadElec, &failedFetch, &failedProd, &messages, &topics)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "scanning rows in broker metrics table failed", err)
 			return
@@ -211,6 +212,9 @@ func GetBrokerMetrics(ctx context.Context, host string) (brokerMetrics map[int64
 		}
 		if messages.Valid {
 			metrics.Messages = messages.Int64
+		}
+		if topics.Valid {
+			metrics.Topics = int(topics.Int64)
 		}
 
 		brokerMetrics[ts] = metrics

@@ -25,6 +25,7 @@ type KCluster struct{
 }
 
 type ClusterOverview struct {
+	ActiveBrokers			  int					`json:"active_brokers"`
 	TotalLeaders	          int             		`json:"leaders"`
 	TotalTopics               int             		`json:"topics"`
 	TotalReplicas             int             		`json:"replicas"`
@@ -68,4 +69,5 @@ type BrokerMetrics struct {
 	FailedProdReqRate			float64				`json:"failed_prod_req_rate"`
 	ByteInRate 					int64				`json:"byte_in_rate"`
 	ByteOutRate					int64				`json:"byte_out_rate"`
+	InSync						bool				`json:"in_sync"`
 }

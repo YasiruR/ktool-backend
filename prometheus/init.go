@@ -34,6 +34,7 @@ const (
 	bytesIn				= "bytes_in"
 	bytesOut			= "bytes_out"
 	totalMessages 		= "total_messages"
+	totalTopics 		= "total_topics"
 )
 
 var (
@@ -59,6 +60,7 @@ var (
 		bytesIn: "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesin_total%5B1m%5D))&time=",
 		bytesOut: "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_bytesout_total%5B1m%5D))&time=",
 		totalMessages: "query?query=sum%20by%20(instance)%20(kafka_server_brokertopicmetrics_messagesin_total)&time=",
+		totalTopics: "query?query=count%20by%20(instance)%20(kafka_server_brokertopicmetrics_messagesin_total)&time=",
 	}
 )
 
@@ -304,6 +306,13 @@ func SyncBrokerMetrics(ctx context.Context) {
 				err := setIntMetrics(ctx, ts, req, database.UpdateBrokerTotalMessages)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, "broker total message metrics failed")
+				}
+			}()
+		case totalTopics:
+			go func() {
+				err := setIntMetrics(ctx, ts, req, database.UpdateBrokerTotalTopics)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "broker total topics metrics failed")
 				}
 			}()
 		}

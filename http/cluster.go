@@ -665,6 +665,19 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	//getting the number of timestamps
+	count, err := strconv.Atoi(req.FormValue("count"))
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "conversion of count from string into int failed", err, req.FormValue("count"))
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//setting default value to 1
+	if count < 1 {
+		count = 1
+	}
+
 	var overviewRes domain.ClusterOverview
 
 	cluster, err := database.GetClusterByClusterID(ctx, clusterID)
@@ -692,7 +705,7 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 				}
 
 				for _, broker := range brokers {
-					brokerMetrics, err := database.GetBrokerMetrics(ctx, broker.Host)
+					brokerMetrics, err := database.GetBrokerMetrics(ctx, broker.Host, count)
 					if err != nil {
 						log.Logger.ErrorContext(ctx,"getting broker metrics failed", broker.Host)
 						continue
@@ -707,7 +720,12 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 						totalBytesIn[t] += val.ByteInRate
 						totalBytesOut[t] += val.ByteOutRate
 
-						val.Topics = len(kafka.BrokerTopicMap[broker.Host + ":" + strconv.Itoa(broker.Port)])
+						//check if broker is in sync
+						inSync := false
+						if val.OfflinePartitions == 0 && val.UnderReplicated == 0 {
+							inSync = true
+						}
+						val.InSync = inSync
 						brokerOverview.Metrics[t] = val
 					}
 
@@ -716,6 +734,7 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 
 				cluster.ClusterOverview.TotalByteInRate = totalBytesIn
 				cluster.ClusterOverview.TotalByteOutRate = totalBytesOut
+				cluster.ClusterOverview.ActiveBrokers = len(cluster.Brokers)
 				overviewRes = cluster.ClusterOverview
 				res.WriteHeader(http.StatusOK)
 				err = json.NewEncoder(res).Encode(overviewRes)
