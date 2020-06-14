@@ -29,22 +29,13 @@ import (
 //	fmt.Println(res)
 //}
 
-//TODO: use resource-manager api to validate the secret
-func TestIamPermissions(userId string) (*resource.TestIamPermissionsResponse, error) {
+func TestIamPermissionsGke(credentials *oauth2.Credentials) (isValid bool, err error) {
 	ctx := context.Background()
-	b, cred, err := GetGkeCredentialsForUser(userId)
+	resourceService, err := resource.NewService(ctx, option.WithCredentials(credentials))
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	conf, err := oauth2.JWTConfigFromJSON(b, resource.CloudPlatformScope)
-	if err != nil {
-		return nil, err
-	}
-	resourceService, err := resource.NewService(ctx, option.WithTokenSource(conf.TokenSource(ctx)))
-	if err != nil {
-		return nil, err
-	}
-	req := &resource.TestIamPermissionsRequest{
+	req := &resource.TestIamPermissionsRequest{ //todo: goroutine to distribute
 		Permissions: []string{ //todo: read from file
 			"container.clusterRoleBindings.get",
 			"container.clusterRoleBindings.list",
@@ -82,11 +73,11 @@ func TestIamPermissions(userId string) (*resource.TestIamPermissionsResponse, er
 			"container.cronJobs.updateStatus",
 		},
 	}
-	resp, err := resourceService.Projects.TestIamPermissions(cred.ProjectId, req).Context(ctx).Do()
+	_, err = resourceService.Projects.TestIamPermissions(credentials.ProjectID, req).Context(ctx).Do()
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	return resp, nil
+	return true, nil
 }
 
 func GetOAuthAccessToken(userId string) (*credentialspb.GenerateAccessTokenResponse, error) {

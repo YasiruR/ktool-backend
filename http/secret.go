@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/domain"
+	"github.com/YasiruR/ktool-backend/iam"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/google/uuid"
 	traceableContext "github.com/pickme-go/traceable-context"
@@ -46,6 +47,15 @@ func handleAddSecret(res http.ResponseWriter, req *http.Request) {
 	}
 
 	fmt.Println("Add secret request received")
+	if addSecretRequest.Validate {
+		log.Logger.TraceContext(ctx, "secret is being validated ", addSecretRequest.UserId)
+		valid, err := iam.TestIamPermissions(&addSecretRequest)
+		if (err != nil) || !valid {
+			log.Logger.ErrorContext(ctx, "error occurred while validating secret", err)
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
 	result := database.AddSecret(ctx, &addSecretRequest)
 	res.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(res).Encode(&result)

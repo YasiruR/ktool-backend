@@ -92,6 +92,7 @@ type CloudSecret struct {
 	//AksClientSecret   string `json:"aks_client_secret"`
 	//AksTenantId       string `json:"aks_tenant_id"`
 	//AksSubscriptionId string `json:"aks_subscription_id"`
+	Validate bool
 }
 
 type Result struct {
