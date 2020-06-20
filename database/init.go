@@ -15,6 +15,8 @@ const (
 	secretTable      = "secret"
 	gkeSecretTable   = "gke_secret"
 	cloudSecretTable = "cloud_secret"
+	operationsTable  = "operations"
+	k8sTable         = "k8s_clusters"
 )
 
 var Db *sql.DB
