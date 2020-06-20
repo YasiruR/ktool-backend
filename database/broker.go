@@ -214,7 +214,7 @@ func GetBrokerMetrics(ctx context.Context, host string, tsCount int) (brokerMetr
 			metrics.Messages = messages.Int64
 		}
 		if topics.Valid {
-			metrics.Topics = int(topics.Int64)
+			metrics.Topics = int(topics.Int64) - 1		//since prometheus adds one more stat per instance (aggregated count)
 		}
 
 		brokerMetrics[ts] = metrics

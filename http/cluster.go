@@ -693,8 +693,8 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 
 	user, ok := domain.LoggedInUserMap[userID]
 	if ok {
-		for _, cluster := range user.ConnectedClusters {
-			if cluster.ClusterID == clusterID {
+		for _, userCluster := range user.ConnectedClusters {
+			if userCluster.ClusterID == clusterID {
 
 				//get all brokers for the cluster
 				brokers, err := database.GetBrokersByClusterId(ctx, clusterID)
@@ -702,6 +702,15 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 					log.Logger.ErrorContext(ctx, "getting brokers for the requested cluster failed")
 					res.WriteHeader(http.StatusInternalServerError)
 					return
+				}
+
+				//fetching cluster object from kafkaList since user.connectedClusters do not update summary stats
+				var metricsCluster domain.KCluster
+				for _, c := range kafka.ClusterList {
+					if c.ClusterID == clusterID {
+						metricsCluster = c
+						break
+					}
 				}
 
 				for _, broker := range brokers {
@@ -724,18 +733,21 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 						inSync := false
 						if val.OfflinePartitions == 0 && val.UnderReplicated == 0 {
 							inSync = true
+							//in case the broker is down, to show 'not in sync'
+							if val.Topics == 0 && val.NumLeaders == 0 && val.NumReplicas == 0 && val.Messages == 0 {
+								inSync = false
+							}
 						}
 						val.InSync = inSync
 						brokerOverview.Metrics[t] = val
 					}
 
-					cluster.ClusterOverview.Brokers = append(cluster.ClusterOverview.Brokers, brokerOverview)
+					metricsCluster.ClusterOverview.Brokers = append(metricsCluster.ClusterOverview.Brokers, brokerOverview)
 				}
 
-				cluster.ClusterOverview.TotalByteInRate = totalBytesIn
-				cluster.ClusterOverview.TotalByteOutRate = totalBytesOut
-				cluster.ClusterOverview.ActiveBrokers = len(cluster.Brokers)
-				overviewRes = cluster.ClusterOverview
+				metricsCluster.ClusterOverview.TotalByteInRate = totalBytesIn
+				metricsCluster.ClusterOverview.TotalByteOutRate = totalBytesOut
+				overviewRes = metricsCluster.ClusterOverview
 				res.WriteHeader(http.StatusOK)
 				err = json.NewEncoder(res).Encode(overviewRes)
 				if err != nil {

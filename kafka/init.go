@@ -144,9 +144,10 @@ func InitAllClusters() {
 		clustClient.ClusterOverview.TotalLeaders = numOfLeaders
 		clustClient.ClusterOverview.TotalTopics = len(topics)
 		clustClient.ClusterOverview.TotalReplicas = numOfReplicas
-		clustClient.ClusterOverview.UnderReplicatedPartitions = numOfReplicas - numOfInSyncRepl
 		clustClient.ClusterOverview.OfflineReplicas = numOfOfflineRepl
-		clustClient.ClusterOverview.OfflinePartitions = numOfLeaders - numOfOnlinePartitions
+		clustClient.ClusterOverview.ActiveBrokers = len(saramaBrokers)
+		clustClient.ClusterOverview.UnderReplicatedPartitions = numOfReplicas - numOfInSyncRepl			//redundant since now val is fetched by sum in broker metrics api
+		clustClient.ClusterOverview.OfflinePartitions = numOfLeaders - numOfOnlinePartitions			//redundant since now val is fetched by sum in broker metrics api
 
 		clustClient.Consumer = saramaConsumer
 		clustClient.Client = client
