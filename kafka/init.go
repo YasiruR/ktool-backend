@@ -157,5 +157,5 @@ func InitAllClusters() {
 
 	ClusterList = tempClustList
 
-	log.Logger.Trace("cluster initialization completed", fmt.Sprintf("No. of clusters : %v", len(ClusterList)))
+	//log.Logger.Trace("cluster initialization completed", fmt.Sprintf("No. of clusters : %v", len(ClusterList)))
 }

@@ -135,7 +135,7 @@ func DeleteBrokersOfCluster(ctx context.Context, clusterID int) (err error) {
 }
 
 func GetPreviousTimestamp(ctx context.Context, host string, ts int64) (prvTs int64, err error) {
-	row := Db.QueryRow("SELECT timestamp FROM " + brokerMetricsTable + `WHERE host="` + host +`" AND timestamp<=` + strconv.Itoa(int(ts)) + "ORDER BY ID DESC LIMIT 1;")
+	row := Db.QueryRow("SELECT timestamp FROM " + brokerMetricsTable + ` WHERE host="` + host +`" AND timestamp<=` + strconv.Itoa(int(ts)) + " ORDER BY ID DESC LIMIT 1;")
 	err = row.Scan(&prvTs)
 	switch err {
 	case sql.ErrNoRows:
@@ -150,7 +150,7 @@ func GetPreviousTimestamp(ctx context.Context, host string, ts int64) (prvTs int
 }
 
 func GetNextTimestamp(ctx context.Context, host string, ts int64) (nextTs int64, err error) {
-	row := Db.QueryRow("SELECT timestamp FROM " + brokerMetricsTable + `WHERE host="` + host +`" AND timestamp>=` + strconv.Itoa(int(ts)) + "ORDER BY ID LIMIT 1;")
+	row := Db.QueryRow("SELECT timestamp FROM " + brokerMetricsTable + ` WHERE host="` + host +`" AND timestamp>=` + strconv.Itoa(int(ts)) + " ORDER BY ID LIMIT 1;")
 	err = row.Scan(&nextTs)
 	switch err {
 	case sql.ErrNoRows:
@@ -164,7 +164,7 @@ func GetNextTimestamp(ctx context.Context, host string, ts int64) (nextTs int64,
 	}
 }
 
-func GetBrokerMetricsByTimestamp(ctx context.Context, host string, tsList []int64) (brokerMetrics map[int64]domain.BrokerMetrics, err error) {
+func GetBrokerMetricsByTimestampList(ctx context.Context, host string, tsList []int64) (brokerMetrics map[int64]domain.BrokerMetrics, err error) {
 	brokerMetrics = make(map[int64]domain.BrokerMetrics)
 
 	for _, ts := range tsList {
@@ -179,7 +179,7 @@ func GetBrokerMetricsByTimestamp(ctx context.Context, host string, tsList []int6
 		case sql.ErrNoRows:
 			log.Logger.ErrorContext(ctx, err, "query returned no rows", host, ts)
 			//note : we can continue here if frontend validates ts when drawing the graph
-			return
+			return nil, err
 		case nil:
 			if partitions.Valid {
 				metrics.NumReplicas = int(partitions.Int64)
@@ -247,7 +247,86 @@ func GetBrokerMetricsByTimestamp(ctx context.Context, host string, tsList []int6
 
 		default:
 			log.Logger.ErrorContext(ctx, err, "query returned an error", host, ts)
-			return
+			return nil, err
+		}
+	}
+	return
+}
+
+func GetBrokerMetricsAverageValues(ctx context.Context, host string, startingTs, endingTs int64) (metrics domain.BrokerMetrics, err error) {
+	row := Db.QueryRow("SELECT AVG(partitions), AVG(leaders), AVG(act_controller), AVG(offline_part), AVG(under_replicated), AVG(bytes_in), AVG(bytes_out), AVG(mesg_rate), AVG(isr_exp_rate), AVG(isr_shrink_rate), AVG(send_time), AVG(queue_time), AVG(remote_time), AVG(local_time), AVG(total_time), AVG(net_proc_avg_idle_perc), AVG(max_lag), AVG(unclean_lead_elec), AVG(failed_fetch_rate), AVG(failed_prod_rate), AVG(total_messages), AVG(topics) FROM " + brokerMetricsTable + ` WHERE host="` + host + `" AND timestamp>` + strconv.Itoa(int(startingTs)) + `AND timestamp<` + strconv.Itoa(int(endingTs)) + `;`)
+
+	var bytesIn, bytesOut int64
+	var partitions, leaders, actControllers, offlinePart, underReplicated, messages, topics sql.NullInt64
+	var isrExp, isrShrink, sendTime, queueTime, localTime, remoteTime, totalTime, netIdle, maxLag, uncleanLeadElec, failedFetch, failedProd, mesgRate sql.NullFloat64
+	err = row.Scan(&partitions, &leaders, &actControllers, &offlinePart, &underReplicated, &bytesIn, &bytesOut, &mesgRate, &isrExp, &isrShrink, &sendTime, &queueTime, &remoteTime, &localTime, &totalTime, &netIdle, &maxLag, &uncleanLeadElec, &failedFetch, &failedProd, &messages, &topics)
+	switch err {
+	case sql.ErrNoRows:
+		log.Logger.ErrorContext(ctx, err, "query returned no rows", host)
+		//note : we can continue here if frontend validates ts when drawing the graph
+		return metrics, err
+	case nil:
+		if partitions.Valid {
+			metrics.NumReplicas = int(partitions.Int64)
+		}
+		if leaders.Valid {
+			metrics.NumLeaders = int(leaders.Int64)
+		}
+		if actControllers.Valid {
+			metrics.NumActControllers = int(actControllers.Int64)
+		}
+		if offlinePart.Valid {
+			metrics.OfflinePartitions = int(offlinePart.Int64)
+		}
+		if underReplicated.Valid {
+			metrics.UnderReplicated = int(underReplicated.Int64)
+		}
+		metrics.ByteInRate = bytesIn
+		metrics.ByteOutRate = - bytesOut
+		if mesgRate.Valid {
+			metrics.MessageRate = mesgRate.Float64
+		}
+		if isrExp.Valid {
+			metrics.IsrExpansionRate = isrExp.Float64
+		}
+		if isrShrink.Valid {
+			metrics.IsrShrinkRate = isrShrink.Float64
+		}
+		if sendTime.Valid {
+			metrics.ResponseTime = sendTime.Float64
+		}
+		if queueTime.Valid {
+			metrics.QueueTime = queueTime.Float64
+		}
+		if remoteTime.Valid {
+			metrics.RemoteTime = remoteTime.Float64
+		}
+		if localTime.Valid {
+			metrics.LocalTIme = localTime.Float64
+		}
+		if totalTime.Valid {
+			metrics.TotalReqTime = totalTime.Float64
+		}
+		if netIdle.Valid {
+			metrics.NetworkProcAvgIdlePercent = netIdle.Float64
+		}
+		if maxLag.Valid {
+			metrics.MaxLagBtwLeadAndRepl = maxLag.Float64
+		}
+		if uncleanLeadElec.Valid {
+			metrics.UncleanLeadElec = uncleanLeadElec.Float64
+		}
+		if failedFetch.Valid {
+			metrics.FailedFetchReqRate = failedFetch.Float64
+		}
+		if failedProd.Valid {
+			metrics.FailedProdReqRate = failedProd.Float64
+		}
+		if messages.Valid {
+			metrics.Messages = messages.Int64
+		}
+		if topics.Valid {
+			metrics.Topics = int(topics.Int64) - 1 //since prometheus adds one more stat per instance (aggregated count)
 		}
 	}
 	return

@@ -67,7 +67,7 @@ func GetAllClusters(ctx context.Context) (clusterList []domain.Cluster, err erro
 		return nil, err
 	}
 
-	log.Logger.TraceContext(ctx, "get all clusters db query was successful")
+	//log.Logger.TraceContext(ctx, "get all clusters db query was successful")
 	return clusterList, nil
 }
 

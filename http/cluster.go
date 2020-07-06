@@ -659,9 +659,27 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	//number of data points required
 	clusterID, err := strconv.Atoi(req.FormValue("cluster_id"))
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "conversion of cluster id from string into int failed", err, req.FormValue("cluster_id"))
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//starting timestamp
+	fromTs, err := strconv.Atoi(req.FormValue("from"))
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "conversion of from_ts from string into int failed", err, req.FormValue("cluster_id"))
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//ending timestamp
+	//starting timestamp
+	toTs, err := strconv.Atoi(req.FormValue("from"))
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "conversion of to_ts from string into int failed", err, req.FormValue("cluster_id"))
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -717,62 +735,120 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 				//todo : find the closest starting timestamp
 				//todo : see what ts values are required (use metrics update config value)
 				//todo : query by ts values
+				//todo: take exact val of last ts and for other req ts : take an interval with plus and minus tscountgap/2 and take avg of ts values in the interval
 
 				//todo : query these from params
-				var from, to int64
+
+				fmt.Println()
+				fmt.Println("brokers: ", brokers)
 				for _, broker := range brokers {
-					startingTs, err := database.GetNextTimestamp(ctx, broker.Host, from)
+					startingTs, err := database.GetNextTimestamp(ctx, broker.Host, int64(fromTs))
 					if err != nil {
 						log.Logger.ErrorContext(ctx, "getting broker metrics (starting ts) failed", broker.Host)
 						continue
 					}
-					endingTs, err := database.GetPreviousTimestamp(ctx, broker.Host, to)
+					endingTs, err := database.GetPreviousTimestamp(ctx, broker.Host, int64(toTs))
 					if err != nil {
 						log.Logger.ErrorContext(ctx, "getting broker metrics (ending ts) failed", broker.Host)
 						continue
 					}
 
-					//fetching the rest of the timestamps
-					var tsList []int64
-					tsGap := int(endingTs - startingTs) / (service.Cfg.MetricsUpdateInterval * count)
-					var index int
-					for t:=endingTs; t>=startingTs; t-=int64(tsGap * service.Cfg.MetricsUpdateInterval) {
-						tsList = append(tsList, t)
+					fmt.Println("starting, ending ts : ", startingTs, endingTs)
+
+					//fetching all timestamps and intervals
+					index := 1
+					var brokerOverview domain.BrokerOverview
+					brokerOverview.Metrics = make(map[int64]domain.BrokerMetrics)
+					brokerOverview.Host, brokerOverview.Port = broker.Host, broker.Port
+					tsGapCount := int(endingTs - startingTs) / (service.Cfg.MetricsUpdateInterval * count)	//todo check if round down or round up
+
+					for t:=endingTs; t>=startingTs; t-=int64(service.Cfg.MetricsUpdateInterval) {
+						fmt.Println("index : ", index)
 						if index == count {
 							break
 						}
+
+						if t == endingTs {
+							brokerMetricsMap, err := database.GetBrokerMetricsByTimestampList(ctx, broker.Host, []int64{endingTs})
+							if err != nil {
+								log.Logger.ErrorContext(ctx,"getting broker metrics failed", broker.Host)
+								continue
+							}
+
+							totalBytesOut[t] += brokerMetricsMap[t].ByteOutRate
+							totalBytesIn[t] += brokerMetricsMap[t].ByteInRate
+
+							//check if broker is in sync
+							inSync := false
+							if brokerMetricsMap[t].OfflinePartitions == 0 && brokerMetricsMap[t].UnderReplicated == 0 {
+								inSync = true
+								//in case the broker is down, to show 'not in sync'
+								if brokerMetricsMap[t].Topics == 0 && brokerMetricsMap[t].NumLeaders == 0 && brokerMetricsMap[t].NumReplicas == 0 && brokerMetricsMap[t].Messages == 0 {
+									inSync = false
+								}
+							}
+							val := brokerMetricsMap[t]
+							val.InSync = inSync
+							brokerOverview.Metrics[t] = val
+
+							fmt.Println("broker metrics map : ", brokerMetricsMap)
+							fmt.Println("updated val : ", val)
+							fmt.Println("broker overview : ", brokerOverview.Metrics)
+						}
+
+						if index % tsGapCount == 0 {
+							subEndingTs := t + int64(service.Cfg.MetricsUpdateInterval*(tsGapCount/2))
+							subStartingTs := t - int64(service.Cfg.MetricsUpdateInterval*(tsGapCount/2))
+
+							brokerMetrics, err := database.GetBrokerMetricsAverageValues(ctx, broker.Host, subStartingTs, subEndingTs)
+							if err != nil {
+								log.Logger.ErrorContext(ctx,"getting broker metrics failed", broker.Host)
+								continue
+							}
+
+							totalBytesOut[t] += brokerMetrics.ByteOutRate
+							totalBytesIn[t] += brokerMetrics.ByteInRate
+							brokerOverview.Metrics[t] = brokerMetrics
+
+							fmt.Println("avg broker metrics : ", brokerMetrics)
+							fmt.Println("avg updated broker overview : ", brokerOverview.Metrics)
+						}
+
 						index++
 					}
 
-					brokerMetrics, err := database.GetBrokerMetricsByTimestamp(ctx, broker.Host, tsList)
-					if err != nil {
-						log.Logger.ErrorContext(ctx,"getting broker metrics failed", broker.Host)
-						continue
-					}
-
-					var brokerOverview domain.BrokerOverview
-					brokerOverview.Host, brokerOverview.Port = broker.Host, broker.Port
-					brokerOverview.Metrics = make(map[int64]domain.BrokerMetrics)
-
-					//iterating over keys and values, to add no of topics broker-wise and byte in out rates
-					for t, val := range brokerMetrics {
-						totalBytesIn[t] += val.ByteInRate
-						totalBytesOut[t] += val.ByteOutRate
-
-						//check if broker is in sync
-						inSync := false
-						if val.OfflinePartitions == 0 && val.UnderReplicated == 0 {
-							inSync = true
-							//in case the broker is down, to show 'not in sync'
-							if val.Topics == 0 && val.NumLeaders == 0 && val.NumReplicas == 0 && val.Messages == 0 {
-								inSync = false
-							}
-						}
-						val.InSync = inSync
-						brokerOverview.Metrics[t] = val
-					}
-
 					metricsCluster.ClusterOverview.Brokers = append(metricsCluster.ClusterOverview.Brokers, brokerOverview)
+
+					////////////////////////////////
+
+					//brokerMetrics, err := database.GetBrokerMetricsByTimestampList(ctx, broker.Host, requiredTsList)
+					//if err != nil {
+					//	log.Logger.ErrorContext(ctx,"getting broker metrics failed", broker.Host)
+					//	continue
+					//}
+					//
+					//var brokerOverview domain.BrokerOverview
+					//brokerOverview.Host, brokerOverview.Port = broker.Host, broker.Port
+					//brokerOverview.Metrics = make(map[int64]domain.BrokerMetrics)
+					//
+					////iterating over keys and values, to add no of topics broker-wise and byte in out rates
+					//for t, val := range brokerMetrics {
+					//	totalBytesIn[t] += val.ByteInRate
+					//	totalBytesOut[t] += val.ByteOutRate
+					//
+					//	//check if broker is in sync
+					//	inSync := false
+					//	if val.OfflinePartitions == 0 && val.UnderReplicated == 0 {
+					//		inSync = true
+					//		//in case the broker is down, to show 'not in sync'
+					//		if val.Topics == 0 && val.NumLeaders == 0 && val.NumReplicas == 0 && val.Messages == 0 {
+					//			inSync = false
+					//		}
+					//	}
+					//	val.InSync = inSync
+					//	brokerOverview.Metrics[t] = val
+					//}
+
 				}
 
 				//for _, broker := range brokers {

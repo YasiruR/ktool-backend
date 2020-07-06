@@ -317,7 +317,7 @@ func SyncBrokerMetrics(ctx context.Context) {
 			}()
 		}
 	}
-	log.Logger.TraceContext(ctx, "updated metrics")
+	//log.Logger.TraceContext(ctx, "updated metrics")
 }
 
 func initDbRows(ctx context.Context, ts int) (err error) {

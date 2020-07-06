@@ -67,7 +67,7 @@ func InitSaramaConsumer(ctx context.Context, brokers []string, config *sarama.Co
 
 	//todo: close cluster connection on disconnect
 
-	log.Logger.TraceContext(ctx, "new consumer initialized with config", config)
+	//log.Logger.TraceContext(ctx, "new consumer initialized with config", config)
 
 	return consumer, nil
 }
@@ -79,7 +79,7 @@ func GetTopicList(ctx context.Context, cluster sarama.Consumer) (topics []string
 		return nil, err
 	}
 
-	log.Logger.TraceContext(ctx, "all topics are fetched", fmt.Sprintf("no of topics : %v", len(topics)))
+	//log.Logger.TraceContext(ctx, "all topics are fetched", fmt.Sprintf("no of topics : %v", len(topics)))
 	return topics, nil
 }
 
