@@ -677,7 +677,7 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 
 	//ending timestamp
 	//starting timestamp
-	toTs, err := strconv.Atoi(req.FormValue("from"))
+	toTs, err := strconv.Atoi(req.FormValue("to"))
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "conversion of to_ts from string into int failed", err, req.FormValue("cluster_id"))
 		res.WriteHeader(http.StatusBadRequest)
@@ -739,8 +739,6 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 
 				//todo : query these from params
 
-				fmt.Println()
-				fmt.Println("brokers: ", brokers)
 				for _, broker := range brokers {
 					startingTs, err := database.GetNextTimestamp(ctx, broker.Host, int64(fromTs))
 					if err != nil {
@@ -753,18 +751,18 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 						continue
 					}
 
-					fmt.Println("starting, ending ts : ", startingTs, endingTs)
-
 					//fetching all timestamps and intervals
 					index := 1
+					var avgMetricsEnabled bool		//to ignore the ts before the last one (when taking average, ts in between ending and last ts before ending have to be ignored)
+					var metricsTs int64
+					var tsList []int64
 					var brokerOverview domain.BrokerOverview
 					brokerOverview.Metrics = make(map[int64]domain.BrokerMetrics)
 					brokerOverview.Host, brokerOverview.Port = broker.Host, broker.Port
 					tsGapCount := int(endingTs - startingTs) / (service.Cfg.MetricsUpdateInterval * count)	//todo check if round down or round up
 
 					for t:=endingTs; t>=startingTs; t-=int64(service.Cfg.MetricsUpdateInterval) {
-						fmt.Println("index : ", index)
-						if index == count {
+						if len(brokerOverview.Metrics) == count {
 							break
 						}
 
@@ -790,30 +788,79 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 							val := brokerMetricsMap[t]
 							val.InSync = inSync
 							brokerOverview.Metrics[t] = val
-
-							fmt.Println("broker metrics map : ", brokerMetricsMap)
-							fmt.Println("updated val : ", val)
-							fmt.Println("broker overview : ", brokerOverview.Metrics)
+						} else {
+							tsList = append(tsList, t)
 						}
 
-						if index % tsGapCount == 0 {
-							subEndingTs := t + int64(service.Cfg.MetricsUpdateInterval*(tsGapCount/2))
-							subStartingTs := t - int64(service.Cfg.MetricsUpdateInterval*(tsGapCount/2))
+						if tsGapCount != 0 && (index % tsGapCount == 0) {
 
-							brokerMetrics, err := database.GetBrokerMetricsAverageValues(ctx, broker.Host, subStartingTs, subEndingTs)
-							if err != nil {
-								log.Logger.ErrorContext(ctx,"getting broker metrics failed", broker.Host)
+							//subEndingTs := t + int64(service.Cfg.MetricsUpdateInterval*(tsGapCount/2))
+							//subStartingTs := t - int64(service.Cfg.MetricsUpdateInterval*(tsGapCount/2))
+							//brokerMetrics, err := database.GetBrokerMetricsAverageValues(ctx, broker.Host, subStartingTs, subEndingTs)
+							//if err != nil {
+							//	log.Logger.ErrorContext(ctx,"getting broker metrics failed", broker.Host)
+							//	continue
+							//}
+
+							//when taking average, ts in between ending and last ts before ending have to be ignored
+							if !avgMetricsEnabled {
+								avgMetricsEnabled = true
+								tsList = []int64{}
+								metricsTs = t		//to store the average of metrics in next interval in this ts
 								continue
 							}
 
+							brokerMetricsMap, err := database.GetBrokerMetricsByTimestampList(ctx, broker.Host, tsList)
+							if err != nil {
+								log.Logger.ErrorContext(ctx, err, "getting broker metrics failed in average case", broker.Host)
+								continue
+							}
+
+							var brokerMetrics domain.BrokerMetrics
+							numOfTs := len(brokerMetricsMap)
+							var bytesIn, bytesOut int64
+							var isrExp, isrShrink, sendTime, queueTime, localTime, remoteTime, totalTime, netIdle, maxLag, uncleanLeadElec, failedFetch, failedProd, mesgRate float64
+							for _, value := range brokerMetricsMap {
+								bytesIn += value.ByteInRate
+								bytesOut += value.ByteOutRate
+								isrExp += value.IsrShrinkRate
+								isrShrink += value.IsrShrinkRate
+								sendTime += value.ResponseTime
+								queueTime += value.QueueTime
+								localTime += value.LocalTIme
+								remoteTime += value.RemoteTime
+								totalTime += value.TotalReqTime
+								netIdle += value.NetworkProcAvgIdlePercent
+								maxLag += value.MaxLagBtwLeadAndRepl
+								uncleanLeadElec += value.UncleanLeadElec
+								failedFetch += value.FailedFetchReqRate
+								failedProd += value.FailedProdReqRate
+								mesgRate += value.MessageRate
+							}
+
+							brokerMetrics.ByteInRate = bytesIn/int64(numOfTs)
+							brokerMetrics.ByteOutRate = bytesOut/int64(numOfTs)
+							brokerMetrics.IsrShrinkRate = isrShrink/float64(numOfTs)
+							brokerMetrics.IsrExpansionRate = isrExp/float64(numOfTs)
+							brokerMetrics.ResponseTime = sendTime/float64(numOfTs)
+							brokerMetrics.QueueTime = queueTime/float64(numOfTs)
+							brokerMetrics.LocalTIme = localTime/float64(numOfTs)
+							brokerMetrics.RemoteTime = remoteTime/float64(numOfTs)
+							brokerMetrics.TotalReqTime = totalTime/float64(numOfTs)
+							brokerMetrics.NetworkProcAvgIdlePercent = netIdle/float64(numOfTs)
+							brokerMetrics.MaxLagBtwLeadAndRepl = maxLag/float64(numOfTs)
+							brokerMetrics.UncleanLeadElec = uncleanLeadElec/float64(numOfTs)
+							brokerMetrics.FailedFetchReqRate = failedFetch/float64(numOfTs)
+							brokerMetrics.FailedProdReqRate = failedProd/float64(numOfTs)
+							brokerMetrics.MessageRate = mesgRate/float64(numOfTs)
+
 							totalBytesOut[t] += brokerMetrics.ByteOutRate
 							totalBytesIn[t] += brokerMetrics.ByteInRate
-							brokerOverview.Metrics[t] = brokerMetrics
+							brokerOverview.Metrics[metricsTs] = brokerMetrics	//broker metrics should be stored in last ts not the starting one (since ts values are decreased from the last ts to first ts)
 
-							fmt.Println("avg broker metrics : ", brokerMetrics)
-							fmt.Println("avg updated broker overview : ", brokerOverview.Metrics)
+							tsList = []int64{}
+							metricsTs = t
 						}
-
 						index++
 					}
 

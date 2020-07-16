@@ -254,35 +254,35 @@ func GetBrokerMetricsByTimestampList(ctx context.Context, host string, tsList []
 }
 
 func GetBrokerMetricsAverageValues(ctx context.Context, host string, startingTs, endingTs int64) (metrics domain.BrokerMetrics, err error) {
-	row := Db.QueryRow("SELECT AVG(partitions), AVG(leaders), AVG(act_controller), AVG(offline_part), AVG(under_replicated), AVG(bytes_in), AVG(bytes_out), AVG(mesg_rate), AVG(isr_exp_rate), AVG(isr_shrink_rate), AVG(send_time), AVG(queue_time), AVG(remote_time), AVG(local_time), AVG(total_time), AVG(net_proc_avg_idle_perc), AVG(max_lag), AVG(unclean_lead_elec), AVG(failed_fetch_rate), AVG(failed_prod_rate), AVG(total_messages), AVG(topics) FROM " + brokerMetricsTable + ` WHERE host="` + host + `" AND timestamp>` + strconv.Itoa(int(startingTs)) + `AND timestamp<` + strconv.Itoa(int(endingTs)) + `;`)
+	//row := Db.QueryRow("SELECT AVG(bytes_in), AVG(bytes_out), AVG(mesg_rate), AVG(isr_exp_rate), AVG(isr_shrink_rate), AVG(send_time), AVG(queue_time), AVG(remote_time), AVG(local_time), AVG(total_time), AVG(net_proc_avg_idle_perc), AVG(max_lag), AVG(unclean_lead_elec), AVG(failed_fetch_rate), AVG(failed_prod_rate) FROM " + brokerMetricsTable + ` WHERE host="` + host + `" AND timestamp>` + strconv.Itoa(int(startingTs)) + ` AND timestamp<` + strconv.Itoa(int(endingTs)) + `;`)
+	row := Db.QueryRow("SELECT AVG(bytes_in), AVG(bytes_out), AVG(mesg_rate), AVG(isr_exp_rate), AVG(isr_shrink_rate), AVG(send_time), AVG(queue_time), AVG(remote_time), AVG(local_time), AVG(total_time), AVG(net_proc_avg_idle_perc), AVG(max_lag), AVG(unclean_lead_elec), AVG(failed_fetch_rate), AVG(failed_prod_rate) FROM " + brokerMetricsTable + ` WHERE host=? AND timestamp>? AND timestamp<?;`, host, startingTs, endingTs)
 
-	var bytesIn, bytesOut int64
-	var partitions, leaders, actControllers, offlinePart, underReplicated, messages, topics sql.NullInt64
+
+	//stmt, err := Db.Prepare(`SELECT AVG(bytes_in), AVG(bytes_out), AVG(mesg_rate), AVG(isr_exp_rate), AVG(isr_shrink_rate), AVG(send_time), AVG(queue_time), AVG(remote_time), AVG(local_time), AVG(total_time), AVG(net_proc_avg_idle_perc), AVG(max_lag), AVG(unclean_lead_elec), AVG(failed_fetch_rate), AVG(failed_prod_rate) FROM ` + brokerMetricsTable + ` WHERE host=? AND timestamp>? AND timestamp<?;`)
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, err, "preparing db statement failed", host)
+	//	return metrics, err
+	//}
+	//defer stmt.Close()
+
+	var bytesIn, bytesOut sql.NullInt64
+	//var partitions, leaders, actControllers, offlinePart, underReplicated, messages, topics sql.NullInt64
 	var isrExp, isrShrink, sendTime, queueTime, localTime, remoteTime, totalTime, netIdle, maxLag, uncleanLeadElec, failedFetch, failedProd, mesgRate sql.NullFloat64
-	err = row.Scan(&partitions, &leaders, &actControllers, &offlinePart, &underReplicated, &bytesIn, &bytesOut, &mesgRate, &isrExp, &isrShrink, &sendTime, &queueTime, &remoteTime, &localTime, &totalTime, &netIdle, &maxLag, &uncleanLeadElec, &failedFetch, &failedProd, &messages, &topics)
+
+	//err = stmt.QueryRow(host, startingTs, endingTs).Scan(&bytesIn, &bytesOut, &mesgRate, &isrExp, &isrShrink, &sendTime, &queueTime, &remoteTime, &localTime, &totalTime, &netIdle, &maxLag, &uncleanLeadElec, &failedFetch, &failedProd)
+	err = row.Scan(&bytesIn, &bytesOut, &mesgRate, &isrExp, &isrShrink, &sendTime, &queueTime, &remoteTime, &localTime, &totalTime, &netIdle, &maxLag, &uncleanLeadElec, &failedFetch, &failedProd)
 	switch err {
 	case sql.ErrNoRows:
 		log.Logger.ErrorContext(ctx, err, "query returned no rows", host)
 		//note : we can continue here if frontend validates ts when drawing the graph
 		return metrics, err
 	case nil:
-		if partitions.Valid {
-			metrics.NumReplicas = int(partitions.Int64)
+		if bytesIn.Valid {
+			metrics.ByteInRate = bytesIn.Int64
 		}
-		if leaders.Valid {
-			metrics.NumLeaders = int(leaders.Int64)
+		if bytesOut.Valid {
+			metrics.ByteOutRate = bytesOut.Int64
 		}
-		if actControllers.Valid {
-			metrics.NumActControllers = int(actControllers.Int64)
-		}
-		if offlinePart.Valid {
-			metrics.OfflinePartitions = int(offlinePart.Int64)
-		}
-		if underReplicated.Valid {
-			metrics.UnderReplicated = int(underReplicated.Int64)
-		}
-		metrics.ByteInRate = bytesIn
-		metrics.ByteOutRate = - bytesOut
 		if mesgRate.Valid {
 			metrics.MessageRate = mesgRate.Float64
 		}
@@ -322,12 +322,9 @@ func GetBrokerMetricsAverageValues(ctx context.Context, host string, startingTs,
 		if failedProd.Valid {
 			metrics.FailedProdReqRate = failedProd.Float64
 		}
-		if messages.Valid {
-			metrics.Messages = messages.Int64
-		}
-		if topics.Valid {
-			metrics.Topics = int(topics.Int64) - 1 //since prometheus adds one more stat per instance (aggregated count)
-		}
+	default:
+		log.Logger.ErrorContext(ctx, err, "query returned an error", host)
+		return metrics, err
 	}
 	return
 }
