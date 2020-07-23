@@ -794,13 +794,13 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 
 						if tsGapCount != 0 && (index % tsGapCount == 0) {
 
-							//subEndingTs := t + int64(service.Cfg.MetricsUpdateInterval*(tsGapCount/2))
-							//subStartingTs := t - int64(service.Cfg.MetricsUpdateInterval*(tsGapCount/2))
-							//brokerMetrics, err := database.GetBrokerMetricsAverageValues(ctx, broker.Host, subStartingTs, subEndingTs)
-							//if err != nil {
-							//	log.Logger.ErrorContext(ctx,"getting broker metrics failed", broker.Host)
-							//	continue
-							//}
+							subEndingTs := t + int64(service.Cfg.MetricsUpdateInterval*(tsGapCount/2))
+							subStartingTs := t - int64(service.Cfg.MetricsUpdateInterval*(tsGapCount/2))
+							brokerMetrics, err := database.GetBrokerMetricsAverageValues(ctx, broker.Host, subStartingTs, subEndingTs)
+							if err != nil {
+								log.Logger.ErrorContext(ctx,"getting broker metrics failed", broker.Host)
+								continue
+							}
 
 							//when taking average, ts in between ending and last ts before ending have to be ignored
 							if !avgMetricsEnabled {
@@ -810,49 +810,49 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 								continue
 							}
 
-							brokerMetricsMap, err := database.GetBrokerMetricsByTimestampList(ctx, broker.Host, tsList)
-							if err != nil {
-								log.Logger.ErrorContext(ctx, err, "getting broker metrics failed in average case", broker.Host)
-								continue
-							}
+							//brokerMetricsMap, err := database.GetBrokerMetricsByTimestampList(ctx, broker.Host, tsList)
+							//if err != nil {
+							//	log.Logger.ErrorContext(ctx, err, "getting broker metrics failed in average case", broker.Host)
+							//	continue
+							//}
 
-							var brokerMetrics domain.BrokerMetrics
-							numOfTs := len(brokerMetricsMap)
-							var bytesIn, bytesOut int64
-							var isrExp, isrShrink, sendTime, queueTime, localTime, remoteTime, totalTime, netIdle, maxLag, uncleanLeadElec, failedFetch, failedProd, mesgRate float64
-							for _, value := range brokerMetricsMap {
-								bytesIn += value.ByteInRate
-								bytesOut += value.ByteOutRate
-								isrExp += value.IsrShrinkRate
-								isrShrink += value.IsrShrinkRate
-								sendTime += value.ResponseTime
-								queueTime += value.QueueTime
-								localTime += value.LocalTIme
-								remoteTime += value.RemoteTime
-								totalTime += value.TotalReqTime
-								netIdle += value.NetworkProcAvgIdlePercent
-								maxLag += value.MaxLagBtwLeadAndRepl
-								uncleanLeadElec += value.UncleanLeadElec
-								failedFetch += value.FailedFetchReqRate
-								failedProd += value.FailedProdReqRate
-								mesgRate += value.MessageRate
-							}
-
-							brokerMetrics.ByteInRate = bytesIn/int64(numOfTs)
-							brokerMetrics.ByteOutRate = bytesOut/int64(numOfTs)
-							brokerMetrics.IsrShrinkRate = isrShrink/float64(numOfTs)
-							brokerMetrics.IsrExpansionRate = isrExp/float64(numOfTs)
-							brokerMetrics.ResponseTime = sendTime/float64(numOfTs)
-							brokerMetrics.QueueTime = queueTime/float64(numOfTs)
-							brokerMetrics.LocalTIme = localTime/float64(numOfTs)
-							brokerMetrics.RemoteTime = remoteTime/float64(numOfTs)
-							brokerMetrics.TotalReqTime = totalTime/float64(numOfTs)
-							brokerMetrics.NetworkProcAvgIdlePercent = netIdle/float64(numOfTs)
-							brokerMetrics.MaxLagBtwLeadAndRepl = maxLag/float64(numOfTs)
-							brokerMetrics.UncleanLeadElec = uncleanLeadElec/float64(numOfTs)
-							brokerMetrics.FailedFetchReqRate = failedFetch/float64(numOfTs)
-							brokerMetrics.FailedProdReqRate = failedProd/float64(numOfTs)
-							brokerMetrics.MessageRate = mesgRate/float64(numOfTs)
+							//var brokerMetrics domain.BrokerMetrics
+							//numOfTs := len(brokerMetricsMap)
+							//var bytesIn, bytesOut int64
+							//var isrExp, isrShrink, sendTime, queueTime, localTime, remoteTime, totalTime, netIdle, maxLag, uncleanLeadElec, failedFetch, failedProd, mesgRate float64
+							//for _, value := range brokerMetricsMap {
+							//	bytesIn += value.ByteInRate
+							//	bytesOut += value.ByteOutRate
+							//	isrExp += value.IsrShrinkRate
+							//	isrShrink += value.IsrShrinkRate
+							//	sendTime += value.ResponseTime
+							//	queueTime += value.QueueTime
+							//	localTime += value.LocalTIme
+							//	remoteTime += value.RemoteTime
+							//	totalTime += value.TotalReqTime
+							//	netIdle += value.NetworkProcAvgIdlePercent
+							//	maxLag += value.MaxLagBtwLeadAndRepl
+							//	uncleanLeadElec += value.UncleanLeadElec
+							//	failedFetch += value.FailedFetchReqRate
+							//	failedProd += value.FailedProdReqRate
+							//	mesgRate += value.MessageRate
+							//}
+							//
+							//brokerMetrics.ByteInRate = bytesIn/int64(numOfTs)
+							//brokerMetrics.ByteOutRate = bytesOut/int64(numOfTs)
+							//brokerMetrics.IsrShrinkRate = isrShrink/float64(numOfTs)
+							//brokerMetrics.IsrExpansionRate = isrExp/float64(numOfTs)
+							//brokerMetrics.ResponseTime = sendTime/float64(numOfTs)
+							//brokerMetrics.QueueTime = queueTime/float64(numOfTs)
+							//brokerMetrics.LocalTIme = localTime/float64(numOfTs)
+							//brokerMetrics.RemoteTime = remoteTime/float64(numOfTs)
+							//brokerMetrics.TotalReqTime = totalTime/float64(numOfTs)
+							//brokerMetrics.NetworkProcAvgIdlePercent = netIdle/float64(numOfTs)
+							//brokerMetrics.MaxLagBtwLeadAndRepl = maxLag/float64(numOfTs)
+							//brokerMetrics.UncleanLeadElec = uncleanLeadElec/float64(numOfTs)
+							//brokerMetrics.FailedFetchReqRate = failedFetch/float64(numOfTs)
+							//brokerMetrics.FailedProdReqRate = failedProd/float64(numOfTs)
+							//brokerMetrics.MessageRate = mesgRate/float64(numOfTs)
 
 							totalBytesOut[t] += brokerMetrics.ByteOutRate
 							totalBytesIn[t] += brokerMetrics.ByteInRate

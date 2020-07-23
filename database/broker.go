@@ -250,39 +250,39 @@ func GetBrokerMetricsByTimestampList(ctx context.Context, host string, tsList []
 			return nil, err
 		}
 	}
+	log.Logger.DebugContext(ctx, brokerMetrics, tsList)
 	return
 }
 
 func GetBrokerMetricsAverageValues(ctx context.Context, host string, startingTs, endingTs int64) (metrics domain.BrokerMetrics, err error) {
 	//row := Db.QueryRow("SELECT AVG(bytes_in), AVG(bytes_out), AVG(mesg_rate), AVG(isr_exp_rate), AVG(isr_shrink_rate), AVG(send_time), AVG(queue_time), AVG(remote_time), AVG(local_time), AVG(total_time), AVG(net_proc_avg_idle_perc), AVG(max_lag), AVG(unclean_lead_elec), AVG(failed_fetch_rate), AVG(failed_prod_rate) FROM " + brokerMetricsTable + ` WHERE host="` + host + `" AND timestamp>` + strconv.Itoa(int(startingTs)) + ` AND timestamp<` + strconv.Itoa(int(endingTs)) + `;`)
-	row := Db.QueryRow("SELECT AVG(bytes_in), AVG(bytes_out), AVG(mesg_rate), AVG(isr_exp_rate), AVG(isr_shrink_rate), AVG(send_time), AVG(queue_time), AVG(remote_time), AVG(local_time), AVG(total_time), AVG(net_proc_avg_idle_perc), AVG(max_lag), AVG(unclean_lead_elec), AVG(failed_fetch_rate), AVG(failed_prod_rate) FROM " + brokerMetricsTable + ` WHERE host=? AND timestamp>? AND timestamp<?;`, host, startingTs, endingTs)
+	//row := Db.QueryRow("SELECT AVG(bytes_in), AVG(bytes_out), AVG(mesg_rate), AVG(isr_exp_rate), AVG(isr_shrink_rate), AVG(send_time), AVG(queue_time), AVG(remote_time), AVG(local_time), AVG(total_time), AVG(net_proc_avg_idle_perc), AVG(max_lag), AVG(unclean_lead_elec), AVG(failed_fetch_rate), AVG(failed_prod_rate) FROM " + brokerMetricsTable + ` WHERE host=? AND timestamp>? AND timestamp<?;`, host, startingTs, endingTs)
 
+	stmt, err := Db.Prepare(`SELECT AVG(bytes_in), AVG(bytes_out), AVG(mesg_rate), AVG(isr_exp_rate), AVG(isr_shrink_rate), AVG(send_time), AVG(queue_time), AVG(remote_time), AVG(local_time), AVG(total_time), AVG(net_proc_avg_idle_perc), AVG(max_lag), AVG(unclean_lead_elec), AVG(failed_fetch_rate), AVG(failed_prod_rate) FROM ` + brokerMetricsTable + ` WHERE host=? AND timestamp>? AND timestamp<?;`)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, err, "preparing db statement failed", host)
+		return metrics, err
+	}
+	defer stmt.Close()
 
-	//stmt, err := Db.Prepare(`SELECT AVG(bytes_in), AVG(bytes_out), AVG(mesg_rate), AVG(isr_exp_rate), AVG(isr_shrink_rate), AVG(send_time), AVG(queue_time), AVG(remote_time), AVG(local_time), AVG(total_time), AVG(net_proc_avg_idle_perc), AVG(max_lag), AVG(unclean_lead_elec), AVG(failed_fetch_rate), AVG(failed_prod_rate) FROM ` + brokerMetricsTable + ` WHERE host=? AND timestamp>? AND timestamp<?;`)
-	//if err != nil {
-	//	log.Logger.ErrorContext(ctx, err, "preparing db statement failed", host)
-	//	return metrics, err
-	//}
-	//defer stmt.Close()
+	//var bytesIn, bytesOut []uint8
+	var bytesIn, bytesOut, isrExp, isrShrink, sendTime, queueTime, localTime, remoteTime, totalTime, netIdle, maxLag, uncleanLeadElec, failedFetch, failedProd, mesgRate sql.NullFloat64
 
-	var bytesIn, bytesOut sql.NullInt64
-	//var partitions, leaders, actControllers, offlinePart, underReplicated, messages, topics sql.NullInt64
-	var isrExp, isrShrink, sendTime, queueTime, localTime, remoteTime, totalTime, netIdle, maxLag, uncleanLeadElec, failedFetch, failedProd, mesgRate sql.NullFloat64
-
-	//err = stmt.QueryRow(host, startingTs, endingTs).Scan(&bytesIn, &bytesOut, &mesgRate, &isrExp, &isrShrink, &sendTime, &queueTime, &remoteTime, &localTime, &totalTime, &netIdle, &maxLag, &uncleanLeadElec, &failedFetch, &failedProd)
-	err = row.Scan(&bytesIn, &bytesOut, &mesgRate, &isrExp, &isrShrink, &sendTime, &queueTime, &remoteTime, &localTime, &totalTime, &netIdle, &maxLag, &uncleanLeadElec, &failedFetch, &failedProd)
+	err = stmt.QueryRow(host, startingTs, endingTs).Scan(&bytesIn, &bytesOut, &mesgRate, &isrExp, &isrShrink, &sendTime, &queueTime, &remoteTime, &localTime, &totalTime, &netIdle, &maxLag, &uncleanLeadElec, &failedFetch, &failedProd)
+	//err = row.Scan(&bytesIn, &bytesOut, &mesgRate, &isrExp, &isrShrink, &sendTime, &queueTime, &remoteTime, &localTime, &totalTime, &netIdle, &maxLag, &uncleanLeadElec, &failedFetch, &failedProd)
 	switch err {
 	case sql.ErrNoRows:
 		log.Logger.ErrorContext(ctx, err, "query returned no rows", host)
 		//note : we can continue here if frontend validates ts when drawing the graph
 		return metrics, err
 	case nil:
-		if bytesIn.Valid {
-			metrics.ByteInRate = bytesIn.Int64
-		}
 		if bytesOut.Valid {
-			metrics.ByteOutRate = bytesOut.Int64
+			metrics.ByteOutRate = int64(bytesOut.Float64)
 		}
+		if bytesIn.Valid {
+			metrics.ByteInRate = int64(bytesIn.Float64)
+		}
+
 		if mesgRate.Valid {
 			metrics.MessageRate = mesgRate.Float64
 		}
