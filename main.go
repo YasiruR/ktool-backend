@@ -47,6 +47,17 @@ func main() {
 		}
 	}()
 
+	//to update metrics ports of brokers
+	metricsPortContext := traceable_context.WithUUID(uuid.New())
+	go func() {
+		for {
+			select {
+			case <- metricsTicker.C:
+				prometheus.InitBrokerMetricsPorts(metricsPortContext)
+			}
+		}
+	}()
+
 	//run metrics clean job
 	cleanTicker := time.NewTicker(time.Duration(service.Cfg.MetricsCleanInterval) * time.Second)
 	cleanContext := traceable_context.WithUUID(uuid.New())

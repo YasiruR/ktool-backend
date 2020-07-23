@@ -684,7 +684,19 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 					var brokerOverview domain.BrokerOverview
 					brokerOverview.Metrics = make(map[int64]domain.BrokerMetrics)
 					brokerOverview.Host, brokerOverview.Port = broker.Host, broker.Port
-					tsGapCount := int(endingTs - startingTs) / (service.Cfg.MetricsUpdateInterval * count)	//todo check if round down or round up
+					tsGapCount := int(endingTs - startingTs) / (service.Cfg.MetricsUpdateInterval * count)
+
+					//from and to timestamps
+					fromMetrics, err := prometheus.GetMetricsByTimestamp(ctx, broker.Host, domain.ClusterBrokerMetricsPortMap[cluster.ClusterName][broker.Host], fromTs, true)
+					if err != nil {
+						log.Logger.ErrorContext(ctx, "getting metrics for from ts failed", fromTs)
+					}
+					toMetrics, err := prometheus.GetMetricsByTimestamp(ctx, broker.Host, domain.ClusterBrokerMetricsPortMap[cluster.ClusterName][broker.Host], toTs, false)
+					if err != nil {
+						log.Logger.ErrorContext(ctx, "getting metrics for to ts failed", toTs)
+					}
+					brokerOverview.Metrics[int64(fromTs)] = fromMetrics
+					brokerOverview.Metrics[int64(toTs)] = toMetrics
 
 					for t:=endingTs; t>=startingTs; t-=int64(service.Cfg.MetricsUpdateInterval) {
 						if len(brokerOverview.Metrics) == count {

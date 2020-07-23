@@ -2,6 +2,8 @@ package domain
 
 import "github.com/Shopify/sarama"
 
+var ClusterBrokerMetricsPortMap map[string]map[string]int
+
 type Cluster struct {
 	ID                int
 	ClusterName       string

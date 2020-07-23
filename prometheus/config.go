@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"strconv"
+	"strings"
 )
 
 type config struct{
@@ -103,4 +104,32 @@ func DeleteJob(ctx context.Context, clusterName string) (err error) {
 	}
 	log.Logger.ErrorContext(ctx, "could not find the requested in prom configs", clusterName)
 	return errors.New("failed to delete prometheus job")
+}
+
+func InitBrokerMetricsPorts(ctx context.Context) {
+	//load prom config to fetch metrics ports
+	promCfg := loadConfigurations()
+
+	//fetch metrics port
+	tmpMap := make(map[string]map[string]int)
+	for _, scrapeConfig := range promCfg.ScrapeConfigs {
+		for _, staticConfig := range scrapeConfig.StaticConfigs {
+			for _, target := range staticConfig["targets"] {
+				s := strings.Split(target, ":")
+				if len(s) < 2 {
+					log.Logger.ErrorContext(ctx, "invalid format received for instance", target)
+					continue
+				}
+
+				metricsPort, err := strconv.Atoi(s[1])
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "converting metrics port from str to int failed", s)
+					continue
+				}
+
+				tmpMap[scrapeConfig.JobName][s[0]] = metricsPort
+			}
+		}
+	}
+	domain.ClusterBrokerMetricsPortMap = tmpMap
 }

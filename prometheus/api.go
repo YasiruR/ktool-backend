@@ -9,11 +9,15 @@ import (
 	"strconv"
 )
 
-func GetMetricsByTimestamp(ctx context.Context, host string, port, ts int, toTs bool) (brokerMetrics domain.BrokerMetrics, err error) {
+func GetMetricsByTimestamp(ctx context.Context, host string, port, ts int, isFromTs bool) (brokerMetrics domain.BrokerMetrics, err error) {
 	for key, _ := range queryList {
 		var req string
 		switch key {
 		case partitions:
+			//since this metrics will not be used in the ui
+			if isFromTs {
+				continue
+			}
 			req = promUrl + "query?query=kafka_server_replicamanager_partitioncount%7Binstance%3D%27" + host + "%3A" + strconv.Itoa(port) + "%27%7D&time=" + strconv.Itoa(ts)
 			val, _, err := getValueByEndpoint(ctx, req, true)
 			if err != nil {
@@ -22,6 +26,9 @@ func GetMetricsByTimestamp(ctx context.Context, host string, port, ts int, toTs 
 			}
 			brokerMetrics.NumReplicas = val
 		case leaders:
+			if isFromTs {
+				continue
+			}
 			req = promUrl + "query?query=kafka_server_replicamanager_leadercount%7Binstance%3D%27" + host + "%3A" + strconv.Itoa(port) + "%27%7D&time=" + strconv.Itoa(ts)
 			val, _, err := getValueByEndpoint(ctx, req, true)
 			if err != nil {
@@ -30,6 +37,9 @@ func GetMetricsByTimestamp(ctx context.Context, host string, port, ts int, toTs 
 			}
 			brokerMetrics.NumLeaders = val
 		case activeControllers:
+			if isFromTs {
+				continue
+			}
 			req = promUrl + "query?query=kafka_controller_kafkacontroller_activecontrollercount%7Binstance%3D%27" + host + "%3A" + strconv.Itoa(port) + "%27%7D&time=" + strconv.Itoa(ts)
 			val, _, err := getValueByEndpoint(ctx, req, true)
 			if err != nil {
@@ -38,6 +48,9 @@ func GetMetricsByTimestamp(ctx context.Context, host string, port, ts int, toTs 
 			}
 			brokerMetrics.NumActControllers = val
 		case offlinePartitions:
+			if isFromTs {
+				continue
+			}
 			req = promUrl + "query?query=kafka_controller_kafkacontroller_offlinepartitionscount%7Binstance%3D%27" + host + "%3A" + strconv.Itoa(port) + "%27%7D&time=" + strconv.Itoa(ts)
 			val, _, err := getValueByEndpoint(ctx, req, true)
 			if err != nil {
@@ -46,6 +59,9 @@ func GetMetricsByTimestamp(ctx context.Context, host string, port, ts int, toTs 
 			}
 			brokerMetrics.OfflinePartitions = val
 		case underReplicated:
+			if isFromTs {
+				continue
+			}
 			req = promUrl + "query?query=kafka_server_replicamanager_underreplicatedpartitions%7Binstance%3D%27" + host + "%3A" + strconv.Itoa(port) + "%27%7D&time=" + strconv.Itoa(ts)
 			val, _, err := getValueByEndpoint(ctx, req, true)
 			if err != nil {
@@ -166,6 +182,9 @@ func GetMetricsByTimestamp(ctx context.Context, host string, port, ts int, toTs 
 			}
 			brokerMetrics.ByteOutRate = int64(val)
 		case totalMessages:
+			if isFromTs {
+				continue
+			}
 			req = promUrl + "query?query=sum%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_messagesin_total%7Binstance%3D%27" + host + "%3A" + strconv.Itoa(port) + "%27%7D%5B1m%5D))&time=" + strconv.Itoa(ts)
 			val, _, err := getValueByEndpoint(ctx, req, true)
 			if err != nil {
@@ -174,6 +193,9 @@ func GetMetricsByTimestamp(ctx context.Context, host string, port, ts int, toTs 
 			}
 			brokerMetrics.Messages = int64(val)
 		case totalTopics:
+			if isFromTs {
+				continue
+			}
 			req = promUrl + "query?query=count%20by%20(instance)%20(rate(kafka_server_brokertopicmetrics_messagesin_total%7Binstance%3D%27" + host + "%3A" + strconv.Itoa(port) + "%27%7D%5B1m%5D))&time=" + strconv.Itoa(ts)
 			val, _, err := getValueByEndpoint(ctx, req, true)
 			if err != nil {
