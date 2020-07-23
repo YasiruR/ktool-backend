@@ -13,7 +13,7 @@ import (
 
 const (
 	promUrl 			= "http://localhost:9090/api/v1/"
-	partitions 			= "partitions"
+	partitions 			= "partitions"					//replicas
 	leaders				= "leaders"
 	activeControllers	= "active_controllers"
 	offlinePartitions	= "offline_partitions"

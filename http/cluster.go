@@ -507,38 +507,6 @@ func handleConnectToCluster(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	//username, _, err := database.GetUserByToken(ctx, token)
-	//if err != nil {
-	//	log.Logger.ErrorContext(ctx, "fetching user for connect to cluster failed", token)
-	//	res.WriteHeader(http.StatusInternalServerError)
-	//	return
-	//}
-	//
-	//var userFound bool
-	//for index, u := range domain.LoggedInUsers {
-	//	if u.Username == username {
-	//		userFound = true
-	//		for _, cluster := range kafka.ClusterList {
-	//			if cluster.ClusterID == clusterID {
-	//				if cluster.Available == true {
-	//					domain.LoggedInUsers[index].ConnectedClusters = append(domain.LoggedInUsers[index].ConnectedClusters, cluster)
-	//					log.Logger.TraceContext(ctx, "connected to cluster successfully", cluster.ClusterName)
-	//					res.WriteHeader(http.StatusOK)
-	//					return
-	//				}
-	//				log.Logger.WarnContext(ctx, "cluster not available", cluster.ClusterName)
-	//				break
-	//			}
-	//		}
-	//	}
-	//}
-	//
-	//if !userFound {
-	//	log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", username)
-	//	res.WriteHeader(http.StatusForbidden)
-	//	return
-	//}
-
 	//send error message
 	res.WriteHeader(http.StatusBadRequest)
 }
@@ -594,42 +562,6 @@ func handleDisconnectCluster(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusForbidden)
 		return
 	}
-
-	//username, _, err := database.GetUserByToken(ctx, token)
-	//if err != nil {
-	//	log.Logger.ErrorContext(ctx, "fetching user for connect to cluster failed", token)
-	//	res.WriteHeader(http.StatusInternalServerError)
-	//	return
-	//}
-	//
-	//var user domain.User
-	//var userFound bool
-	//for _, u := range domain.LoggedInUsers {
-	//	if u.Username == username {
-	//		user = u
-	//		userFound = true
-	//		break
-	//	}
-	//}
-	//
-	//if !userFound {
-	//	log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", token)
-	//	res.WriteHeader(http.StatusForbidden)
-	//	return
-	//}
-	//
-	//for index, cluster := range user.ConnectedClusters {
-	//	if cluster.ClusterID == clusterID {
-	//		//remove the cluster
-	//		user.ConnectedClusters[index] = user.ConnectedClusters[len(user.ConnectedClusters)-1] // Copy last element to index i.
-	//		user.ConnectedClusters[len(user.ConnectedClusters)-1] = domain.KCluster{}   // Erase last element (write zero value).
-	//		user.ConnectedClusters = user.ConnectedClusters[:len(user.ConnectedClusters)-1]   // Truncate slice.
-	//
-	//		log.Logger.TraceContext(ctx, "disconnected cluster successfully", cluster.ClusterName)
-	//		res.WriteHeader(http.StatusOK)
-	//		return
-	//	}
-	//}
 
 	log.Logger.ErrorContext(ctx, "could not find the cluster in selected clusters", clusterID)
 	//send error message
@@ -732,13 +664,6 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 					}
 				}
 
-				//todo : find the closest starting timestamp
-				//todo : see what ts values are required (use metrics update config value)
-				//todo : query by ts values
-				//todo: take exact val of last ts and for other req ts : take an interval with plus and minus tscountgap/2 and take avg of ts values in the interval
-
-				//todo : query these from params
-
 				for _, broker := range brokers {
 					startingTs, err := database.GetNextTimestamp(ctx, broker.Host, int64(fromTs))
 					if err != nil {
@@ -766,6 +691,7 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 							break
 						}
 
+						//todo: run these in separate go routines
 						if t == endingTs {
 							brokerMetricsMap, err := database.GetBrokerMetricsByTimestampList(ctx, broker.Host, []int64{endingTs})
 							if err != nil {
@@ -810,50 +736,6 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 								continue
 							}
 
-							//brokerMetricsMap, err := database.GetBrokerMetricsByTimestampList(ctx, broker.Host, tsList)
-							//if err != nil {
-							//	log.Logger.ErrorContext(ctx, err, "getting broker metrics failed in average case", broker.Host)
-							//	continue
-							//}
-
-							//var brokerMetrics domain.BrokerMetrics
-							//numOfTs := len(brokerMetricsMap)
-							//var bytesIn, bytesOut int64
-							//var isrExp, isrShrink, sendTime, queueTime, localTime, remoteTime, totalTime, netIdle, maxLag, uncleanLeadElec, failedFetch, failedProd, mesgRate float64
-							//for _, value := range brokerMetricsMap {
-							//	bytesIn += value.ByteInRate
-							//	bytesOut += value.ByteOutRate
-							//	isrExp += value.IsrShrinkRate
-							//	isrShrink += value.IsrShrinkRate
-							//	sendTime += value.ResponseTime
-							//	queueTime += value.QueueTime
-							//	localTime += value.LocalTIme
-							//	remoteTime += value.RemoteTime
-							//	totalTime += value.TotalReqTime
-							//	netIdle += value.NetworkProcAvgIdlePercent
-							//	maxLag += value.MaxLagBtwLeadAndRepl
-							//	uncleanLeadElec += value.UncleanLeadElec
-							//	failedFetch += value.FailedFetchReqRate
-							//	failedProd += value.FailedProdReqRate
-							//	mesgRate += value.MessageRate
-							//}
-							//
-							//brokerMetrics.ByteInRate = bytesIn/int64(numOfTs)
-							//brokerMetrics.ByteOutRate = bytesOut/int64(numOfTs)
-							//brokerMetrics.IsrShrinkRate = isrShrink/float64(numOfTs)
-							//brokerMetrics.IsrExpansionRate = isrExp/float64(numOfTs)
-							//brokerMetrics.ResponseTime = sendTime/float64(numOfTs)
-							//brokerMetrics.QueueTime = queueTime/float64(numOfTs)
-							//brokerMetrics.LocalTIme = localTime/float64(numOfTs)
-							//brokerMetrics.RemoteTime = remoteTime/float64(numOfTs)
-							//brokerMetrics.TotalReqTime = totalTime/float64(numOfTs)
-							//brokerMetrics.NetworkProcAvgIdlePercent = netIdle/float64(numOfTs)
-							//brokerMetrics.MaxLagBtwLeadAndRepl = maxLag/float64(numOfTs)
-							//brokerMetrics.UncleanLeadElec = uncleanLeadElec/float64(numOfTs)
-							//brokerMetrics.FailedFetchReqRate = failedFetch/float64(numOfTs)
-							//brokerMetrics.FailedProdReqRate = failedProd/float64(numOfTs)
-							//brokerMetrics.MessageRate = mesgRate/float64(numOfTs)
-
 							totalBytesOut[t] += brokerMetrics.ByteOutRate
 							totalBytesIn[t] += brokerMetrics.ByteInRate
 							brokerOverview.Metrics[metricsTs] = brokerMetrics	//broker metrics should be stored in last ts not the starting one (since ts values are decreased from the last ts to first ts)
@@ -865,70 +747,7 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 					}
 
 					metricsCluster.ClusterOverview.Brokers = append(metricsCluster.ClusterOverview.Brokers, brokerOverview)
-
-					////////////////////////////////
-
-					//brokerMetrics, err := database.GetBrokerMetricsByTimestampList(ctx, broker.Host, requiredTsList)
-					//if err != nil {
-					//	log.Logger.ErrorContext(ctx,"getting broker metrics failed", broker.Host)
-					//	continue
-					//}
-					//
-					//var brokerOverview domain.BrokerOverview
-					//brokerOverview.Host, brokerOverview.Port = broker.Host, broker.Port
-					//brokerOverview.Metrics = make(map[int64]domain.BrokerMetrics)
-					//
-					////iterating over keys and values, to add no of topics broker-wise and byte in out rates
-					//for t, val := range brokerMetrics {
-					//	totalBytesIn[t] += val.ByteInRate
-					//	totalBytesOut[t] += val.ByteOutRate
-					//
-					//	//check if broker is in sync
-					//	inSync := false
-					//	if val.OfflinePartitions == 0 && val.UnderReplicated == 0 {
-					//		inSync = true
-					//		//in case the broker is down, to show 'not in sync'
-					//		if val.Topics == 0 && val.NumLeaders == 0 && val.NumReplicas == 0 && val.Messages == 0 {
-					//			inSync = false
-					//		}
-					//	}
-					//	val.InSync = inSync
-					//	brokerOverview.Metrics[t] = val
-					//}
-
 				}
-
-				//for _, broker := range brokers {
-				//	brokerMetrics, err := database.GetBrokerMetrics(ctx, broker.Host, count)
-				//	if err != nil {
-				//		log.Logger.ErrorContext(ctx,"getting broker metrics failed", broker.Host)
-				//		continue
-				//	}
-				//
-				//	var brokerOverview domain.BrokerOverview
-				//	brokerOverview.Host, brokerOverview.Port = broker.Host, broker.Port
-				//	brokerOverview.Metrics = make(map[int64]domain.BrokerMetrics)
-				//
-				//	//iterating over keys and values, to add no of topics broker-wise and byte in out rates
-				//	for t, val := range brokerMetrics {
-				//		totalBytesIn[t] += val.ByteInRate
-				//		totalBytesOut[t] += val.ByteOutRate
-				//
-				//		//check if broker is in sync
-				//		inSync := false
-				//		if val.OfflinePartitions == 0 && val.UnderReplicated == 0 {
-				//			inSync = true
-				//			//in case the broker is down, to show 'not in sync'
-				//			if val.Topics == 0 && val.NumLeaders == 0 && val.NumReplicas == 0 && val.Messages == 0 {
-				//				inSync = false
-				//			}
-				//		}
-				//		val.InSync = inSync
-				//		brokerOverview.Metrics[t] = val
-				//	}
-				//
-				//	metricsCluster.ClusterOverview.Brokers = append(metricsCluster.ClusterOverview.Brokers, brokerOverview)
-				//}
 
 				metricsCluster.ClusterOverview.TotalByteInRate = totalBytesIn
 				metricsCluster.ClusterOverview.TotalByteOutRate = totalBytesOut
