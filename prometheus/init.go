@@ -35,10 +35,33 @@ const (
 	bytesOut			= "bytes_out"
 	totalMessages 		= "total_messages"
 	totalTopics 		= "total_topics"
+
+	partitionsQuery		= "kafka_server_replicamanager_partitioncount"
+	leadersQuery		= "kafka_server_replicamanager_leadercount"
+	activeContQuery		= "kafka_controller_kafkacontroller_activecontrollercount"
+	offlinePartQuery 	= "kafka_controller_kafkacontroller_offlinepartitionscount"
+	underReplQuery		= "kafka_server_replicamanager_underreplicatedpartitions"
+	msgRateQuery 		= "kafka_server_brokertopicmetrics_messagesin_total"
+	isrExpQuery 		= "kafka_server_replicamanager_isrexpands_total"
+	isrShrinkQuery 		= "kafka_server_replicamanager_isrshrinks_total"
+	netProcIdleQuery	= "kafka_network_socketserver_networkprocessoravgidlepercent"
+	resTimeQuery 		= "kafka_network_requestmetrics_responsesendtimems"
+	queueTimeQuery 		= "kafka_network_requestmetrics_requestqueuetimems"
+	remoteTimeQuery 	= "kafka_network_requestmetrics_remotetimems"
+	localTimeQuery 		= "kafka_network_requestmetrics_localtimems"
+	totalTimeQuery 		= "kafka_network_requestmetrics_totaltimems%5B1m%5D))"
+	maxLagQuery			= "kafka_server_replicafetchermanager_minfetchrate"
+	uncleanLeadElQuery	= "kafka_controller_controllerstats_uncleanleaderelectionspersec"
+	failedFetchQuery	= "kafka_server_brokertopicmetrics_failedfetchrequests_total"
+	failedProdQuery		= "kafka_server_brokertopicmetrics_failedproducerequests_total"
+	bytesInQuery		= "kafka_server_brokertopicmetrics_bytesin_total"
+	bytesOutQuery 		= "kafka_server_brokertopicmetrics_bytesout_total"
+	totalMsgQuery		= "kafka_server_brokertopicmetrics_messagesin_total"
+	totalTopicsQuery	= "kafka_server_brokertopicmetrics_messagesin_total"
 )
 
 var (
-	queryList = map[string]string{
+	queryReqList = map[string]string{
 		partitions: "query?query=kafka_server_replicamanager_partitioncount&time=",
 		leaders: "query?query=kafka_server_replicamanager_leadercount&time=",
 		activeControllers: "query?query=kafka_controller_kafkacontroller_activecontrollercount&time=",
@@ -158,7 +181,7 @@ func SyncBrokerMetrics(ctx context.Context) {
 		return
 	}
 
-	for key, query := range queryList {
+	for key, query := range queryReqList {
 		req := promUrl + query + strconv.Itoa(ts)
 		switch key {
 		case partitions:

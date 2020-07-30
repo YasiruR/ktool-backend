@@ -114,6 +114,7 @@ func InitBrokerMetricsPorts(ctx context.Context) {
 	tmpMap := make(map[string]map[string]int)
 	for _, scrapeConfig := range promCfg.ScrapeConfigs {
 		for _, staticConfig := range scrapeConfig.StaticConfigs {
+			tmpInnerMap := make(map[string]int)
 			for _, target := range staticConfig["targets"] {
 				s := strings.Split(target, ":")
 				if len(s) < 2 {
@@ -127,8 +128,9 @@ func InitBrokerMetricsPorts(ctx context.Context) {
 					continue
 				}
 
-				tmpMap[scrapeConfig.JobName][s[0]] = metricsPort
+				tmpInnerMap[s[0]] = metricsPort
 			}
+			tmpMap[scrapeConfig.JobName] = tmpInnerMap
 		}
 	}
 	domain.ClusterBrokerMetricsPortMap = tmpMap

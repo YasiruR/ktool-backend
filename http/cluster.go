@@ -568,6 +568,75 @@ func handleDisconnectCluster(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusBadRequest)
 }
 
+func handleGetGraphMetrics(res http.ResponseWriter, req *http.Request) {
+	ctx := traceable_context.WithUUID(uuid.New())
+	//user validation by token header
+	tokenHeader := req.Header.Get("Authorization")
+	if len(strings.Split(tokenHeader, "Bearer")) < 2 {
+		log.Logger.ErrorContext(ctx, "token format is invalid", tokenHeader)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	token := strings.TrimSpace(strings.Split(tokenHeader, "Bearer")[1])
+	userID, ok, err := database.ValidateUserByToken(ctx, token)
+	if !ok {
+		log.Logger.DebugContext(ctx, "invalid user", token)
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	//number of data points required
+	clusterID, err := strconv.Atoi(req.FormValue("cluster_id"))
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "conversion of cluster id from string into int failed", err, req.FormValue("cluster_id"))
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//starting timestamp
+	fromTs, err := strconv.Atoi(req.FormValue("from"))
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "conversion of from_ts from string into int failed", err, req.FormValue("cluster_id"))
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//ending timestamp
+	toTs, err := strconv.Atoi(req.FormValue("to"))
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "conversion of to_ts from string into int failed", err, req.FormValue("cluster_id"))
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	query := req.FormValue("query")
+	host := req.FormValue("instance")
+	step, err := strconv.Atoi(req.FormValue("step"))
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "conversion of to_ts from string into int failed", err, req.FormValue("cluster_id"))
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	user, ok := domain.LoggedInUserMap[userID]
+
+	if ok {
+		for _, userCluster := range user.ConnectedClusters {
+			if userCluster.ClusterID == clusterID {
+				// query directly from prometheus and send the res right away
+			}
+		}
+	}
+
+
+}
+
 func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 	ctx := traceable_context.WithUUID(uuid.New())
 	//user validation by token header
@@ -608,7 +677,6 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 	}
 
 	//ending timestamp
-	//starting timestamp
 	toTs, err := strconv.Atoi(req.FormValue("to"))
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "conversion of to_ts from string into int failed", err, req.FormValue("cluster_id"))
@@ -687,19 +755,49 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 					tsGapCount := int(endingTs - startingTs) / (service.Cfg.MetricsUpdateInterval * count)
 
 					//from and to timestamps
-					fromMetrics, err := prometheus.GetMetricsByTimestamp(ctx, broker.Host, domain.ClusterBrokerMetricsPortMap[cluster.ClusterName][broker.Host], fromTs, true)
+					toMetrics, err := prometheus.GetAllMetricsByTimestamp(ctx, broker.Host, domain.ClusterBrokerMetricsPortMap[cluster.ClusterName][broker.Host], toTs, false)
+					if err != nil {
+						log.Logger.ErrorContext(ctx, "getting metrics for to ts failed", toTs)
+					} else {
+						//check if broker is in sync
+						inSync := false
+						if toMetrics.OfflinePartitions == 0 && toMetrics.UnderReplicated == 0 {
+							inSync = true
+							//in case the broker is down, to show 'not in sync'
+							if toMetrics.Topics == 0 && toMetrics.NumLeaders == 0 && toMetrics.NumReplicas == 0 && toMetrics.Messages == 0 {
+								inSync = false
+							}
+						}
+						toMetrics.InSync = inSync
+					}
+
+					totalBytesOut[int64(toTs)] += toMetrics.ByteOutRate
+					totalBytesIn[int64(toTs)] += toMetrics.ByteInRate
+					brokerOverview.Metrics[int64(toTs)] = toMetrics
+
+					//when count is 1 to ts metrics is sufficient
+					if count == 1 {
+						metricsCluster.ClusterOverview.Brokers = append(metricsCluster.ClusterOverview.Brokers, brokerOverview)
+						continue
+					}
+
+					fromMetrics, err := prometheus.GetAllMetricsByTimestamp(ctx, broker.Host, domain.ClusterBrokerMetricsPortMap[cluster.ClusterName][broker.Host], fromTs, true)
 					if err != nil {
 						log.Logger.ErrorContext(ctx, "getting metrics for from ts failed", fromTs)
 					}
-					toMetrics, err := prometheus.GetMetricsByTimestamp(ctx, broker.Host, domain.ClusterBrokerMetricsPortMap[cluster.ClusterName][broker.Host], toTs, false)
-					if err != nil {
-						log.Logger.ErrorContext(ctx, "getting metrics for to ts failed", toTs)
-					}
+
+					totalBytesOut[int64(fromTs)] += fromMetrics.ByteOutRate
+					totalBytesIn[int64(fromTs)] += fromMetrics.ByteInRate
 					brokerOverview.Metrics[int64(fromTs)] = fromMetrics
-					brokerOverview.Metrics[int64(toTs)] = toMetrics
+
+					//when count is 2 to ts metrics is sufficient
+					if count == 2 {
+						metricsCluster.ClusterOverview.Brokers = append(metricsCluster.ClusterOverview.Brokers, brokerOverview)
+						continue
+					}
 
 					for t:=endingTs; t>=startingTs; t-=int64(service.Cfg.MetricsUpdateInterval) {
-						if len(brokerOverview.Metrics) == count {
+						if len(brokerOverview.Metrics) == count || (count == 1 && index == 2) {
 							break
 						}
 
@@ -714,17 +812,7 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 							totalBytesOut[t] += brokerMetricsMap[t].ByteOutRate
 							totalBytesIn[t] += brokerMetricsMap[t].ByteInRate
 
-							//check if broker is in sync
-							inSync := false
-							if brokerMetricsMap[t].OfflinePartitions == 0 && brokerMetricsMap[t].UnderReplicated == 0 {
-								inSync = true
-								//in case the broker is down, to show 'not in sync'
-								if brokerMetricsMap[t].Topics == 0 && brokerMetricsMap[t].NumLeaders == 0 && brokerMetricsMap[t].NumReplicas == 0 && brokerMetricsMap[t].Messages == 0 {
-									inSync = false
-								}
-							}
 							val := brokerMetricsMap[t]
-							val.InSync = inSync
 							brokerOverview.Metrics[t] = val
 						} else {
 							tsList = append(tsList, t)
