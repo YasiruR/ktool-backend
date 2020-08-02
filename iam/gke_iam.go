@@ -80,14 +80,17 @@ func TestIamPermissionsGke(credentials *oauth2.Credentials) (isValid bool, err e
 	return true, nil
 }
 
-func GetOAuthAccessToken(userId string) (*credentialspb.GenerateAccessTokenResponse, error) {
-	ctx := context.Background()
+func GetOAuthAccessTokenForUser(userId string) (*credentialspb.GenerateAccessTokenResponse, error) {
 	b, cred, err := GetGkeCredentialsForUser(userId)
 	//log.Logger.Info(cred)
 	if err != nil {
 		return nil, err
 	}
-	c, err := credentials.NewIamCredentialsClient(ctx, option.WithCredentialsJSON(b))
+	return GetOAuthAccessToken(cred, b)
+}
+
+func GetOAuthAccessToken(cred domain.GkeSecret, credentialsBytes []byte) (*credentialspb.GenerateAccessTokenResponse, error) {
+	c, err := credentials.NewIamCredentialsClient(context.Background(), option.WithCredentialsJSON(credentialsBytes))
 	if err != nil {
 		// TODO: Handle error.
 	}
@@ -101,7 +104,7 @@ func GetOAuthAccessToken(userId string) (*credentialspb.GenerateAccessTokenRespo
 			"https://www.googleapis.com/auth/cloud-platform",
 		},
 	}
-	resp, err := c.GenerateAccessToken(ctx, req)
+	resp, err := c.GenerateAccessToken(context.Background(), req)
 	if err != nil {
 		// TODO: Handle error.
 	}

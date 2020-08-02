@@ -47,15 +47,15 @@ func handleAddSecret(res http.ResponseWriter, req *http.Request) {
 	}
 
 	fmt.Println("Add secret request received")
-	if addSecretRequest.Validate {
-		log.Logger.TraceContext(ctx, "secret is being validated ", addSecretRequest.UserId)
-		valid, err := iam.TestIamPermissions(&addSecretRequest)
-		if (err != nil) || !valid {
-			log.Logger.ErrorContext(ctx, "error occurred while validating secret", err)
-			res.WriteHeader(http.StatusBadRequest)
-			return
-		}
-	}
+	//if addSecretRequest.Validate {
+	//	log.Logger.TraceContext(ctx, "secret is being validated ", addSecretRequest.UserId)
+	//	valid, err := iam.TestIamPermissions(&addSecretRequest)
+	//	if (err != nil) || !valid {
+	//		log.Logger.ErrorContext(ctx, "error occurred while validating secret", err)
+	//		res.WriteHeader(http.StatusBadRequest)
+	//		return
+	//	}
+	//}
 	result := database.AddSecret(ctx, &addSecretRequest)
 	res.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(res).Encode(&result)
@@ -223,4 +223,53 @@ func handleUpdateSecret(res http.ResponseWriter, req *http.Request) {
 		log.Logger.ErrorContext(ctx, "response json conversion failed", updateSecretRequest.UserId)
 	}
 	log.Logger.TraceContext(ctx, "update secret request successful", updateSecretRequest.UserId)
+}
+
+func handleValidateSecret(res http.ResponseWriter, req *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+	var validateSecretRequest domain.CloudSecret
+
+	//user validation by token header
+	token := req.Header.Get("Authorization")
+	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
+	if !ok {
+		log.Logger.DebugContext(ctx, "invalid user", token)
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	content, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred while reading request", err)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = json.Unmarshal(content, &validateSecretRequest)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "unmarshal error", err)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	fmt.Println("Validate secret request received")
+	log.Logger.TraceContext(ctx, "secret is being validated ", validateSecretRequest.UserId)
+	valid, err := iam.TestIamPermissions(&validateSecretRequest)
+	if (err != nil) || !valid {
+		log.Logger.ErrorContext(ctx, "error occurred while validating secret", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	res.WriteHeader(http.StatusOK)
+	//err = json.NewEncoder(res).Encode(&result)
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		log.Logger.ErrorContext(ctx, "response json conversion failed", validateSecretRequest.UserId)
+	}
+	log.Logger.TraceContext(ctx, "validate secret request successful", validateSecretRequest.UserId)
 }

@@ -39,6 +39,7 @@ func InitRouter() {
 	router.HandleFunc("/secret/get", handleGetSecret).Methods("GET")
 	router.HandleFunc("/secret/delete", handleDeleteSecret).Methods("DELETE")
 	router.HandleFunc("/secret/update", handleUpdateSecret).Methods("PATCH")
+	router.HandleFunc("/secret/validate", handleValidateSecret).Methods("POST")
 
 	router.HandleFunc("/kubernetes", handleUGetAllKubClusters).Methods("GET")
 
