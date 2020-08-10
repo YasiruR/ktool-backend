@@ -10,7 +10,8 @@ type PromResponse struct {
 				Instance 		string		`json:"instance"`
 				Job 			string		`json:"job"`
 			}	`json:"metric"`
-			Values 		[][]interface{}		`json:"values"`
+			Value 		[2]interface{}		`json:"value"`
+			Values 		[][2]interface{}	`json:"values"`
 		}
 	} `json:"data"`
 }

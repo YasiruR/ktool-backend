@@ -41,7 +41,7 @@ const (
 	activeContQuery		= "kafka_controller_kafkacontroller_activecontrollercount"
 	offlinePartQuery 	= "kafka_controller_kafkacontroller_offlinepartitionscount"
 	underReplQuery		= "kafka_server_replicamanager_underreplicatedpartitions"
-	msgRateQuery 		= "kafka_server_brokertopicmetrics_messagesin_total"
+	msgRateQuery 		= "kafka_server_brokertopicmetrics_messagesin_youtotal"
 	isrExpQuery 		= "kafka_server_replicamanager_isrexpands_total"
 	isrShrinkQuery 		= "kafka_server_replicamanager_isrshrinks_total"
 	netProcIdleQuery	= "kafka_network_socketserver_networkprocessoravgidlepercent"
@@ -49,7 +49,7 @@ const (
 	queueTimeQuery 		= "kafka_network_requestmetrics_requestqueuetimems"
 	remoteTimeQuery 	= "kafka_network_requestmetrics_remotetimems"
 	localTimeQuery 		= "kafka_network_requestmetrics_localtimems"
-	totalTimeQuery 		= "kafka_network_requestmetrics_totaltimems%5B1m%5D))"
+	totalTimeQuery 		= "kafka_network_requestmetrics_totaltimems"
 	maxLagQuery			= "kafka_server_replicafetchermanager_minfetchrate"
 	uncleanLeadElQuery	= "kafka_controller_controllerstats_uncleanleaderelectionspersec"
 	failedFetchQuery	= "kafka_server_brokertopicmetrics_failedfetchrequests_total"
@@ -58,6 +58,9 @@ const (
 	bytesOutQuery 		= "kafka_server_brokertopicmetrics_bytesout_total"
 	totalMsgQuery		= "kafka_server_brokertopicmetrics_messagesin_total"
 	totalTopicsQuery	= "kafka_server_brokertopicmetrics_messagesin_total"
+
+	totalBytesIn 		= "cluster_total_bytes_in"
+	totalBytesOut 		= "cluster_total_bytes_out"
 )
 
 var (

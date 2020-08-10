@@ -32,6 +32,7 @@ func InitRouter() {
 	router.HandleFunc("/cluster/connect", handleConnectToCluster).Methods(http.MethodGet)
 	router.HandleFunc("/cluster/disconnect", handleDisconnectCluster).Methods(http.MethodGet)
 	router.HandleFunc("/cluster/broker_overview", handleGetBrokerOverview).Methods(http.MethodGet)
+	router.HandleFunc("/cluster/graph_metrics", handleGetGraphMetrics).Methods(http.MethodGet)
 
 	router.HandleFunc("/topics", handleGetTopicsForCluster).Methods(http.MethodGet)
 	router.HandleFunc("/brokers", handleGetBrokersForCluster).Methods(http.MethodGet)

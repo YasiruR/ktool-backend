@@ -40,7 +40,7 @@ func loadConfigurations() config {
 		log.Logger.Fatal("unmarshal error (prometheus.yml) : ", err)
 	}
 
-	log.Logger.Info("prometheus configurations initialized")
+	//log.Logger.Info("prometheus configurations initialized")
 	return cfg
 }
 

@@ -99,7 +99,7 @@ func InitClient(ctx context.Context, brokers []string, config *sarama.Config) (c
 	select {
 	case out := <- done:
 		if out == "done" {
-			log.Logger.TraceContext(ctx, "client initialized successfully", brokers)
+			//log.Logger.TraceContext(ctx, "client initialized successfully", brokers)
 			return client, nil
 		} else if out == "err" {
 			return nil, err

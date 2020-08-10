@@ -617,12 +617,6 @@ func handleGetGraphMetrics(res http.ResponseWriter, req *http.Request) {
 
 	query := req.FormValue("query")
 	host := req.FormValue("instance")
-	step, err := strconv.Atoi(req.FormValue("step"))
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "conversion of to_ts from string into int failed", err, req.FormValue("cluster_id"))
-		res.WriteHeader(http.StatusBadRequest)
-		return
-	}
 
 	user, ok := domain.LoggedInUserMap[userID]
 
@@ -630,11 +624,29 @@ func handleGetGraphMetrics(res http.ResponseWriter, req *http.Request) {
 		for _, userCluster := range user.ConnectedClusters {
 			if userCluster.ClusterID == clusterID {
 				// query directly from prometheus and send the res right away
+				metrics, err := prometheus.GetMetricsForRange(ctx, query, host, domain.ClusterBrokerMetricsPortMap[userCluster.ClusterName][host], fromTs, toTs, userCluster.ClusterName)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, "graph metrics api call failed", query, host)
+					return
+				}
+				res.WriteHeader(http.StatusOK)
+				err = json.NewEncoder(res).Encode(metrics)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, err, "marshalling response for get graph metrics request failed", clusterID, metrics)
+					res.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				log.Logger.TraceContext(ctx, "graph metrics for requested cluster are fetched", clusterID)
+				return
 			}
 		}
+		log.Logger.ErrorContext(ctx, "user has not connected to the requested cluster to get broker overall metrics", clusterID)
+		res.WriteHeader(http.StatusConflict)
+	} else {
+		log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", token)
+		res.WriteHeader(http.StatusForbidden)
+		return
 	}
-
-
 }
 
 func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
