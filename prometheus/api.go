@@ -34,9 +34,9 @@ func GetMetricsForRange(ctx context.Context, metricsName, host string, port, fro
 	} else if metricsName == totalTopicsQuery {
 		req = promUrl + "query_range?query=count%20by%20(instance)%20(rate(" + metricsName + "%7Binstance%3D%22" + host + "%3A" + strconv.Itoa(port) + "%22%7D%5B1m%5D))&start=" + strconv.Itoa(from) + "&end=" + strconv.Itoa(to) + "&step=" + strconv.Itoa(step)
 	} else if metricsName == totalBytesIn {
-		req = promUrl + "query_range?query=sum%20by%20(job)%20(" + bytesInQuery + "%7Bjob%3D%22" + cluster + "%22%7D)&start=" + strconv.Itoa(from) + "&end=" + strconv.Itoa(to) + "&step=" + strconv.Itoa(step)
+		req = promUrl + "query_range?query=sum%20by%20(job)%20(rate(" + bytesInQuery + "%7Bjob%3D%22" + cluster + "%22%7D%5B1m%5D))&start=" + strconv.Itoa(from) + "&end=" + strconv.Itoa(to) + "&step=" + strconv.Itoa(step)
 	} else if metricsName == totalBytesOut {
-		req = promUrl + "query_range?query=sum%20by%20(job)%20(" + bytesOutQuery + "%7Bjob%3D%22" + cluster + "%22%7D)&start=" + strconv.Itoa(from) + "&end=" + strconv.Itoa(to) + "&step=" + strconv.Itoa(step)
+		req = promUrl + "query_range?query=sum%20by%20(job)%20(rate(" + bytesOutQuery + "%7Bjob%3D%22" + cluster + "%22%7D%5B1m%5D))&start=" + strconv.Itoa(from) + "&end=" + strconv.Itoa(to) + "&step=" + strconv.Itoa(step)
 	} else {
 		log.Logger.ErrorContext(ctx, "undefined metrics name", metricsName)
 		return metrics, errors.New("undefined metrics")
