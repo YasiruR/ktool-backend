@@ -55,3 +55,34 @@ type GkeOperationStatusCheck struct {
 	Detail        string `json:"detail"`
 	Error         error  `json:"error"`
 }
+
+type GkeRecommendations struct {
+	Nodes  []Node `json:"nodes"`
+	Status int    `json:"status"`
+	Detail string `json:"detail"`
+}
+
+type Node struct {
+	Type        string `json:"type""`
+	Region      string `json:"region"`
+	Processor   string `json:"processor"`
+	Memory      string `json:"memory"`
+	Network     string `json:"network"`
+	StartupTime string `json:"startup_time"`
+	NodeCount   string `json:"node_count"`
+	Cost        string `json:"cost"`
+}
+
+type GkeResources struct {
+	Continents  []string `json:"continents"`
+	RegionNames []string `json:"region_names"`
+	RegionIds   []string `json:"region_ids"`
+	Status      int      `json:"status"`
+	Detail      string   `json:"detail"`
+}
+
+type ResourceLocation struct {
+	Continent  string `json:"continent"`
+	RegionName string `json:"region_name"`
+	RegionId   string `json:"region_id"`
+}

@@ -17,6 +17,9 @@ const (
 	cloudSecretTable = "cloud_secret"
 	operationsTable  = "operations"
 	k8sTable         = "k8s_clusters"
+	productsTable    = "products"
+	locationsTable   = "locations"
+	priceTable       = "price_by_region"
 )
 
 var Db *sql.DB

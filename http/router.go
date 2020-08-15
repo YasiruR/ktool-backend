@@ -47,6 +47,9 @@ func InitRouter() {
 	router.HandleFunc("/kubernetes/gke", handleCreateGkeKubClusters).Methods("POST")
 	router.HandleFunc("/kubernetes/gke/status", handleCheckGkeClusterCreationStatus).Methods("GET")
 
+	router.HandleFunc("/kubernetes/resources", handleGetGkeResource).Methods("GET")
+	router.HandleFunc("/kubernetes/recommend", handleRecommendGkeResource).Methods("GET")
+
 	osChannel := make(chan os.Signal, 1)
 	signal.Notify(osChannel, syscall.SIGINT, syscall.SIGKILL)
 

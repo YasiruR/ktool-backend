@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
+	"github.com/YasiruR/ktool-backend/util"
+	"strconv"
 )
 
 func GetAllKubernetesClusters(ctx context.Context, userId int) (clusterResponse domain.ClusterResponse) {
@@ -143,4 +145,143 @@ func UpdateGkeClusterCreationStatus(ctx context.Context, status string, operatio
 	defer insert.Close()
 	log.Logger.TraceContext(ctx, "successfully updated cluster ", operationId)
 	return true, nil
+}
+
+func GetGkeResourcesRecommendation(ctx context.Context, Provider string, Continent []string, VCPU string, RAM string, Network []string, Type []string, MinNodes string, MaxNodes string) (result domain.GkeRecommendations) {
+	nodeCount, _ := strconv.Atoi(MinNodes)
+	memory, _ := strconv.Atoi(RAM)
+	processor, _ := strconv.Atoi(VCPU)
+	regions := util.StringListToEscapedCSV(Continent)
+	category := util.StringListToEscapedCSV(Type)
+	network := util.StringListToEscapedCSV(Network)
+	//regionOk 	:= false
+	//categoryOk 	:= false
+	//networkOk 	:= false
+
+	baseQuery :=
+		"SELECT " +
+			"p.`type` AS type, " +
+			"r.region AS region, " +
+			//"p.memory AS memory, " +
+			"p.memory * %d AS memory, " +
+			//"p.cpu AS cpu, " +
+			"p.cpu * %d AS processor, " +
+			"r.unit_price * %d AS cost, " +
+			//"r.unit_price AS unit_price, " +
+			"p.network AS network, " +
+			"%d AS node_count, " +
+			"'5 min' AS startup_time " +
+			"FROM " +
+			"%s p, " +
+			"%s r " +
+			"WHERE " +
+			"p.cpu >= %d / %d AND " +
+			"p.memory >= %d / %d AND " +
+			"r.product=p.id "
+
+	if len(regions) > 0 {
+		baseQuery += fmt.Sprintf("AND r.region IN (SELECT region_id FROM locations WHERE continent IN (%s)) ", regions)
+	}
+	if len(category) > 0 {
+		baseQuery += fmt.Sprintf("AND p.category IN (%s) ", category)
+	}
+	if len(network) > 0 {
+		baseQuery += fmt.Sprintf("AND p.network IN (%s) ", network)
+	}
+	query := fmt.Sprintf(baseQuery+"ORDER BY cost LIMIT 6;", nodeCount, nodeCount, nodeCount, nodeCount, productsTable, priceTable, processor, nodeCount, memory, nodeCount)
+
+	rows, err := Db.Query(query)
+
+	switch err {
+	case nil:
+		log.Logger.InfoContext(ctx, "get recommendations query success")
+	case sql.ErrNoRows:
+		log.Logger.InfoContext(ctx, "no recommendations found for parameters %s", Provider)
+		result.Detail = fmt.Sprint("No recommendations found for parameters")
+		result.Status = -1
+		return result
+	default:
+		log.Logger.InfoContext(ctx, "no recommendations found for parameters %s", Provider)
+		result.Detail = fmt.Sprint("No recommendations found for parameters")
+		result.Status = -1
+		return result
+	}
+
+	defer rows.Close()
+	nodes := make([]domain.Node, 0)
+
+	for rows.Next() {
+		node := domain.Node{}
+
+		err = rows.Scan(&node.Type, &node.Region, &node.Memory, &node.Processor, &node.Cost, &node.Network, &node.NodeCount, &node.StartupTime)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "scanning rows in recommendation query failed", err)
+			result.Detail = fmt.Sprint("internal error occurred")
+			result.Status = -1
+			return result
+		}
+		nodes = append(nodes, node)
+	}
+
+	log.Logger.TraceContext(ctx, "get recommendation db query was successful")
+	result.Nodes = nodes
+	result.Detail = "Success"
+	result.Status = 0
+	return result
+}
+
+func GetGkeResources(ctx context.Context, Provider string) (result domain.GkeResources) {
+	//continentQuery := "SELECT DISTINCT(continent) as continents FROM locations;"
+	//regiondNameQuery := "SELECT DISTINCT(region_name) as continents FROM locations;"
+	//regionIdQuery := "SELECT DISTINCT(region_id) as continents FROM locations;"
+
+	query := "SELECT continent, region_name, region_id FROM locations;"
+
+	rows, err := Db.Query(query)
+
+	switch err {
+	case nil:
+		log.Logger.InfoContext(ctx, "get locations query success")
+	case sql.ErrNoRows:
+		log.Logger.InfoContext(ctx, "no metadata found for locations")
+		result.Detail = "no locations found"
+		result.Status = -1
+		return result
+	default:
+		log.Logger.InfoContext(ctx, "unhandled error occurred while fetching locations")
+		result.Detail = "no locations found"
+		result.Status = -1
+		return result
+	}
+
+	defer rows.Close()
+	continents := make(map[string]bool)
+	regionNames := make([]string, 0)
+	regionIds := make([]string, 0)
+
+	for rows.Next() {
+		location := domain.ResourceLocation{}
+
+		err = rows.Scan(&location.Continent, &location.RegionName, &location.RegionId)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "scanning rows in location failed", err)
+			result.Detail = "scanning rows in location failed"
+			result.Status = -1
+			return result
+		}
+		continents[location.Continent] = true
+		regionNames = append(regionNames, location.RegionName)
+		regionIds = append(regionIds, location.RegionId)
+	}
+
+	log.Logger.TraceContext(ctx, "get all resource locations db query was successful")
+	for k := range continents {
+		result.Continents = append(result.Continents, k)
+	}
+	//result.Continents = continents
+	result.RegionIds = regionIds
+	result.RegionNames = regionNames
+	result.Detail = "Success"
+	result.Status = 0
+	return result
 }

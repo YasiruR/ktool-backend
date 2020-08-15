@@ -103,6 +103,7 @@ func generateClusterCreationRequest(credentials *domain.GkeSecret, clusterOption
 			Description:      clusterOptions.Description,
 			Location:         clusterOptions.Location,
 			InitialNodeCount: clusterOptions.InstanceCount,
+
 			//MasterAuth: containerpb.MasterAuth{
 			//
 			//}

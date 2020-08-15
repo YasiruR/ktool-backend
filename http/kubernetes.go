@@ -13,6 +13,7 @@ import (
 
 	//"io/ioutil"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -189,4 +190,89 @@ func handleCreateGkeKubClusters(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	log.Logger.TraceContext(ctx, "add gke k8s cluster request successful", createGkeCluster.Name)
+}
+
+func handleRecommendGkeResource(res http.ResponseWriter, req *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+
+	//user validation by token header
+	//token := req.Header.Get("Authorization")
+	//_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
+	//if !ok {
+	//	log.Logger.DebugContext(ctx, "invalid user", token)
+	//	res.WriteHeader(http.StatusUnauthorized)
+	//	return
+	//}
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
+
+	arrays, _ := url.ParseQuery(req.URL.RawQuery)
+	Continent := arrays["continent[]"]
+	Type := arrays["type[]"]
+	Network := arrays["network[]"]
+	Provider := req.FormValue("service_provider")
+	VCPU := req.FormValue("vcpu")
+	RAM := req.FormValue("ram")
+	MinNodes := req.FormValue("min_nodes")
+	MaxNodes := req.FormValue("max_nodes")
+
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "unmarshal error", err)
+	//	res.WriteHeader(http.StatusBadRequest)
+	//	return
+	//}
+
+	//result := database.GetSecretInternal(ctx, Name, OwnerId, Provider)
+	//Continent := []string{"North America"}
+	//Network := []string{"extra"}
+	//Type := []string{"General purpose"}
+	result := database.GetGkeResourcesRecommendation(ctx, Provider, Continent, VCPU, RAM, Network, Type, MinNodes, MaxNodes)
+
+	res.WriteHeader(http.StatusOK)
+	err := json.NewEncoder(res).Encode(&result)
+	if err != nil {
+		res.WriteHeader(http.StatusOK)
+		log.Logger.ErrorContext(ctx, "response json conversion failed in get cluster recommendations")
+	}
+	log.Logger.TraceContext(ctx, "get cluster recommendations request successful")
+}
+
+func handleGetGkeResource(res http.ResponseWriter, req *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+
+	////user validation by token header
+	//token := req.Header.Get("Authorization")
+	//_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
+	//if !ok {
+	//	log.Logger.DebugContext(ctx, "invalid user", token)
+	//	res.WriteHeader(http.StatusUnauthorized)
+	//	return
+	//}
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
+
+	Provider := req.FormValue("service_provider")
+
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "unmarshal error", err)
+	//	res.WriteHeader(http.StatusBadRequest)
+	//	return
+	//}
+
+	//result := database.GetSecretInternal(ctx, Name, OwnerId, Provider)
+	result := database.GetGkeResources(ctx, Provider)
+
+	res.WriteHeader(http.StatusOK)
+	err := json.NewEncoder(res).Encode(&result)
+	if err != nil {
+		res.WriteHeader(http.StatusOK)
+		log.Logger.ErrorContext(ctx, "response json conversion failed in get cluster recommendations")
+	}
+	log.Logger.TraceContext(ctx, "get cluster recommendations request successful")
 }
