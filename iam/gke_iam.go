@@ -29,9 +29,10 @@ import (
 //	fmt.Println(res)
 //}
 
-func TestIamPermissionsGke(credentials *oauth2.Credentials) (isValid bool, err error) {
+func TestIamPermissionsGke(credentials *oauth2.Credentials, credsAsBytes []byte) (isValid bool, err error) {
 	ctx := context.Background()
-	resourceService, err := resource.NewService(ctx, option.WithCredentials(credentials))
+	//resourceService, err := resource.NewService(ctx, option.WithCredentials(credentials))
+	resourceService, err := resource.NewService(ctx, option.WithCredentialsJSON(credsAsBytes))
 	if err != nil {
 		return false, err
 	}
@@ -73,7 +74,8 @@ func TestIamPermissionsGke(credentials *oauth2.Credentials) (isValid bool, err e
 			"container.cronJobs.updateStatus",
 		},
 	}
-	_, err = resourceService.Projects.TestIamPermissions(credentials.ProjectID, req).Context(ctx).Do()
+	resp, err := resourceService.Projects.TestIamPermissions(credentials.ProjectID, req).Context(ctx).Do()
+	log.Logger.InfoContext(ctx, resp)
 	if err != nil {
 		return false, err
 	}
@@ -220,7 +222,7 @@ func GetServiceAccountIamPolicies(userId string) (*iamadmin.Policy, error) {
 
 func GetGkeCredentialsForUser(userId string) ([]byte, domain.GkeSecret, error) {
 	ctx := context.Background()
-	secretDao := database.GetSecretInternal(ctx, userId, `Google`, `ktool-gke`)
+	secretDao := database.GetSecretInternal(ctx, userId, `Google`, `ktool-2020`)
 
 	if err := secretDao.Error; err != nil {
 		log.Logger.ErrorContext(ctx, "Error occurred while fetching eks secret for client %s", userId)
@@ -241,6 +243,34 @@ func GetGkeCredentialsForUser(userId string) ([]byte, domain.GkeSecret, error) {
 	bytes, err := json.Marshal(&cred)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "Could not marshall gke credentials for user %s", userId)
+		return nil, cred, err
+	}
+	return bytes, cred, nil
+}
+
+func GetGkeCredentialsForSecret(secretId string) ([]byte, domain.GkeSecret, error) {
+	ctx := context.Background()
+	secretDao := database.GetSecretByIdInternal(ctx, secretId)
+
+	if err := secretDao.Error; err != nil {
+		log.Logger.ErrorContext(ctx, "Error occurred while fetching eks secret for client %s", secretId)
+		return nil, domain.GkeSecret{}, err
+	}
+	cred := domain.GkeSecret{
+		Type:              secretDao.Secret.GkeType,
+		ProjectId:         secretDao.Secret.GkeProjectId,
+		PrivateKeyId:      secretDao.Secret.GkePrivateKeyId,
+		PrivateKey:        secretDao.Secret.GkePrivateKey,
+		ClientMail:        secretDao.Secret.GkeClientMail,
+		ClientId:          secretDao.Secret.GkeClientId,
+		AuthUri:           secretDao.Secret.GkeAuthUri,
+		TokenUri:          secretDao.Secret.GkeTokenUri,
+		AuthX509CertUrl:   secretDao.Secret.GkeAuthX509CertUrl,
+		ClientX509CertUrl: secretDao.Secret.GkeClientX509CertUrl,
+	}
+	bytes, err := json.Marshal(&cred)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "Could not marshall gke credentials for user %s", secretId)
 		return nil, cred, err
 	}
 	return bytes, cred, nil

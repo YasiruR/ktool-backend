@@ -266,7 +266,7 @@ func handleValidateSecret(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	res.WriteHeader(http.StatusOK)
-	//err = json.NewEncoder(res).Encode(&result)
+	err = json.NewEncoder(res).Encode(&domain.Validation{Status: "ok"})
 	if err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 		log.Logger.ErrorContext(ctx, "response json conversion failed", validateSecretRequest.UserId)

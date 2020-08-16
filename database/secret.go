@@ -167,6 +167,55 @@ func GetSecretInternal(ctx context.Context, OwnerId string, Provider string, Sec
 	return result
 }
 
+func GetSecretByIdInternal(ctx context.Context, SecretId string) (result domain.DAOResult) {
+	result = GetSecretById(ctx, SecretId)
+	switch result.Error {
+	case nil:
+		log.Logger.InfoContext(ctx, "get secret query success")
+	case sql.ErrNoRows:
+		log.Logger.InfoContext(ctx, "no secrets found for secretId %s", SecretId)
+		result.Status = -1
+		result.Message = "no secrets found"
+		return result
+	default:
+		log.Logger.InfoContext(ctx, "unhandled error occurred while fetching records for secretId %s", SecretId)
+		result.Status = -1
+		result.Message = "unhandled error occurred from db"
+		return result
+	}
+	log.Logger.TraceContext(ctx, "get all secrets db query was successful")
+	result.Status = 0
+	result.Message = "Success"
+	return result
+}
+
+func GetSecretById(ctx context.Context, secretId string) (result domain.DAOResult) {
+	query := "SELECT id, gkeSecretType, gkeProjectId, gkePrivateKeyId, gkePrivateKey, gkeClientEmail, " +
+		"gkeClientId, gkeAuthUri, gkeTokenUri, gkeAuthCertUrl, gkeClientCertUrl FROM " + cloudSecretTable +
+		" WHERE id = " + secretId + ";"
+
+	rows, err := Db.Query(query)
+
+	if err != nil {
+		result.Error = err
+		return result
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		err = rows.Scan(&result.Secret.ID, &result.Secret.GkeType, &result.Secret.GkeProjectId, &result.Secret.GkePrivateKeyId,
+			&result.Secret.GkePrivateKey, &result.Secret.GkeClientMail, &result.Secret.GkeClientId, &result.Secret.GkeAuthUri,
+			&result.Secret.GkeTokenUri, &result.Secret.GkeAuthX509CertUrl, &result.Secret.GkeClientX509CertUrl)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "scanning rows in secret table failed", err)
+			result.Error = err
+			return result
+		}
+	}
+	return result
+}
+
 func GetAksSecret(ctx context.Context, OwnerId string, SecretName string) (result domain.DAOResult) {
 
 	query := "SELECT id, aksClientId, aksClientSecret, aksTenantId, aksSubscriptionId FROM " + cloudSecretTable +

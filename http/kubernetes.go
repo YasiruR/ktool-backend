@@ -162,7 +162,7 @@ func handleCreateGkeKubClusters(res http.ResponseWriter, req *http.Request) {
 	}
 	fmt.Println("Create Gke k8s cluster request received")
 	clusterId := uuid.New().String()
-	op, err := kubernetes.CreateGkeCluster(clusterId, strconv.Itoa(createGkeCluster.UserId), &createGkeCluster)
+	op, err := kubernetes.CreateGkeCluster(clusterId, strconv.Itoa(createGkeCluster.SecretId), &createGkeCluster)
 	if err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 		log.Logger.ErrorContext(ctx, "Cluster creation failed, check logs", createGkeCluster.Name)
@@ -181,6 +181,7 @@ func handleCreateGkeKubClusters(res http.ResponseWriter, req *http.Request) {
 		OpId:      op.Name,
 		ClusterId: clusterId,
 		Status:    op.GetStatus().String(),
+		Error:     "",
 	}
 	res.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(res).Encode(&result)
@@ -231,7 +232,11 @@ func handleRecommendGkeResource(res http.ResponseWriter, req *http.Request) {
 	//Type := []string{"General purpose"}
 	result := database.GetGkeResourcesRecommendation(ctx, Provider, Continent, VCPU, RAM, Network, Type, MinNodes, MaxNodes)
 
-	res.WriteHeader(http.StatusOK)
+	if result.Status == 0 {
+		res.WriteHeader(http.StatusOK)
+	} else {
+		res.WriteHeader(http.StatusBadRequest)
+	}
 	err := json.NewEncoder(res).Encode(&result)
 	if err != nil {
 		res.WriteHeader(http.StatusOK)

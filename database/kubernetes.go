@@ -133,7 +133,17 @@ func AddGkeCluster(ctx context.Context, clusterId string, userId int, clusterNam
 }
 
 func UpdateGkeClusterCreationStatus(ctx context.Context, status string, operationId string) (opStatus bool, err error) {
-	query := fmt.Sprintf("UPDATE kdb.%s SET status='%s' WHERE op_id='%s'", k8sTable, status, operationId)
+	statusDesc := "UNSPECIFIED"
+	switch status {
+	case "SUBMITTED":
+		statusDesc = "INITIALIZING"
+	case "RUNNING":
+		statusDesc = "CREATING"
+	case "DONE":
+		statusDesc = "RUNNING"
+	default:
+	}
+	query := fmt.Sprintf("UPDATE kdb.%s SET status='%s' WHERE op_id='%s'", k8sTable, statusDesc, operationId)
 
 	insert, err := Db.Query(query)
 
@@ -222,11 +232,17 @@ func GetGkeResourcesRecommendation(ctx context.Context, Provider string, Contine
 		}
 		nodes = append(nodes, node)
 	}
-
-	log.Logger.TraceContext(ctx, "get recommendation db query was successful")
-	result.Nodes = nodes
-	result.Detail = "Success"
-	result.Status = 0
+	if len(nodes) > 0 {
+		log.Logger.TraceContext(ctx, "get recommendation db query was successful")
+		result.Nodes = nodes
+		result.Detail = "Success"
+		result.Status = 0
+	} else {
+		log.Logger.TraceContext(ctx, "get recommendation db query returned 0 rows")
+		result.Nodes = nodes
+		result.Detail = "Failed"
+		result.Status = -1
+	}
 	return result
 }
 

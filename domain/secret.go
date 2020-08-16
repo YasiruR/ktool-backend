@@ -109,6 +109,10 @@ type DAOResult struct {
 	Error   error
 }
 
+type Validation struct {
+	Status string `json:"status"`
+}
+
 //type SecretDAO interface {
 //	AddSecret(ctx context.Context, addSecretRequest *http.AddSecretRequest) (result Result)
 //	DeleteSecret(ctx context.Context, secretId string) (result Result)

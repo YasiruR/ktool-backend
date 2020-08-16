@@ -24,9 +24,41 @@ import (
 //TODO: this is the token source pool
 var JWTConfigPool = make(map[string]jwt.Config)
 
-func CreateGkeCluster(clusterId string, userId string, clusterOptions *domain.GkeClusterOptions) (*containerpb.Operation, error) {
+//func CreateGkeCluster(clusterId string, userId string, clusterOptions *domain.GkeClusterOptions) (*containerpb.Operation, error) {
+//	ctx := context.Background()
+//	b, cred, err := iam.GetGkeCredentialsForUser(userId)
+//	if err != nil {
+//		return nil, err
+//	}
+//	c, err := container.NewClusterManagerClient(ctx, option.WithCredentialsJSON(b))
+//	if err != nil {
+//		return nil, err
+//	}
+//	req, err := generateClusterCreationRequest(&cred, clusterOptions)
+//	if err != nil {
+//		return nil, err
+//	}
+//	resp, err := c.CreateCluster(ctx, req)
+//	if err != nil { // todo: retry and if consistently failing, send delete cluster request
+//		log.Logger.ErrorContext(ctx, "Cluster creation failed with Google. Error, {}", err.Error())
+//		return nil, err
+//	}
+//	err = database.AddGkeLROperation(ctx, resp.Name, cred.ProjectId, clusterOptions.Location)
+//	if err != nil {
+//		log.Logger.ErrorContext(ctx, "Failed to add LRO to db.")
+//		return nil, err
+//	}
+//	err = database.AddGkeCluster(ctx, clusterId, clusterOptions.UserId, clusterOptions.Name, resp.Name)
+//	if err != nil {
+//		log.Logger.ErrorContext(ctx, "Failed to add cluster details to db.")
+//		return nil, err
+//	}
+//	return resp, nil
+//}
+
+func CreateGkeCluster(clusterId string, secretId string, clusterOptions *domain.GkeClusterOptions) (*containerpb.Operation, error) {
 	ctx := context.Background()
-	b, cred, err := iam.GetGkeCredentialsForUser(userId)
+	b, cred, err := iam.GetGkeCredentialsForSecret(secretId)
 	if err != nil {
 		return nil, err
 	}
@@ -96,14 +128,32 @@ func CheckOperationStatus(c *container.ClusterManagerClient, zone string, name s
 }
 
 func generateClusterCreationRequest(credentials *domain.GkeSecret, clusterOptions *domain.GkeClusterOptions) (*containerpb.CreateClusterRequest, error) {
+	nodePool1 := containerpb.NodePool{
+		Name: clusterOptions.Name + "-pool-1",
+		Config: &containerpb.NodeConfig{
+			MachineType: clusterOptions.MachineType,
+			//DiskSizeGb:             0,
+			//OauthScopes:            nil,
+			//ServiceAccount:         "",
+			//Metadata:               nil,
+			//ImageType:              "",
+			//Labels:                 nil,
+			//LocalSsdCount:          0,
+			//Tags:                   nil,
+			//Preemptible:            false,
+		},
+		InitialNodeCount: clusterOptions.InstanceCount,
+	}
 	return &containerpb.CreateClusterRequest{
 		ProjectId: credentials.ProjectId,
 		Cluster: &containerpb.Cluster{
-			Name:             clusterOptions.Name,
-			Description:      clusterOptions.Description,
-			Location:         clusterOptions.Location,
-			InitialNodeCount: clusterOptions.InstanceCount,
-
+			Name:        clusterOptions.Name,
+			Description: clusterOptions.Description,
+			Location:    clusterOptions.Location,
+			NodePools: []*containerpb.NodePool{
+				&nodePool1,
+			},
+			InitialClusterVersion: clusterOptions.KubVersion,
 			//MasterAuth: containerpb.MasterAuth{
 			//
 			//}
@@ -143,6 +193,10 @@ func ListGkeClusters(userId string) (*containerpb.ListClustersResponse, error) {
 		return nil, err
 	}
 	return resp, nil
+}
+
+func UpdateGkePendingOperations(userId string) {
+	//query = ""
 }
 
 func CheckGkeClusterCreationStatus(userId string, operationName string) (status domain.GkeOperationStatusCheck, err error) {

@@ -19,7 +19,7 @@ func TestIamPermissions(cloudSecret *domain.CloudSecret) (isValid bool, err erro
 		if err != nil {
 
 		}
-		isValid, err = TestIamPermissionsGke(cred)
+		isValid, err = TestIamPermissionsGke(cred, credAsBytes)
 	default:
 
 	}

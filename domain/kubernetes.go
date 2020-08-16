@@ -20,6 +20,7 @@ type KubCluster struct {
 
 type GkeClusterOptions struct {
 	UserId        int    `json:"user_id"` //todo: remove this, doesnt make sense
+	SecretId      int    `json:"secret_id"`
 	Name          string `json:"name"`
 	ClusterId     string `json:"cluster_id"`
 	Description   string `json:"description"`
@@ -31,6 +32,7 @@ type GkeClusterOptions struct {
 	MachineFamily string `json:"machine_family"`
 	DiskSize      int    `json:"disk_size"`
 	DiskType      string `json:"disk_type"`
+	KubVersion    string `json:"kub_version"`
 }
 
 type GkeClusterStatus struct {
@@ -38,6 +40,7 @@ type GkeClusterStatus struct {
 	ClusterId string `json:"cluster_id"`
 	OpId      string `json:"operation_id"`
 	Status    string `json:"status"`
+	Error     string `json:"error"`
 }
 
 type GkeLROperation struct {
