@@ -260,9 +260,16 @@ func handleValidateSecret(res http.ResponseWriter, req *http.Request) {
 	fmt.Println("Validate secret request received")
 	log.Logger.TraceContext(ctx, "secret is being validated ", validateSecretRequest.UserId)
 	valid, err := iam.TestIamPermissions(&validateSecretRequest)
-	if (err != nil) || !valid {
+	if err != nil {
 		log.Logger.ErrorContext(ctx, "error occurred while validating secret", err)
 		res.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(res).Encode(&domain.Validation{Status: "failed", Error: err.Error()})
+		return
+	}
+	if !valid {
+		log.Logger.ErrorContext(ctx, "secret validation failed at google", err)
+		res.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(res).Encode(&domain.Validation{Status: "failed", Error: "The key does not have appropriate permissions"})
 		return
 	}
 	res.WriteHeader(http.StatusOK)

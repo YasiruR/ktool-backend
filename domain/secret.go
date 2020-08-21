@@ -111,6 +111,7 @@ type DAOResult struct {
 
 type Validation struct {
 	Status string `json:"status"`
+	Error  string `json:"error"`
 }
 
 //type SecretDAO interface {
