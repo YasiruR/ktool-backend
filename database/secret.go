@@ -415,6 +415,7 @@ func AddSecret(ctx context.Context, request *domain.CloudSecret) (result domain.
 	}
 
 	if err != nil {
+		result.ErrorMsg = err.Error()
 		result.Error = err
 		result.Message = "Secret addition failed"
 		result.Status = -1

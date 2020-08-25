@@ -100,6 +100,7 @@ type Result struct {
 	Status     int
 	Message    string
 	Error      error
+	ErrorMsg   string
 }
 
 type DAOResult struct {

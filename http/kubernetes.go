@@ -164,7 +164,15 @@ func handleCreateGkeKubClusters(res http.ResponseWriter, req *http.Request) {
 	clusterId := uuid.New().String()
 	op, err := kubernetes.CreateGkeCluster(clusterId, strconv.Itoa(createGkeCluster.SecretId), &createGkeCluster)
 	if err != nil {
-		res.WriteHeader(http.StatusInternalServerError)
+		res.WriteHeader(http.StatusOK)
+		result := domain.GkeClusterStatus{
+			Name:      createGkeCluster.Name,
+			OpId:      "",
+			ClusterId: clusterId,
+			Status:    "FAILED",
+			Error:     err.Error(),
+		}
+		err = json.NewEncoder(res).Encode(&result)
 		log.Logger.ErrorContext(ctx, "Cluster creation failed, check logs", createGkeCluster.Name)
 		return
 	}

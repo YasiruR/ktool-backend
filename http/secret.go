@@ -63,7 +63,7 @@ func handleAddSecret(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusInternalServerError)
 		log.Logger.ErrorContext(ctx, "response json conversion failed", addSecretRequest.UserId)
 	}
-	log.Logger.TraceContext(ctx, "add secret request successful", addSecretRequest.UserId)
+	//log.Logger.TraceContext(ctx, "add secret request successful", addSecretRequest.UserId)
 }
 
 func handleGetAllSecrets(res http.ResponseWriter, req *http.Request) {
