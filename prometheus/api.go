@@ -330,8 +330,10 @@ func getStepFromTs(ctx context.Context, from, to int) (step int, err error) {
 		return 60, nil
 	} else if tsGap < 43200 {
 		return 120, nil
+	} else if tsGap <= 86400 {
+		return 240, nil
 	} else {
-		numOfDays := tsGap % 86400
+		numOfDays := tsGap / 86400
 		return 300*numOfDays, nil
 	}
 }
