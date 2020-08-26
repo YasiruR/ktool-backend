@@ -16,6 +16,7 @@ type Config struct {
 	MetricsCleanInterval	int			`yaml:"metrics_table_clean_interval"`
 	PromScrapeInterval		string		`yaml:"default_prom_scrape_interval"`
 	PromScrapeTimeout		string		`yaml:"default_prom_scrape_timeout"`
+	ConfigFilePath 			string		`yaml:"config_file_path"`
 }
 
 var Cfg = new(Config)

@@ -5,7 +5,7 @@ import (
 	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/kafka"
 	"github.com/YasiruR/ktool-backend/log"
-	"os"
+	"github.com/YasiruR/ktool-backend/service"
 	"os/exec"
 	"strconv"
 	"time"
@@ -153,14 +153,8 @@ func Init() {
 		}
 	}
 
-	//getting file path for prometheus config
-	pwd, err := os.Getwd()
-	if err != nil {
-		log.Logger.Fatal("failed in fetching the current working directory")
-	}
-
 	//start docker container using the config given
-	runCmd := exec.Command("/bin/sh", "-c", "sudo docker run -d -p 9090:9090 --name prometheus -v " + pwd + "/config/prometheus.yml:/etc/prometheus/prometheus.yml prom/prometheus")
+	runCmd := exec.Command("/bin/sh", "-c", "sudo docker run -d -p 9090:9090 --name prometheus -v " + service.Cfg.ConfigFilePath + "/prometheus.yml:/etc/prometheus/prometheus.yml prom/prometheus")
 	runOutput, err := runCmd.CombinedOutput()
 	if err != nil {
 		log.Logger.Fatal(err,"could not start docker prometheus container (there might be a container already running (or stopped) as prometheus)", string(runOutput))

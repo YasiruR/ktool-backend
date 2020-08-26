@@ -3,6 +3,7 @@ service_port: "7070"
 #ping and telnet config
 ping_retry: 3
 ping_timeout: 5   #seconds
+config_file_path: "/home/gowork/src/github.com/YasiruR/ktool-backend/config"
 
 client_init_timeout: 1
 cluster_refresh_interval: 500
