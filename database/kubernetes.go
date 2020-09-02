@@ -132,6 +132,22 @@ func AddGkeCluster(ctx context.Context, clusterId string, userId int, clusterNam
 	return nil
 }
 
+func AddEksCluster(ctx context.Context, clusterId string, userId int, clusterName string, arn string) (err error) {
+	query := fmt.Sprintf("INSERT INTO kdb.%s (cluster_id, user_id, name, op_id, service_provider, status, active) "+
+		"VALUES ('%s', %d, '%s', '%s', '%s', 'CREATING', 1);", k8sTable, clusterId, userId, clusterName, arn, "google")
+	insert, err := Db.Query(query)
+
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("insert to %s table failed", k8sTable), err)
+		return err
+	}
+
+	defer insert.Close()
+	log.Logger.TraceContext(ctx, "successfully added a new cluster.")
+	//todo: get id and return
+	return nil
+}
+
 func UpdateGkeClusterCreationStatus(ctx context.Context, status string, operationId string) (opStatus bool, err error) {
 	statusDesc := "UNSPECIFIED"
 	switch status {

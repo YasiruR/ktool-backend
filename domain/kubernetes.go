@@ -18,6 +18,7 @@ type KubCluster struct {
 	Location        string `json:"location"`
 }
 
+//GKE specific structs
 type GkeClusterOptions struct {
 	UserId        int    `json:"user_id"` //todo: remove this, doesnt make sense
 	SecretId      int    `json:"secret_id"`
@@ -89,3 +90,5 @@ type ResourceLocation struct {
 	RegionName string `json:"region_name"`
 	RegionId   string `json:"region_id"`
 }
+
+//EKS specific structs

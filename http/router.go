@@ -41,11 +41,15 @@ func InitRouter() {
 	router.HandleFunc("/secret/update", handleUpdateSecret).Methods("PATCH")
 	router.HandleFunc("/secret/validate", handleValidateSecret).Methods("POST")
 
-	router.HandleFunc("/kubernetes", handleUGetAllKubClusters).Methods("GET")
+	router.HandleFunc("/kubernetes", handleGetAllKubClusters).Methods("GET")
 
 	router.HandleFunc("/kubernetes/gke", handleGetAllGkeKubClusters).Methods("GET")
 	router.HandleFunc("/kubernetes/gke", handleCreateGkeKubClusters).Methods("POST")
 	router.HandleFunc("/kubernetes/gke/status", handleCheckGkeClusterCreationStatus).Methods("GET")
+
+	//router.HandleFunc("/kubernetes/eks", handleGetAllEksKubClusters).Methods("GET")
+	router.HandleFunc("/kubernetes/eks", handleCreateEksKubClusters).Methods("POST")
+	router.HandleFunc("/kubernetes/eks/status", handleCheckEksClusterCreationStatus).Methods("GET")
 
 	router.HandleFunc("/kubernetes/resources", handleGetGkeResource).Methods("GET")
 	router.HandleFunc("/kubernetes/recommend", handleRecommendGkeResource).Methods("GET")

@@ -34,7 +34,7 @@ var JWTConfigPool = make(map[string]jwt.Config)
 //	if err != nil {
 //		return nil, err
 //	}
-//	req, err := generateClusterCreationRequest(&cred, clusterOptions)
+//	req, err := generateGKEClusterCreationRequest(&cred, clusterOptions)
 //	if err != nil {
 //		return nil, err
 //	}
@@ -66,7 +66,7 @@ func CreateGkeCluster(clusterId string, secretId string, clusterOptions *domain.
 	if err != nil {
 		return nil, err
 	}
-	req, err := generateClusterCreationRequest(&cred, clusterOptions)
+	req, err := generateGKEClusterCreationRequest(&cred, clusterOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func CheckOperationStatus(c *container.ClusterManagerClient, zone string, name s
 	return *resp, nil
 }
 
-func generateClusterCreationRequest(credentials *domain.GkeSecret, clusterOptions *domain.GkeClusterOptions) (*containerpb.CreateClusterRequest, error) {
+func generateGKEClusterCreationRequest(credentials *domain.GkeSecret, clusterOptions *domain.GkeClusterOptions) (*containerpb.CreateClusterRequest, error) {
 	nodePool1 := containerpb.NodePool{
 		Name: clusterOptions.Name + "-pool-1",
 		Config: &containerpb.NodeConfig{
