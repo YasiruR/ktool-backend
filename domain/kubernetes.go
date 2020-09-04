@@ -1,5 +1,7 @@
 package domain
 
+import "github.com/aws/aws-sdk-go/service/eks"
+
 type ClusterResponse struct {
 	Clusters []KubCluster `json:"clusters"`
 	Error    error        `json:"error"`
@@ -92,3 +94,7 @@ type ResourceLocation struct {
 }
 
 //EKS specific structs
+type EksClusterStatus struct {
+	CreateClusterOutput  eks.CreateClusterOutput   `json:"eks_create_cluster_output"`
+	CreateNodGroupOutput eks.CreateNodegroupOutput `json:"eks_create_node_group_output"`
+}

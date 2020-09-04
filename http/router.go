@@ -49,6 +49,7 @@ func InitRouter() {
 
 	//router.HandleFunc("/kubernetes/eks", handleGetAllEksKubClusters).Methods("GET")
 	router.HandleFunc("/kubernetes/eks", handleCreateEksKubClusters).Methods("POST")
+	router.HandleFunc("/kubernetes/eks", handleDeleteEksKubClusters).Methods("DELETE")
 	router.HandleFunc("/kubernetes/eks/status", handleCheckEksClusterCreationStatus).Methods("GET")
 
 	router.HandleFunc("/kubernetes/resources", handleGetGkeResource).Methods("GET")

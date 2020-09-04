@@ -9,10 +9,10 @@ import (
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/eks"
+	"github.com/hashicorp/go-uuid"
 	"strconv"
 )
 
@@ -61,6 +61,46 @@ func main() {
 	fmt.Println(result)
 }
 
+func ListEksClusers(userID string) eks.ListClustersOutput {
+	region := "us-east-2" //TODO: global var
+	cred, err := iam.GetEksCredentialsForUser(userID)
+	if err != nil {
+		log.Logger.ErrorContext(context.Background(), "Error occurred while fetching eks secret for client %s", userID)
+		return eks.ListClustersOutput{}
+	}
+	sess, _ := session.NewSession(&aws.Config{
+		Credentials: cred,
+		Region:      &region,
+	})
+	svc := eks.New(sess)
+
+	//list clusters
+	input := &eks.ListClustersInput{}
+	result, err := svc.ListClusters(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case eks.ErrCodeInvalidParameterException:
+				fmt.Println(eks.ErrCodeInvalidParameterException, aerr.Error())
+			case eks.ErrCodeClientException:
+				fmt.Println(eks.ErrCodeClientException, aerr.Error())
+			case eks.ErrCodeServerException:
+				fmt.Println(eks.ErrCodeServerException, aerr.Error())
+			case eks.ErrCodeServiceUnavailableException:
+				fmt.Println(eks.ErrCodeServiceUnavailableException, aerr.Error())
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			fmt.Println(err.Error())
+		}
+		return eks.ListClustersOutput{}
+	}
+	return *result
+}
+
 func CheckEksClusterCreationStatus(clusterName string, secretId int) (eks.DescribeClusterOutput, error) {
 	//region := "us-east-2"
 	//cluster := "ktool-test-cluster"
@@ -106,10 +146,11 @@ func CheckEksClusterCreationStatus(clusterName string, secretId int) (eks.Descri
 	return *result, nil
 }
 
-func CreateEksCluster(clusterId string, secretId int, createClusterRequest *domain.GkeClusterOptions) (eks.CreateClusterOutput, error) {
+func CreateEksCluster(clusterId string, secretId int, createClusterRequest *domain.GkeClusterOptions) (domain.EksClusterStatus, error) {
 	cred, err := iam.GetEksCredentialsForSecretId(strconv.Itoa(secretId))
+	nodeGroupResp := domain.EksClusterStatus{}
 	if err != nil {
-		return eks.CreateClusterOutput{}, err
+		return domain.EksClusterStatus{}, err
 	}
 	//id := "AKIAY4OR54E7L5QR3QRF"
 	//secret := "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"
@@ -118,10 +159,29 @@ func CreateEksCluster(clusterId string, secretId int, createClusterRequest *doma
 		Credentials: cred,
 		Region:      aws.String("us-east-2"),
 	})
+	arn := "arn:aws:iam::899060911865:user/ktool-admin"
+
 	svc := eks.New(sess)
+	ctrlResp, err := createEksControlPlane(svc, clusterId, createClusterRequest.Name, arn, "1.15")
+	if err != nil {
+		return ctrlResp, err
+	}
+	if *ctrlResp.CreateClusterOutput.Cluster.Status == "SUCCESS" {
+		nodeGroupResp, err = createEksNodeGroup(svc, ctrlResp, createClusterRequest)
+	}
+	if err != nil {
+		return ctrlResp, err
+	}
+	// persist in db
+	err = database.AddEksCluster(context.Background(), clusterId, createClusterRequest.UserId, createClusterRequest.Name, createClusterRequest.Name)
+	return nodeGroupResp, nil
+}
+
+func createEksControlPlane(svc *eks.EKS, id string, name string, arn string, kubVersion string) (clusterCreationOutput domain.EksClusterStatus, err error) {
 	input := &eks.CreateClusterInput{
-		ClientRequestToken: aws.String(clusterId),
-		Name:               aws.String("dev"),
+		ClientRequestToken: aws.String(id),
+		//Name:               aws.String("dev"),
+		Name: aws.String(name),
 		//Name:               aws.String(createClusterRequest.Name),
 		ResourcesVpcConfig: &eks.VpcConfigRequest{
 			SecurityGroupIds: []*string{
@@ -133,8 +193,9 @@ func CreateEksCluster(clusterId string, secretId int, createClusterRequest *doma
 			},
 		},
 		//RoleArn: aws.String("arn:aws:iam::012345678910:role/eks-service-role-AWSServiceRoleForAmazonEKS-J7ONKE3BQ4PI"),
-		RoleArn: aws.String("arn:aws:iam::610862489918:role/eks-admin"),
-		Version: aws.String(createClusterRequest.KubVersion),
+		//RoleArn: aws.String("arn:aws:iam::610862489918:role/eks-admin"),
+		RoleArn: aws.String(arn),
+		Version: aws.String(kubVersion),
 	}
 
 	result, err := svc.CreateCluster(input)
@@ -142,49 +203,99 @@ func CreateEksCluster(clusterId string, secretId int, createClusterRequest *doma
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case eks.ErrCodeResourceInUseException:
-				fmt.Println(eks.ErrCodeResourceInUseException, aerr.Error())
+				log.Logger.Error(eks.ErrCodeResourceInUseException + aerr.Error())
 			case eks.ErrCodeResourceLimitExceededException:
-				fmt.Println(eks.ErrCodeResourceLimitExceededException, aerr.Error())
+				log.Logger.Error(eks.ErrCodeResourceLimitExceededException + aerr.Error())
 			case eks.ErrCodeInvalidParameterException:
-				fmt.Println(eks.ErrCodeInvalidParameterException, aerr.Error())
+				log.Logger.Error(eks.ErrCodeInvalidParameterException + aerr.Error())
 			case eks.ErrCodeClientException:
-				fmt.Println(eks.ErrCodeClientException, aerr.Error())
+				log.Logger.Error(eks.ErrCodeClientException + aerr.Error())
 			case eks.ErrCodeServerException:
-				fmt.Println(eks.ErrCodeServerException, aerr.Error())
+				log.Logger.Error(eks.ErrCodeServerException + aerr.Error())
 			case eks.ErrCodeServiceUnavailableException:
-				fmt.Println(eks.ErrCodeServiceUnavailableException, aerr.Error())
+				log.Logger.Error(eks.ErrCodeServiceUnavailableException + aerr.Error())
 			case eks.ErrCodeUnsupportedAvailabilityZoneException:
-				fmt.Println(eks.ErrCodeUnsupportedAvailabilityZoneException, aerr.Error())
+				log.Logger.Error(eks.ErrCodeUnsupportedAvailabilityZoneException + aerr.Error())
 			default:
-				fmt.Println(aerr.Error())
+				log.Logger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			log.Logger.Error(err.Error())
 		}
-		return eks.CreateClusterOutput{}, err
+		return domain.EksClusterStatus{}, err
 	}
-
-	// persist in db
-	err = database.AddEksCluster(context.Background(), clusterId, createClusterRequest.UserId, createClusterRequest.Name, *result.Cluster.Arn)
-	return *result, nil
+	return domain.EksClusterStatus{
+		CreateClusterOutput: *result,
+	}, nil
 }
 
-func DeleteEksCluster(clusterName string, session *client.ConfigProvider) *eks.DeleteClusterOutput {
+func createEksNodeGroup(svc *eks.EKS, ctrlplaneResponse domain.EksClusterStatus, clusterInput *domain.GkeClusterOptions) (nodeGroupResponse domain.EksClusterStatus, err error) {
+	groupName, _ := uuid.GenerateUUID()
+	input := &eks.CreateNodegroupInput{
+		AmiType:            nil,
+		ClientRequestToken: ctrlplaneResponse.CreateClusterOutput.Cluster.ClientRequestToken,
+		ClusterName:        ctrlplaneResponse.CreateClusterOutput.Cluster.Name,
+		DiskSize:           nil,
+		InstanceTypes:      []*string{&clusterInput.MachineFamily},
+		Labels:             nil,
+		NodeRole:           nil,
+		NodegroupName:      &groupName,
+		ReleaseVersion:     nil,
+		RemoteAccess:       nil,
+		ScalingConfig:      nil,
+		Subnets:            nil,
+		Tags:               nil,
+		Version:            &clusterInput.KubVersion,
+	}
+
+	result, err := svc.CreateNodegroup(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case eks.ErrCodeResourceInUseException:
+				log.Logger.Error(eks.ErrCodeResourceInUseException + aerr.Error())
+			case eks.ErrCodeResourceLimitExceededException:
+				log.Logger.Error(eks.ErrCodeResourceLimitExceededException + aerr.Error())
+			case eks.ErrCodeInvalidParameterException:
+				log.Logger.Error(eks.ErrCodeInvalidParameterException + aerr.Error())
+			case eks.ErrCodeClientException:
+				log.Logger.Error(eks.ErrCodeClientException + aerr.Error())
+			case eks.ErrCodeServerException:
+				log.Logger.Error(eks.ErrCodeServerException + aerr.Error())
+			case eks.ErrCodeServiceUnavailableException:
+				log.Logger.Error(eks.ErrCodeServiceUnavailableException + aerr.Error())
+			case eks.ErrCodeUnsupportedAvailabilityZoneException:
+				log.Logger.Error(eks.ErrCodeUnsupportedAvailabilityZoneException + aerr.Error())
+			default:
+				log.Logger.Error(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			log.Logger.Error(err.Error())
+		}
+		return ctrlplaneResponse, err
+	}
+	ctrlplaneResponse.CreateNodGroupOutput = *result
+	return ctrlplaneResponse, nil
+}
+
+func DeleteEksCluster(clusterName string, secretId string) (out *eks.DeleteClusterOutput, err error) {
 	//TODO; get the secret using id here
-	//cred, err := GetEksCredentialsForSecretId(strconv.Itoa(secretId))
+	cred, err := iam.GetEksCredentialsForSecretId(secretId)
 	//if err != nil{
 	//	return &eks.DeleteClusterOutput{}
 	//}
 	//id := "AKIA5CVBUZ342ISPRDVJ"
 	//secret := "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"
 
-	//session, _ := session.NewSession(&aws.Config{
-	//	Credentials: cred,
-	//	Region:      aws.String("us-east-2"),
-	//})
-	svc := eks.New(*session)
+	session, _ := session.NewSession(&aws.Config{
+		Credentials: cred,
+		Region:      aws.String("us-east-2"),
+	})
+	svc := eks.New(session)
 	input := &eks.DeleteClusterInput{
 		Name: &clusterName,
 	}
@@ -194,27 +305,27 @@ func DeleteEksCluster(clusterName string, session *client.ConfigProvider) *eks.D
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case eks.ErrCodeResourceInUseException:
-				fmt.Println(eks.ErrCodeResourceInUseException, aerr.Error())
+				log.Logger.Error(eks.ErrCodeResourceInUseException, aerr.Error())
 			case eks.ErrCodeResourceNotFoundException:
-				fmt.Println(eks.ErrCodeResourceNotFoundException, aerr.Error())
+				log.Logger.Error(eks.ErrCodeResourceNotFoundException, aerr.Error())
 			case eks.ErrCodeClientException:
-				fmt.Println(eks.ErrCodeClientException, aerr.Error())
+				log.Logger.Error(eks.ErrCodeClientException, aerr.Error())
 			case eks.ErrCodeServerException:
-				fmt.Println(eks.ErrCodeServerException, aerr.Error())
+				log.Logger.Error(eks.ErrCodeServerException, aerr.Error())
 			case eks.ErrCodeServiceUnavailableException:
-				fmt.Println(eks.ErrCodeServiceUnavailableException, aerr.Error())
+				log.Logger.Error(eks.ErrCodeServiceUnavailableException, aerr.Error())
 			default:
-				fmt.Println(aerr.Error())
+				log.Logger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			log.Logger.Error(err.Error())
 		}
-		return nil
+		return nil, err
 	}
 
-	return result
+	return result, nil
 }
 
 func generateEKSClusterCreationRequest(request *domain.GkeClusterOptions) *eks.CreateClusterInput {
@@ -235,44 +346,4 @@ func generateEKSClusterDeletionRequest(clusterId string) *eks.DeleteClusterInput
 	return &eks.DeleteClusterInput{
 		Name: aws.String(clusterId),
 	}
-}
-
-func ListEksClusers(userID string) eks.ListClustersOutput {
-	region := "us-east-2" //TODO: global var
-	cred, err := iam.GetEksCredentialsForUser(userID)
-	if err != nil {
-		log.Logger.ErrorContext(context.Background(), "Error occurred while fetching eks secret for client %s", userID)
-		return eks.ListClustersOutput{}
-	}
-	sess, _ := session.NewSession(&aws.Config{
-		Credentials: cred,
-		Region:      &region,
-	})
-	svc := eks.New(sess)
-
-	//list clusters
-	input := &eks.ListClustersInput{}
-	result, err := svc.ListClusters(input)
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case eks.ErrCodeInvalidParameterException:
-				fmt.Println(eks.ErrCodeInvalidParameterException, aerr.Error())
-			case eks.ErrCodeClientException:
-				fmt.Println(eks.ErrCodeClientException, aerr.Error())
-			case eks.ErrCodeServerException:
-				fmt.Println(eks.ErrCodeServerException, aerr.Error())
-			case eks.ErrCodeServiceUnavailableException:
-				fmt.Println(eks.ErrCodeServiceUnavailableException, aerr.Error())
-			default:
-				fmt.Println(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			fmt.Println(err.Error())
-		}
-		return eks.ListClustersOutput{}
-	}
-	return *result
 }

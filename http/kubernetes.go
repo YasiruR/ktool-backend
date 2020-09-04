@@ -355,7 +355,7 @@ func handleCreateEksKubClusters(res http.ResponseWriter, req *http.Request) {
 	result := domain.GkeClusterStatus{
 		Name:      createEksCluster.Name,
 		ClusterId: clusterId,
-		Status:    *op.Cluster.Status,
+		Status:    *op.CreateNodGroupOutput.Nodegroup.Status,
 		Error:     "",
 	}
 	res.WriteHeader(http.StatusOK)
@@ -406,4 +406,64 @@ func handleCheckEksClusterCreationStatus(res http.ResponseWriter, req *http.Requ
 		log.Logger.ErrorContext(ctx, "response json conversion failed")
 	}
 	log.Logger.TraceContext(ctx, "Check kub cluster creation status request successful")
+}
+
+func handleDeleteEksKubClusters(res http.ResponseWriter, req *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+	//var createEksCluster domain.GkeClusterOptions
+
+	//user validation by token header
+	//token := req.Header.Get("Authorization")
+	//_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
+	//if !ok {
+	//	log.Logger.DebugContext(ctx, "invalid user", token)
+	//	res.WriteHeader(http.StatusUnauthorized)
+	//	return
+	//}
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
+
+	secretId := req.FormValue("secret_id")
+	clusterName := req.FormValue("cluster_name")
+
+	fmt.Println("Delete EKS k8s cluster request received")
+	op, err := kubernetes.DeleteEksCluster(clusterName, secretId)
+	log.Logger.InfoContext(ctx, "Cluster deletion request sent to Amazon", clusterName)
+	if err != nil {
+		res.WriteHeader(http.StatusOK)
+		result := domain.GkeClusterStatus{
+			Name:      clusterName,
+			OpId:      "",
+			ClusterId: clusterName,
+			Status:    "FAILED TO DELETE",
+			Error:     err.Error(),
+		}
+		err = json.NewEncoder(res).Encode(&result)
+		log.Logger.ErrorContext(ctx, "Cluster deletion failed, check logs", clusterName)
+		return
+	}
+	//_, err = database.AddGkeCluster(ctx, clusterId, createGkeCluster.UserId, createGkeCluster.Name, op.Name)
+	//if err != nil {
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	log.Logger.ErrorContext(ctx, "Could not add cluster creation request to db", createGkeCluster.Name)
+	//	return
+	//}
+	//result, err = database.UpdateGkeClusterCreationStatus(ctx, op.Name, 3)
+	result := domain.GkeClusterStatus{
+		Name:      clusterName,
+		ClusterId: clusterName,
+		Status:    *op.Cluster.Status,
+		Error:     "",
+	}
+	res.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(res).Encode(&result)
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		log.Logger.ErrorContext(ctx, "response json conversion failed", clusterName)
+		return
+	}
+	log.Logger.TraceContext(ctx, "delete eks k8s cluster request successful", clusterName)
 }
