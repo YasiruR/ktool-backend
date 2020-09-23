@@ -44,5 +44,47 @@ CREATE TABLE broker_metrics (id int(20) not null primary key auto_increment, tim
 \q
 INIT_SCRIPT
 
+mysql -u "$username" -p "$password" <<INIT_SCRIPT
+#creating the cloud tables
+USE kdb;
+CREATE TABLE kdb.secret (
+	Name varchar(100) NOT NULL,
+	OwnerId INT NOT NULL,
+	Provider varchar(100) NOT NULL,
+	`Type` INT NULL,
+	CreatedOn DATETIME DEFAULT NOW() NOT NULL,
+	CreatedBy INT NOT NULL,
+	ModifiedOn DATETIME DEFAULT NOW() NULL,
+	ModifiedBy INT NULL,
+	Activated BOOLEAN DEFAULT FALSE NOT NULL,
+	Deleted BOOLEAN DEFAULT FALSE NOT NULL,
+	Encrpted BOOLEAN DEFAULT FALSE NOT NULL,
+	Tags varchar(100) NULL,
+	ID BIGINT NOT NULL AUTO_INCREMENT,
+	CONSTRAINT secret_PK PRIMARY KEY (ID),
+	CONSTRAINT secret_FK FOREIGN KEY (OwnerId) REFERENCES kdb.`user`(id) ON DELETE CASCADE ON UPDATE CASCADE
+)
+ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_general_ci;
+CREATE UNIQUE INDEX secret_OwnerId_IDX USING HASH ON kdb.secret (OwnerId);
+
+# creating gke_secret table
+CREATE TABLE `gke_secret` (
+  `Type` varchar(100) NOT NULL,
+  `ProjectId` varchar(100) NOT NULL,
+  `SecretId` bigint(20) NOT NULL,
+  `ProjectKeyId` varchar(100) NOT NULL,
+  `PrivateKey` varchar(5096) NOT NULL,
+  `ClientMail` varchar(100) NOT NULL,
+  `ClientId` varchar(100) NOT NULL,
+  `ClientX509CertUrl` varchar(1096) NOT NULL,
+  PRIMARY KEY (`SecretId`),
+  KEY `gke_secret_FK` (`SecretId`),
+  CONSTRAINT `gke_secret_FK` FOREIGN KEY (`SecretId`) REFERENCES `secret` (`ID`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+\q;
+INIT_SCRIPT
+
 echo kdb database initialized successfully with user, cluster and broker tables
 

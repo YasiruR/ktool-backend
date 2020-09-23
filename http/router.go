@@ -37,6 +37,22 @@ func InitRouter() {
 	router.HandleFunc("/topics", handleGetTopicsForCluster).Methods(http.MethodGet)
 	router.HandleFunc("/brokers", handleGetBrokersForCluster).Methods(http.MethodGet)
 
+	router.HandleFunc("/secret/create", handleAddSecret).Methods("POST")
+	router.HandleFunc("/secret/get/all", handleGetAllSecrets).Methods("GET")
+	router.HandleFunc("/secret/get", handleGetSecret).Methods("GET")
+	router.HandleFunc("/secret/delete", handleDeleteSecret).Methods("DELETE")
+	router.HandleFunc("/secret/update", handleUpdateSecret).Methods("PATCH")
+	router.HandleFunc("/secret/validate", handleValidateSecret).Methods("POST")
+
+	router.HandleFunc("/kubernetes", handleUGetAllKubClusters).Methods("GET")
+
+	router.HandleFunc("/kubernetes/gke", handleGetAllGkeKubClusters).Methods("GET")
+	router.HandleFunc("/kubernetes/gke", handleCreateGkeKubClusters).Methods("POST")
+	router.HandleFunc("/kubernetes/gke/status", handleCheckGkeClusterCreationStatus).Methods("GET")
+
+	router.HandleFunc("/kubernetes/resources", handleGetGkeResource).Methods("GET")
+	router.HandleFunc("/kubernetes/recommend", handleRecommendGkeResource).Methods("GET")
+
 	osChannel := make(chan os.Signal, 1)
 	signal.Notify(osChannel, syscall.SIGINT, syscall.SIGKILL)
 
@@ -63,13 +79,13 @@ func InitRouter() {
 		stopDocker := exec.Command("/bin/sh", "-c", "sudo docker stop prometheus")
 		stopOutput, err := stopDocker.CombinedOutput()
 		if err != nil {
-			log.Error(err,"failed to stop docker prometheus container", string(stopOutput))
+			log.Error(err, "failed to stop docker prometheus container", string(stopOutput))
 		} else {
 			log.Info("prometheus docker container is terminated")
 			rmDocker := exec.Command("/bin/sh", "-c", "sudo docker rm prometheus")
 			rmOutput, err := rmDocker.CombinedOutput()
 			if err != nil {
-				log.Error(err,"failed to remove stopped docker prometheus container", string(rmOutput))
+				log.Error(err, "failed to remove stopped docker prometheus container", string(rmOutput))
 			} else {
 				log.Info("prometheus docker container is removed")
 			}
@@ -84,5 +100,5 @@ func InitRouter() {
 
 	handler := cors.AllowAll().Handler(router)
 
-	log.Fatal(http.ListenAndServe(":" + service.Cfg.ServicePort, handler))
+	log.Fatal(http.ListenAndServe(":"+service.Cfg.ServicePort, handler))
 }

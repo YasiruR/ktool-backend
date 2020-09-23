@@ -1,3 +1,6 @@
 .idea
 ktool-backend
 vendor
+go.mod
+config/*
+/config/

@@ -8,12 +8,20 @@ import (
 )
 
 const (
-	clusterTable  		= 	"cluster"
-	zookeeperTable 		= 	"zookeeper"
-	brokerTable			=	"broker"
-	userTable			= 	"user"
-	brokerMetricsTable	= 	"broker_metrics"
-	metricsLimit 		= 	1
+	clusterTable       = "cluster"
+	zookeeperTable     = "zookeeper"
+	brokerTable        = "broker"
+	userTable          = "user"
+	brokerMetricsTable = "broker_metrics"
+	metricsLimit       = 1
+	secretTable        = "secret"
+	gkeSecretTable     = "gke_secret"
+	cloudSecretTable   = "cloud_secret"
+	operationsTable    = "operations"
+	k8sTable           = "k8s_clusters"
+	productsTable      = "products"
+	locationsTable     = "locations"
+	priceTable         = "price_by_region"
 )
 
 var Db *sql.DB
