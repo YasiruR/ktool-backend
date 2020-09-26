@@ -245,7 +245,7 @@ func handleRecommendGkeResource(res http.ResponseWriter, req *http.Request) {
 	//Continent := []string{"North America"}
 	//Network := []string{"extra"}
 	//Type := []string{"General purpose"}
-	result := database.GetGkeResourcesRecommendation(ctx, Provider, Continent, VCPU, RAM, Network, Type, MinNodes, MaxNodes)
+	result := database.GetKubernetesResourcesRecommendation(ctx, Provider, Continent, VCPU, RAM, Network, Type, MinNodes, MaxNodes)
 
 	if result.Status == 0 {
 		res.WriteHeader(http.StatusOK)
@@ -286,7 +286,7 @@ func handleGetGkeResource(res http.ResponseWriter, req *http.Request) {
 	//}
 
 	//result := database.GetSecretInternal(ctx, Name, OwnerId, Provider)
-	result := database.GetGkeResources(ctx, Provider)
+	result := database.GetKubernetesResources(ctx, Provider)
 
 	res.WriteHeader(http.StatusOK)
 	err := json.NewEncoder(res).Encode(&result)

@@ -199,7 +199,7 @@ func UpdateGkeClusterCreationStatus(ctx context.Context, status string, operatio
 	return true, nil
 }
 
-func GetGkeResourcesRecommendation(ctx context.Context, Provider string, Continent []string, VCPU string, RAM string, Network []string, Type []string, MinNodes string, MaxNodes string) (result domain.GkeRecommendations) {
+func GetKubernetesResourcesRecommendation(ctx context.Context, Provider string, Continent []string, VCPU string, RAM string, Network []string, Type []string, MinNodes string, MaxNodes string) (result domain.GkeRecommendations) {
 	nodeCount, _ := strconv.Atoi(MinNodes)
 	memory, _ := strconv.Atoi(RAM)
 	processor, _ := strconv.Atoi(VCPU)
@@ -209,6 +209,11 @@ func GetGkeResourcesRecommendation(ctx context.Context, Provider string, Contine
 	//regionOk 	:= false
 	//categoryOk 	:= false
 	//networkOk 	:= false
+
+	provider := 1
+	if Provider == "google" {
+		provider = 0
+	}
 
 	baseQuery :=
 		"SELECT " +
@@ -222,14 +227,15 @@ func GetGkeResourcesRecommendation(ctx context.Context, Provider string, Contine
 			//"r.unit_price AS unit_price, " +
 			"p.network AS network, " +
 			"%d AS node_count, " +
-			"'5 min' AS startup_time " +
+			"'10 min' AS startup_time " +
 			"FROM " +
 			"%s p, " +
 			"%s r " +
 			"WHERE " +
 			"p.cpu >= %d / %d AND " +
 			"p.memory >= %d / %d AND " +
-			"r.product=p.id "
+			"r.product=p.id AND " +
+			"p.provider = %d "
 
 	if len(regions) > 0 {
 		baseQuery += fmt.Sprintf("AND r.region IN (SELECT region_id FROM locations WHERE continent IN (%s)) ", regions)
@@ -240,7 +246,7 @@ func GetGkeResourcesRecommendation(ctx context.Context, Provider string, Contine
 	if len(network) > 0 {
 		baseQuery += fmt.Sprintf("AND p.network IN (%s) ", network)
 	}
-	query := fmt.Sprintf(baseQuery+"ORDER BY cost LIMIT 6;", nodeCount, nodeCount, nodeCount, nodeCount, productsTable, priceTable, processor, nodeCount, memory, nodeCount)
+	query := fmt.Sprintf(baseQuery+"ORDER BY cost LIMIT 6;", nodeCount, nodeCount, nodeCount, nodeCount, productsTable, priceTable, processor, nodeCount, memory, nodeCount, provider)
 
 	rows, err := Db.Query(query)
 
@@ -288,12 +294,17 @@ func GetGkeResourcesRecommendation(ctx context.Context, Provider string, Contine
 	return result
 }
 
-func GetGkeResources(ctx context.Context, Provider string) (result domain.GkeResources) {
+func GetKubernetesResources(ctx context.Context, Provider string) (result domain.GkeResources) {
 	//continentQuery := "SELECT DISTINCT(continent) as continents FROM locations;"
 	//regiondNameQuery := "SELECT DISTINCT(region_name) as continents FROM locations;"
 	//regionIdQuery := "SELECT DISTINCT(region_id) as continents FROM locations;"
 
-	query := "SELECT continent, region_name, region_id FROM locations;"
+	provider := 1
+	if Provider == "google" {
+		provider = 0
+	}
+
+	query := fmt.Sprintf("SELECT continent, region_name, region_id FROM locations WHERE provider = %d;", provider)
 
 	rows, err := Db.Query(query)
 
