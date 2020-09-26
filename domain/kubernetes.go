@@ -94,7 +94,29 @@ type ResourceLocation struct {
 }
 
 //EKS specific structs
+
+//type EksClusterStatus struct {
+//	CreateClusterOutput  eks.CreateClusterOutput   `json:"eks_create_cluster_output"`
+//	CreateNodGroupOutput eks.CreateNodegroupOutput `json:"eks_create_node_group_output"`
+//}
+
+type EksClusterCreationResponse struct {
+	ClusterStatus EksClusterStatus `json:"cluster_status"`
+	SecretID      int              `json:"secret_id"`
+}
+
+type EksNodeGroupCreationResponse struct {
+	SecretId int           `json:"secret_id"`
+	Response eks.Nodegroup `json:"response"`
+}
+
 type EksClusterStatus struct {
-	CreateClusterOutput  eks.CreateClusterOutput   `json:"eks_create_cluster_output"`
-	CreateNodGroupOutput eks.CreateNodegroupOutput `json:"eks_create_node_group_output"`
+	Name         string     `json:"name"`
+	ClusterArn   string     `json:"cluster_arn"`
+	RequestToken string     `json:"request_token"`
+	RoleArn      string     `json:"role_arn"`
+	SubnetIds    *[]*string `json:"subnet_ids"`
+	KubVersion   string     `json:"kub_version"`
+	Status       string     `json:"status"`
+	Error        string     `json:"error"`
 }

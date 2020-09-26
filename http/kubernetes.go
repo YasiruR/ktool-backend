@@ -7,6 +7,7 @@ import (
 	"github.com/YasiruR/ktool-backend/domain"
 	kubernetes "github.com/YasiruR/ktool-backend/kuberenetes"
 	"github.com/YasiruR/ktool-backend/log"
+	"github.com/YasiruR/ktool-backend/service"
 	"github.com/google/uuid"
 	traceableContext "github.com/pickme-go/traceable-context"
 	"io/ioutil"
@@ -330,12 +331,12 @@ func handleCreateEksKubClusters(res http.ResponseWriter, req *http.Request) {
 	}
 	fmt.Println("Create EKS k8s cluster request received")
 	clusterId := uuid.New().String()
-	op, err := kubernetes.CreateEksCluster(clusterId, createEksCluster.SecretId, &createEksCluster)
+	result, err := kubernetes.CreateEksCluster(clusterId, createEksCluster.SecretId, &createEksCluster)
 	if err != nil {
 		res.WriteHeader(http.StatusOK)
 		result := domain.GkeClusterStatus{
 			Name:      createEksCluster.Name,
-			OpId:      "",
+			OpId:      "nil",
 			ClusterId: clusterId,
 			Status:    "FAILED",
 			Error:     err.Error(),
@@ -344,20 +345,20 @@ func handleCreateEksKubClusters(res http.ResponseWriter, req *http.Request) {
 		log.Logger.ErrorContext(ctx, "Cluster creation failed, check logs", createEksCluster.Name)
 		return
 	}
+	log.Logger.InfoContext(ctx, "Cluster creation request sent to Amazon", createEksCluster.Name)
 	//_, err = database.AddGkeCluster(ctx, clusterId, createGkeCluster.UserId, createGkeCluster.Name, op.Name)
 	//if err != nil {
 	//	res.WriteHeader(http.StatusInternalServerError)
 	//	log.Logger.ErrorContext(ctx, "Could not add cluster creation request to db", createGkeCluster.Name)
 	//	return
 	//}
-	log.Logger.InfoContext(ctx, "Cluster creation request sent to Google", createEksCluster.Name)
+	service.PushToJobList(service.AsyncCloudJob{
+		Provider:    "amazon",
+		Status:      service.RUNNING,
+		Reference:   result.ClusterStatus.Name,
+		Information: result,
+	})
 	//result, err = database.UpdateGkeClusterCreationStatus(ctx, op.Name, 3)
-	result := domain.GkeClusterStatus{
-		Name:      createEksCluster.Name,
-		ClusterId: clusterId,
-		Status:    *op.CreateNodGroupOutput.Nodegroup.Status,
-		Error:     "",
-	}
 	res.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(res).Encode(&result)
 	if err != nil {
@@ -365,40 +366,40 @@ func handleCreateEksKubClusters(res http.ResponseWriter, req *http.Request) {
 		log.Logger.ErrorContext(ctx, "response json conversion failed", createEksCluster.Name)
 		return
 	}
-	log.Logger.TraceContext(ctx, "add gke k8s cluster request successful", createEksCluster.Name)
+	log.Logger.TraceContext(ctx, "add EKS k8s cluster request successful", createEksCluster.Name)
 }
 
 func handleCheckEksClusterCreationStatus(res http.ResponseWriter, req *http.Request) {
 	ctx := traceableContext.WithUUID(uuid.New())
 
 	//user validation by token header
-	token := req.Header.Get("Authorization")
-	_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
-	if !ok {
-		log.Logger.DebugContext(ctx, "invalid user", token)
-		res.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-	if err != nil {
-		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
-		res.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	//token := req.Header.Get("Authorization")
+	//_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
+	//if !ok {
+	//	log.Logger.DebugContext(ctx, "invalid user", token)
+	//	res.WriteHeader(http.StatusUnauthorized)
+	//	return
+	//}
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
 
 	userId := req.FormValue("user_id")
-	operationId := req.FormValue("op_id")
+	clusterName := req.FormValue("cluster_name")
 	secretId, _ := strconv.Atoi(req.FormValue("secret_id"))
 
-	fmt.Printf("Check cluster creation status request received %s\n", userId)
+	fmt.Printf("Check cluster creation status request received %s", userId)
 	// todo: replace with external call
-	result, err := kubernetes.CheckEksClusterCreationStatus(operationId, secretId)
+	result, err := kubernetes.CheckEksClusterCreationStatus(clusterName, secretId)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "checking the operation status failed")
 		res.WriteHeader(http.StatusInternalServerError)
 		err = json.NewEncoder(res).Encode(&result)
 		return
 	}
-	log.Logger.InfoContext(ctx, "Successfully retrieved op status from GKE")
+	log.Logger.InfoContext(ctx, "Successfully retrieved op status from EKS")
 	res.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(res).Encode(&result)
 	if err != nil {
@@ -466,4 +467,116 @@ func handleDeleteEksKubClusters(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	log.Logger.TraceContext(ctx, "delete eks k8s cluster request successful", clusterName)
+}
+
+func handleCreateEksNodeGroup(res http.ResponseWriter, req *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+	var createEksNodeGroup domain.EksClusterCreationResponse
+
+	//user validation by token header
+	//token := req.Header.Get("Authorization")
+	//_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
+	//if !ok {
+	//	log.Logger.DebugContext(ctx, "invalid user", token)
+	//	res.WriteHeader(http.StatusUnauthorized)
+	//	return
+	//}
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
+
+	content, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred while reading request", err)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = json.Unmarshal(content, &createEksNodeGroup)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "unmarshal error", err)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	fmt.Println("Create EKS k8s node group request received")
+	clusterId := uuid.New().String()
+	result, err := kubernetes.CreateEksNodeGroup(createEksNodeGroup.SecretID, createEksNodeGroup.ClusterStatus)
+	if err != nil {
+		res.WriteHeader(http.StatusOK)
+		result := domain.GkeClusterStatus{
+			Name:      createEksNodeGroup.ClusterStatus.Name,
+			OpId:      "nil",
+			ClusterId: clusterId,
+			Status:    "FAILED",
+			Error:     err.Error(),
+		}
+		err = json.NewEncoder(res).Encode(&result)
+		log.Logger.ErrorContext(ctx, "Cluster creation failed, check logs", createEksNodeGroup.ClusterStatus.Name)
+		return
+	}
+	//_, err = database.AddGkeCluster(ctx, clusterId, createGkeCluster.UserId, createGkeCluster.Name, op.Name)
+	//if err != nil {
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	log.Logger.ErrorContext(ctx, "Could not add cluster creation request to db", createGkeCluster.Name)
+	//	return
+	//}
+	log.Logger.InfoContext(ctx, "Cluster creation request sent to Amazon", createEksNodeGroup.ClusterStatus.Name)
+	//result, err = database.UpdateGkeClusterCreationStatus(ctx, op.Name, 3)
+	//result := domain.GkeClusterStatus{
+	//	Name:      createEksCluster.Name,
+	//	ClusterId: clusterId,
+	//	Status:    result.,
+	//	Error:     "",
+	//}
+	res.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(res).Encode(&result)
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		log.Logger.ErrorContext(ctx, "response json conversion failed", createEksNodeGroup.ClusterStatus.Name)
+		return
+	}
+	log.Logger.TraceContext(ctx, "add eks k8s cluster request successful", createEksNodeGroup.ClusterStatus.Name)
+}
+
+func handleCheckEksNodeGroupCreationStatus(res http.ResponseWriter, req *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+
+	//user validation by token header
+	//token := req.Header.Get("Authorization")
+	//_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
+	//if !ok {
+	//	log.Logger.DebugContext(ctx, "invalid user", token)
+	//	res.WriteHeader(http.StatusUnauthorized)
+	//	return
+	//}
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
+
+	userId := req.FormValue("user_id")
+	clusterName := req.FormValue("cluster_name")
+	nodeGroupName := req.FormValue("node_group_name")
+	secretId, _ := strconv.Atoi(req.FormValue("secret_id"))
+
+	fmt.Printf("Check cluster creation status request received %s", userId)
+	// todo: replace with external call
+	result, err := kubernetes.CheckEksNodeGroupCreationStatus(clusterName, nodeGroupName, secretId)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "checking the operation status failed")
+		res.WriteHeader(http.StatusInternalServerError)
+		err = json.NewEncoder(res).Encode(&result)
+		return
+	}
+	log.Logger.InfoContext(ctx, "Successfully retrieved op status from EKS")
+	res.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(res).Encode(&result)
+	if err != nil {
+		res.WriteHeader(http.StatusOK)
+		log.Logger.ErrorContext(ctx, "response json conversion failed")
+	}
+	log.Logger.TraceContext(ctx, "Check kub cluster creation status request successful")
 }

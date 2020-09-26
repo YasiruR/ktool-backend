@@ -7,6 +7,7 @@ import (
 	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/iam"
 	"github.com/YasiruR/ktool-backend/log"
+	"github.com/YasiruR/ktool-backend/util"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -102,17 +103,10 @@ func ListEksClusers(userID string) eks.ListClustersOutput {
 }
 
 func CheckEksClusterCreationStatus(clusterName string, secretId int) (eks.DescribeClusterOutput, error) {
-	//region := "us-east-2"
-	//cluster := "ktool-test-cluster"
-	//id := "AKIAY4OR54E7L5QR3QRF"
-	//secret := "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"
-
 	cred, err := iam.GetEksCredentialsForSecretId(strconv.Itoa(secretId))
 	if err != nil {
 		return eks.DescribeClusterOutput{}, err
 	}
-	//id := "AKIAY4OR54E7L5QR3QRF"
-	//secret := "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"
 
 	sess, _ := session.NewSession(&aws.Config{
 		Credentials: cred,
@@ -146,54 +140,103 @@ func CheckEksClusterCreationStatus(clusterName string, secretId int) (eks.Descri
 	return *result, nil
 }
 
-func CreateEksCluster(clusterId string, secretId int, createClusterRequest *domain.GkeClusterOptions) (domain.EksClusterStatus, error) {
+func CheckEksNodeGroupCreationStatus(clusterName string, nodeGroupName string, secretId int) (eks.DescribeNodegroupOutput, error) {
 	cred, err := iam.GetEksCredentialsForSecretId(strconv.Itoa(secretId))
-	nodeGroupResp := domain.EksClusterStatus{}
 	if err != nil {
-		return domain.EksClusterStatus{}, err
+		return eks.DescribeNodegroupOutput{}, err
 	}
-	//id := "AKIAY4OR54E7L5QR3QRF"
-	//secret := "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"
 
 	sess, _ := session.NewSession(&aws.Config{
 		Credentials: cred,
 		Region:      aws.String("us-east-2"),
 	})
-	arn := "arn:aws:iam::899060911865:user/ktool-admin"
+	svc := eks.New(sess)
+
+	input := &eks.DescribeNodegroupInput{
+		ClusterName:   &clusterName,
+		NodegroupName: &nodeGroupName,
+	}
+	result, err := svc.DescribeNodegroup(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case eks.ErrCodeInvalidParameterException:
+				fmt.Println(eks.ErrCodeInvalidParameterException, aerr.Error())
+			case eks.ErrCodeClientException:
+				fmt.Println(eks.ErrCodeClientException, aerr.Error())
+			case eks.ErrCodeServerException:
+				fmt.Println(eks.ErrCodeServerException, aerr.Error())
+			case eks.ErrCodeServiceUnavailableException:
+				fmt.Println(eks.ErrCodeServiceUnavailableException, aerr.Error())
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			fmt.Println(err.Error())
+		}
+		return eks.DescribeNodegroupOutput{}, err
+	}
+	return *result, nil
+}
+
+func CreateEksCluster(clusterId string, secretId int, createClusterRequest *domain.GkeClusterOptions) (domain.EksClusterCreationResponse, error) {
+	cred, err := iam.GetEksCredentialsForSecretId(strconv.Itoa(secretId))
+	//nodeGroupResp := domain.EksClusterStatus{}
+	if err != nil {
+		return domain.EksClusterCreationResponse{}, err
+	}
+
+	sess, _ := session.NewSession(&aws.Config{
+		Credentials: cred,
+		Region:      aws.String("us-east-2"),
+	})
+
+	// get ARN from here
+	// https://docs.aws.amazon.com/eks/latest/userguide/service_IAM_role.html#create-service-role
+	arn := "arn:aws:iam::899060911865:role/EKSManagerRole"
 
 	svc := eks.New(sess)
-	ctrlResp, err := createEksControlPlane(svc, clusterId, createClusterRequest.Name, arn, "1.15")
-	if err != nil {
-		return ctrlResp, err
-	}
-	if *ctrlResp.CreateClusterOutput.Cluster.Status == "SUCCESS" {
-		nodeGroupResp, err = createEksNodeGroup(svc, ctrlResp, createClusterRequest)
+	ctrlResp, err := createEksControlPlane(svc, clusterId, createClusterRequest.Name, arn, "1.17")
+	resp := domain.EksClusterCreationResponse{
+		ClusterStatus: ctrlResp,
+		SecretID:      secretId,
 	}
 	if err != nil {
-		return ctrlResp, err
+		return resp, err
 	}
+
+	// we are not sending the node group creation request just yet
+
+	//if *ctrlResp.CreateClusterOutput.Cluster.Status == "CREATING" {
+	//	nodeGroupResp, err = createEksNodeGroup(svc, ctrlResp, createClusterRequest)
+	//}
+
+	//if err != nil {
+	//	return resp, err
+	//}
 	// persist in db
-	err = database.AddEksCluster(context.Background(), clusterId, createClusterRequest.UserId, createClusterRequest.Name, createClusterRequest.Name)
-	return nodeGroupResp, nil
+	err = database.AddEksCluster(context.Background(), clusterId, createClusterRequest.UserId, createClusterRequest.Name,
+		ctrlResp.RequestToken, ctrlResp.ClusterArn, ctrlResp.RoleArn, util.StringPointerListToEscapedCSV(ctrlResp.SubnetIds), ctrlResp.KubVersion)
+	//return nodeGroupResp, nil
+	return resp, nil
 }
 
 func createEksControlPlane(svc *eks.EKS, id string, name string, arn string, kubVersion string) (clusterCreationOutput domain.EksClusterStatus, err error) {
 	input := &eks.CreateClusterInput{
 		ClientRequestToken: aws.String(id),
-		//Name:               aws.String("dev"),
-		Name: aws.String(name),
-		//Name:               aws.String(createClusterRequest.Name),
+		Name:               aws.String(name),
 		ResourcesVpcConfig: &eks.VpcConfigRequest{
 			SecurityGroupIds: []*string{
-				aws.String("sg-6979fe18"),
+				aws.String("sg-43f0613f"),
 			},
 			SubnetIds: []*string{
-				aws.String("subnet-6782e71e"),
-				aws.String("subnet-e7e761ac"),
+				aws.String("subnet-b46865ce"),
+				aws.String("subnet-a6b2c7ea"),
+				aws.String("subnet-934a9ef8"),
 			},
 		},
-		//RoleArn: aws.String("arn:aws:iam::012345678910:role/eks-service-role-AWSServiceRoleForAmazonEKS-J7ONKE3BQ4PI"),
-		//RoleArn: aws.String("arn:aws:iam::610862489918:role/eks-admin"),
 		RoleArn: aws.String(arn),
 		Version: aws.String(kubVersion),
 	}
@@ -227,27 +270,62 @@ func createEksControlPlane(svc *eks.EKS, id string, name string, arn string, kub
 		return domain.EksClusterStatus{}, err
 	}
 	return domain.EksClusterStatus{
-		CreateClusterOutput: *result,
+		Name:         *result.Cluster.Name,
+		ClusterArn:   *result.Cluster.Arn,
+		RequestToken: id,
+		RoleArn:      *result.Cluster.RoleArn,
+		SubnetIds:    &result.Cluster.ResourcesVpcConfig.SubnetIds,
+		KubVersion:   *result.Cluster.Version,
+		Status:       *result.Cluster.Status,
+		Error:        "nil",
 	}, nil
 }
 
-func createEksNodeGroup(svc *eks.EKS, ctrlplaneResponse domain.EksClusterStatus, clusterInput *domain.GkeClusterOptions) (nodeGroupResponse domain.EksClusterStatus, err error) {
+func CreateEksNodeGroup(secretId int, eksClusterStatus domain.EksClusterStatus) (nodeGroupResponse domain.EksNodeGroupCreationResponse, err error) {
+	cred, err := iam.GetEksCredentialsForSecretId(strconv.Itoa(secretId))
+	if err != nil {
+		return domain.EksNodeGroupCreationResponse{}, err
+	}
+
+	sess, _ := session.NewSession(&aws.Config{
+		Credentials: cred,
+		Region:      aws.String("us-east-2"),
+	})
+
+	svc := eks.New(sess)
+	ngResp, err := createEksNodeGroup(svc, eksClusterStatus)
+	if err != nil {
+		return domain.EksNodeGroupCreationResponse{}, err
+	}
+	resp := domain.EksNodeGroupCreationResponse{
+		SecretId: secretId,
+		Response: *ngResp.Nodegroup,
+	}
+
+	// persist in db
+	//err = database.AddEksCluster(context.Background(), clusterId, createClusterRequest.UserId, createClusterRequest.Name, createClusterRequest.Name)
+	//return nodeGroupResp, nil
+	return resp, nil
+}
+
+func createEksNodeGroup(svc *eks.EKS, ctrlPlaneResponse domain.EksClusterStatus) (nodeGroupResponse eks.CreateNodegroupOutput, err error) {
 	groupName, _ := uuid.GenerateUUID()
 	input := &eks.CreateNodegroupInput{
 		AmiType:            nil,
-		ClientRequestToken: ctrlplaneResponse.CreateClusterOutput.Cluster.ClientRequestToken,
-		ClusterName:        ctrlplaneResponse.CreateClusterOutput.Cluster.Name,
+		ClientRequestToken: &ctrlPlaneResponse.RequestToken,
+		ClusterName:        &ctrlPlaneResponse.Name,
 		DiskSize:           nil,
-		InstanceTypes:      []*string{&clusterInput.MachineFamily},
-		Labels:             nil,
-		NodeRole:           nil,
-		NodegroupName:      &groupName,
-		ReleaseVersion:     nil,
-		RemoteAccess:       nil,
-		ScalingConfig:      nil,
-		Subnets:            nil,
-		Tags:               nil,
-		Version:            &clusterInput.KubVersion,
+		//InstanceTypes:      []*string{&clusterInput.MachineFamily},
+		InstanceTypes:  nil,
+		Labels:         nil,
+		NodeRole:       &ctrlPlaneResponse.RoleArn,
+		NodegroupName:  &groupName,
+		ReleaseVersion: nil,
+		RemoteAccess:   nil,
+		ScalingConfig:  nil,
+		Subnets:        *ctrlPlaneResponse.SubnetIds,
+		Tags:           nil,
+		Version:        &ctrlPlaneResponse.KubVersion,
 	}
 
 	result, err := svc.CreateNodegroup(input)
@@ -276,10 +354,9 @@ func createEksNodeGroup(svc *eks.EKS, ctrlplaneResponse domain.EksClusterStatus,
 			// Message from an error.
 			log.Logger.Error(err.Error())
 		}
-		return ctrlplaneResponse, err
+		return eks.CreateNodegroupOutput{}, err
 	}
-	ctrlplaneResponse.CreateNodGroupOutput = *result
-	return ctrlplaneResponse, nil
+	return *result, nil
 }
 
 func DeleteEksCluster(clusterName string, secretId string) (out *eks.DeleteClusterOutput, err error) {

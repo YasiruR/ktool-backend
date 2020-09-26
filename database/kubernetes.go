@@ -132,9 +132,10 @@ func AddGkeCluster(ctx context.Context, clusterId string, userId int, clusterNam
 	return nil
 }
 
-func AddEksCluster(ctx context.Context, clusterId string, userId int, clusterName string, op_id string) (err error) {
-	query := fmt.Sprintf("INSERT INTO kdb.%s (cluster_id, user_id, name, op_id, service_provider, status, active) "+
-		"VALUES ('%s', %d, '%s', '%s', '%s', 'CREATING', 1);", k8sTable, clusterId, userId, clusterName, op_id, "google")
+func AddEksCluster(ctx context.Context, clusterId string, userId int, clusterName string, req_token string, arn string, roleArn string, ids string, version string) (err error) {
+	query := fmt.Sprintf("INSERT INTO kdb.%s (cluster_id, user_id, name, request_token, service_provider, status, active, "+
+		"cluster_arn, role_arn, subnet_ids, kub_version) "+
+		"VALUES ('%s', %d, '%s', '%s', '%s', 'CREATING', 1, '%s', '%s', '%s', '%s');", k8sTable, clusterId, userId, clusterName, req_token, "amazon", arn, roleArn, ids, version)
 	insert, err := Db.Query(query)
 
 	if err != nil {
@@ -146,6 +147,31 @@ func AddEksCluster(ctx context.Context, clusterId string, userId int, clusterNam
 	log.Logger.TraceContext(ctx, "successfully added a new cluster.")
 	//todo: get id and return
 	return nil
+}
+
+func UpdateEksClusterCreationStatus(ctx context.Context, status string, clusterName string) (opStatus bool, err error) {
+	statusDesc := "UNSPECIFIED"
+	switch status {
+	case "SUBMITTED":
+		statusDesc = "INITIALIZING"
+	case "CREATING":
+		statusDesc = "CREATING"
+	case "ACTIVE":
+		statusDesc = "RUNNING"
+	default:
+	}
+	query := fmt.Sprintf("UPDATE kdb.%s SET status='%s' WHERE name='%s'", k8sTable, statusDesc, clusterName)
+
+	insert, err := Db.Query(query)
+
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("update %s table failed", k8sTable), err)
+		return false, err
+	}
+
+	defer insert.Close()
+	log.Logger.TraceContext(ctx, "successfully updated cluster ", clusterName)
+	return true, nil
 }
 
 func UpdateGkeClusterCreationStatus(ctx context.Context, status string, operationId string) (opStatus bool, err error) {
