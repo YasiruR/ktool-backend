@@ -20,23 +20,24 @@ type KubCluster struct {
 	Location        string `json:"location"`
 }
 
-//GKE specific structs
-type GkeClusterOptions struct {
-	UserId        int    `json:"user_id"` //todo: remove this, doesnt make sense
-	SecretId      int    `json:"secret_id"`
-	Name          string `json:"name"`
-	ClusterId     string `json:"cluster_id"`
-	Description   string `json:"description"`
-	Location      string `json:"location"`
-	Zone          string `json:"zone"`
-	InstanceCount int32  `json:"instances"`
-	ImageType     string `json:"image_type"`
-	MachineType   string `json:"machine_type"`
-	MachineFamily string `json:"machine_family"`
-	DiskSize      int    `json:"disk_size"`
-	DiskType      string `json:"disk_type"`
-	KubVersion    string `json:"kub_version"`
+type ClusterOptions struct {
+	UserId        int       `json:"user_id"` //todo: remove this, doesnt make sense
+	SecretId      int       `json:"secret_id"`
+	Name          string    `json:"name"`
+	ClusterId     string    `json:"cluster_id"`
+	Description   string    `json:"description"`
+	Location      string    `json:"location"`
+	Zone          string    `json:"zone"`
+	InstanceCount int32     `json:"instances"`
+	ImageType     string    `json:"image_type"`
+	MachineType   string    `json:"machine_type"`
+	MachineFamily []*string `json:"machine_family"`
+	DiskSize      int       `json:"disk_size"`
+	DiskType      string    `json:"disk_type"`
+	KubVersion    string    `json:"kub_version"`
 }
+
+//GKE specific structs
 
 type GkeClusterStatus struct {
 	Name      string `json:"name"`
@@ -100,12 +101,13 @@ type ResourceLocation struct {
 //	CreateNodGroupOutput eks.CreateNodegroupOutput `json:"eks_create_node_group_output"`
 //}
 
-type EksClusterCreationResponse struct {
-	ClusterStatus EksClusterStatus `json:"cluster_status"`
-	SecretID      int              `json:"secret_id"`
+type EksClusterContext struct {
+	ClusterStatus  EksClusterStatus `json:"cluster_status"`
+	ClusterRequest ClusterOptions   `json:"cluster_request"`
+	SecretID       int              `json:"secret_id"`
 }
 
-type EksNodeGroupCreationResponse struct {
+type EksNodeGroupContext struct {
 	SecretId int           `json:"secret_id"`
 	Response eks.Nodegroup `json:"response"`
 }

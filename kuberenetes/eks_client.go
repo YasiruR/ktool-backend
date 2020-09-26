@@ -181,11 +181,11 @@ func CheckEksNodeGroupCreationStatus(clusterName string, nodeGroupName string, s
 	return *result, nil
 }
 
-func CreateEksCluster(clusterId string, secretId int, createClusterRequest *domain.GkeClusterOptions) (domain.EksClusterCreationResponse, error) {
+func CreateEksCluster(clusterId string, secretId int, createClusterRequest *domain.ClusterOptions) (domain.EksClusterContext, error) {
 	cred, err := iam.GetEksCredentialsForSecretId(strconv.Itoa(secretId))
 	//nodeGroupResp := domain.EksClusterStatus{}
 	if err != nil {
-		return domain.EksClusterCreationResponse{}, err
+		return domain.EksClusterContext{}, err
 	}
 
 	sess, _ := session.NewSession(&aws.Config{
@@ -199,9 +199,10 @@ func CreateEksCluster(clusterId string, secretId int, createClusterRequest *doma
 
 	svc := eks.New(sess)
 	ctrlResp, err := createEksControlPlane(svc, clusterId, createClusterRequest.Name, arn, "1.17")
-	resp := domain.EksClusterCreationResponse{
-		ClusterStatus: ctrlResp,
-		SecretID:      secretId,
+	resp := domain.EksClusterContext{
+		ClusterStatus:  ctrlResp,
+		ClusterRequest: *createClusterRequest,
+		SecretID:       secretId,
 	}
 	if err != nil {
 		return resp, err
@@ -281,10 +282,10 @@ func createEksControlPlane(svc *eks.EKS, id string, name string, arn string, kub
 	}, nil
 }
 
-func CreateEksNodeGroup(secretId int, eksClusterStatus domain.EksClusterStatus) (nodeGroupResponse domain.EksNodeGroupCreationResponse, err error) {
+func CreateEksNodeGroup(secretId int, eksClusterContext domain.EksClusterContext) (nodeGroupResponse domain.EksNodeGroupContext, err error) {
 	cred, err := iam.GetEksCredentialsForSecretId(strconv.Itoa(secretId))
 	if err != nil {
-		return domain.EksNodeGroupCreationResponse{}, err
+		return domain.EksNodeGroupContext{}, err
 	}
 
 	sess, _ := session.NewSession(&aws.Config{
@@ -293,11 +294,11 @@ func CreateEksNodeGroup(secretId int, eksClusterStatus domain.EksClusterStatus) 
 	})
 
 	svc := eks.New(sess)
-	ngResp, err := createEksNodeGroup(svc, eksClusterStatus)
+	ngResp, err := createEksNodeGroup(svc, eksClusterContext)
 	if err != nil {
-		return domain.EksNodeGroupCreationResponse{}, err
+		return domain.EksNodeGroupContext{}, err
 	}
-	resp := domain.EksNodeGroupCreationResponse{
+	resp := domain.EksNodeGroupContext{
 		SecretId: secretId,
 		Response: *ngResp.Nodegroup,
 	}
@@ -308,24 +309,32 @@ func CreateEksNodeGroup(secretId int, eksClusterStatus domain.EksClusterStatus) 
 	return resp, nil
 }
 
-func createEksNodeGroup(svc *eks.EKS, ctrlPlaneResponse domain.EksClusterStatus) (nodeGroupResponse eks.CreateNodegroupOutput, err error) {
+func createEksNodeGroup(svc *eks.EKS, eksClusterContext domain.EksClusterContext) (nodeGroupResponse eks.CreateNodegroupOutput, err error) {
 	groupName, _ := uuid.GenerateUUID()
+
+	size := int64(eksClusterContext.ClusterRequest.InstanceCount)
+	size2 := int64(eksClusterContext.ClusterRequest.InstanceCount) * 2
+
 	input := &eks.CreateNodegroupInput{
 		AmiType:            nil,
-		ClientRequestToken: &ctrlPlaneResponse.RequestToken,
-		ClusterName:        &ctrlPlaneResponse.Name,
+		ClientRequestToken: &eksClusterContext.ClusterStatus.RequestToken,
+		ClusterName:        &eksClusterContext.ClusterStatus.Name,
 		DiskSize:           nil,
-		//InstanceTypes:      []*string{&clusterInput.MachineFamily},
-		InstanceTypes:  nil,
+		InstanceTypes:      eksClusterContext.ClusterRequest.MachineFamily,
+		//InstanceTypes:  nil,
 		Labels:         nil,
-		NodeRole:       &ctrlPlaneResponse.RoleArn,
+		NodeRole:       &eksClusterContext.ClusterStatus.RoleArn,
 		NodegroupName:  &groupName,
 		ReleaseVersion: nil,
 		RemoteAccess:   nil,
-		ScalingConfig:  nil,
-		Subnets:        *ctrlPlaneResponse.SubnetIds,
-		Tags:           nil,
-		Version:        &ctrlPlaneResponse.KubVersion,
+		ScalingConfig: &eks.NodegroupScalingConfig{
+			DesiredSize: &size,
+			MaxSize:     &size2,
+			MinSize:     &size,
+		},
+		Subnets: *eksClusterContext.ClusterStatus.SubnetIds,
+		Tags:    nil,
+		Version: &eksClusterContext.ClusterStatus.KubVersion,
 	}
 
 	result, err := svc.CreateNodegroup(input)
@@ -405,7 +414,7 @@ func DeleteEksCluster(clusterName string, secretId string) (out *eks.DeleteClust
 	return result, nil
 }
 
-func generateEKSClusterCreationRequest(request *domain.GkeClusterOptions) *eks.CreateClusterInput {
+func generateEKSClusterCreationRequest(request *domain.ClusterOptions) *eks.CreateClusterInput {
 	return &eks.CreateClusterInput{
 		ClientRequestToken: nil,
 		EncryptionConfig:   nil,

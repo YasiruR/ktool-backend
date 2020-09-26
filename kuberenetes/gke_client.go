@@ -24,7 +24,7 @@ import (
 //TODO: this is the token source pool
 var JWTConfigPool = make(map[string]jwt.Config)
 
-//func CreateGkeCluster(clusterId string, userId string, clusterOptions *domain.GkeClusterOptions) (*containerpb.Operation, error) {
+//func CreateGkeCluster(clusterId string, userId string, clusterOptions *domain.ClusterOptions) (*containerpb.Operation, error) {
 //	ctx := context.Background()
 //	b, cred, err := iam.GetGkeCredentialsForUser(userId)
 //	if err != nil {
@@ -56,7 +56,7 @@ var JWTConfigPool = make(map[string]jwt.Config)
 //	return resp, nil
 //}
 
-func CreateGkeCluster(clusterId string, secretId string, clusterOptions *domain.GkeClusterOptions) (*containerpb.Operation, error) {
+func CreateGkeCluster(clusterId string, secretId string, clusterOptions *domain.ClusterOptions) (*containerpb.Operation, error) {
 	ctx := context.Background()
 	b, cred, err := iam.GetGkeCredentialsForSecret(secretId)
 	if err != nil {
@@ -127,7 +127,7 @@ func CheckOperationStatus(c *container.ClusterManagerClient, zone string, name s
 	return *resp, nil
 }
 
-func generateGKEClusterCreationRequest(credentials *domain.GkeSecret, clusterOptions *domain.GkeClusterOptions) (*containerpb.CreateClusterRequest, error) {
+func generateGKEClusterCreationRequest(credentials *domain.GkeSecret, clusterOptions *domain.ClusterOptions) (*containerpb.CreateClusterRequest, error) {
 	nodePool1 := containerpb.NodePool{
 		Name: clusterOptions.Name + "-pool-1",
 		Config: &containerpb.NodeConfig{
@@ -162,7 +162,7 @@ func generateGKEClusterCreationRequest(credentials *domain.GkeSecret, clusterOpt
 	}, nil
 }
 
-func generateDestroyClusterRequest(credentials *domain.GkeSecret, clusterOptions *domain.GkeClusterOptions) (*containerpb.DeleteClusterRequest, error) {
+func generateDestroyClusterRequest(credentials *domain.GkeSecret, clusterOptions *domain.ClusterOptions) (*containerpb.DeleteClusterRequest, error) {
 	return &containerpb.DeleteClusterRequest{
 		ProjectId: credentials.ProjectId,
 		Zone:      clusterOptions.Zone,

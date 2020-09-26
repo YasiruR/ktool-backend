@@ -138,7 +138,7 @@ func handleCheckGkeClusterCreationStatus(res http.ResponseWriter, req *http.Requ
 
 func handleCreateGkeKubClusters(res http.ResponseWriter, req *http.Request) {
 	ctx := traceableContext.WithUUID(uuid.New())
-	var createGkeCluster domain.GkeClusterOptions
+	var createGkeCluster domain.ClusterOptions
 
 	//user validation by token header
 	token := req.Header.Get("Authorization")
@@ -300,7 +300,7 @@ func handleGetGkeResource(res http.ResponseWriter, req *http.Request) {
 //EKS cluster commands
 func handleCreateEksKubClusters(res http.ResponseWriter, req *http.Request) {
 	ctx := traceableContext.WithUUID(uuid.New())
-	var createEksCluster domain.GkeClusterOptions
+	var createEksCluster domain.ClusterOptions
 
 	//user validation by token header
 	//token := req.Header.Get("Authorization")
@@ -411,7 +411,7 @@ func handleCheckEksClusterCreationStatus(res http.ResponseWriter, req *http.Requ
 
 func handleDeleteEksKubClusters(res http.ResponseWriter, req *http.Request) {
 	ctx := traceableContext.WithUUID(uuid.New())
-	//var createEksCluster domain.GkeClusterOptions
+	//var createEksCluster domain.ClusterOptions
 
 	//user validation by token header
 	//token := req.Header.Get("Authorization")
@@ -471,7 +471,7 @@ func handleDeleteEksKubClusters(res http.ResponseWriter, req *http.Request) {
 
 func handleCreateEksNodeGroup(res http.ResponseWriter, req *http.Request) {
 	ctx := traceableContext.WithUUID(uuid.New())
-	var createEksNodeGroup domain.EksClusterCreationResponse
+	var createEksNodeGroup domain.EksClusterContext
 
 	//user validation by token header
 	//token := req.Header.Get("Authorization")
@@ -502,7 +502,7 @@ func handleCreateEksNodeGroup(res http.ResponseWriter, req *http.Request) {
 	}
 	fmt.Println("Create EKS k8s node group request received")
 	clusterId := uuid.New().String()
-	result, err := kubernetes.CreateEksNodeGroup(createEksNodeGroup.SecretID, createEksNodeGroup.ClusterStatus)
+	result, err := kubernetes.CreateEksNodeGroup(createEksNodeGroup.SecretID, createEksNodeGroup)
 	if err != nil {
 		res.WriteHeader(http.StatusOK)
 		result := domain.GkeClusterStatus{
