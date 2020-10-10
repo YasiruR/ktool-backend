@@ -442,7 +442,7 @@ func AddEksSecret(ctx context.Context, UserId string, SecretName string, Tags st
 	EksAccessKeyId string, EksSecretAccessKey string) (err error) {
 	//TODO: validate req params
 	//TODO: call a stored procedure
-	query := "INSERT INTO kdb.cloud_secret (ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
+	query := "INSERT INTO kdb." + cloudSecretTable + "(ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
 		" modifiedOn, activated, deleted, eksAccessKeyId, eksSecretAccessKey) VALUES(" +
 		UserId + ",'" + SecretName + "','" + "amazon" + "','" + Tags + "'," +
 		UserId + ", CURRENT_TIMESTAMP, " + UserId + ", CURRENT_TIMESTAMP, 0, 0,'" + EksAccessKeyId + "','" + EksSecretAccessKey + "')"
@@ -463,7 +463,7 @@ func AddAksSecret(ctx context.Context, UserId string, SecretName string, Tags st
 	AksClientId string, AksClientSecret string, AksTenantId string, AksSubscriptionId string) (err error) {
 	//TODO: validate req params
 	//TODO: call a stored procedure
-	query := "INSERT INTO kdb.cloud_secret (ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
+	query := "INSERT INTO kdb." + cloudSecretTable + "(ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
 		" modifiedOn, activated, deleted, aksClientId, aksClientSecret, aksTenantId, aksSubscriptionId) VALUES(" +
 		UserId + ",'" + SecretName + "','" + "microsoft" + "','" + Tags + "'," + UserId +
 		", CURRENT_TIMESTAMP, " + UserId + ",CURRENT_TIMESTAMP, 0, 0,'" + AksClientId + "','" + AksClientSecret + "','" + AksTenantId + "','" +
@@ -487,7 +487,7 @@ func AddGkeSecret(ctx context.Context, UserId string, SecretName string, Tags st
 	GkeTokenUri string, GkeAuthCertUrl string, GkeClientCertUrl string) (err error) {
 	//TODO: validate req params
 	//TODO: call a stored procedure
-	query := "INSERT INTO kdb.cloud_secret (ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
+	query := "INSERT INTO kdb." + cloudSecretTable + "(ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
 		" modifiedOn, activated, deleted, gkeSecretType, gkeProjectId, gkePrivateKeyId, gkePrivateKey, gkeClientEmail, " +
 		"gkeClientId, gkeAuthUri, gkeTokenUri, gkeAuthCertUrl, gkeClientCertUrl) VALUES(" + UserId + ",'" + SecretName +
 		"','" + "google" + "','" + Tags + "'," + UserId + ", CURRENT_TIMESTAMP, " + UserId + ",CURRENT_TIMESTAMP, 0, 0,'" + GkeType + "','" +

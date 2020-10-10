@@ -12,13 +12,11 @@ const (
 	zookeeperTable   = "zookeeper"
 	brokerTable      = "broker"
 	userTable        = "user"
-	secretTable      = "secret"
-	gkeSecretTable   = "gke_secret"
-	cloudSecretTable = "cloud_secret"
-	operationsTable  = "operations"
-	k8sTable         = "k8s_clusters"
-	productsTable    = "products"
-	locationsTable   = "locations"
+	cloudSecretTable = "secret"
+	operationsTable  = "operation"
+	k8sTable         = "kubernetes_cluster"
+	productsTable    = "product"
+	locationsTable   = "location"
 	priceTable       = "price_by_region"
 )
 

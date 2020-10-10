@@ -4,6 +4,7 @@ import (
 	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/http"
 	"github.com/YasiruR/ktool-backend/kafka"
+	kubernetes "github.com/YasiruR/ktool-backend/kuberenetes"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/YasiruR/ktool-backend/service"
 	"time"
@@ -27,10 +28,16 @@ func main() {
 	go func() {
 		for {
 			select {
-				case <- ticker.C:
-					kafka.InitAllClusters()
+			case <-ticker.C:
+				kafka.InitAllClusters()
 			}
 		}
 	}()
+
+	//process asynchronous background processes
+	go func() {
+		kubernetes.ProcessAsyncCloudJobs()
+	}()
+
 	http.InitRouter()
 }

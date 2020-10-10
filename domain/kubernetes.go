@@ -2,6 +2,20 @@ package domain
 
 import "github.com/aws/aws-sdk-go/service/eks"
 
+const (
+	SUBMITTED = "REQUEST_SUBMITTED"
+	COMPLETED = "RUNNING"
+	// gke states
+	GKE_CREATING = "CREATING CLUSTER"
+	// eks states
+	EKS_MASTER_CREATING     = "CREATING CONTROL PLANE"
+	EKS_MASTER_CREATED      = "CONTROL PLANE CREATED"
+	EKS_MASTER_FAILED       = "CONTROL PLANE CREATION FAILED"
+	EKS_NODE_GROUP_CREATING = "CREATING NODE GROUP"
+	EKS_NODE_GROUP_CREATED  = "NODE GROUP CREATED"
+	EKS_NODE_GROUP_FAILED   = "NODE GROUP CREATION FAILED"
+)
+
 type ClusterResponse struct {
 	Clusters []KubCluster `json:"clusters"`
 	Error    error        `json:"error"`
@@ -21,6 +35,7 @@ type KubCluster struct {
 }
 
 type ClusterOptions struct {
+	Provider      string    `json:"provider"`
 	UserId        int       `json:"user_id"` //todo: remove this, doesnt make sense
 	SecretId      int       `json:"secret_id"`
 	Name          string    `json:"name"`
@@ -110,6 +125,7 @@ type EksClusterContext struct {
 type EksNodeGroupContext struct {
 	SecretId int           `json:"secret_id"`
 	Response eks.Nodegroup `json:"response"`
+	Region   string        `json:"region"`
 }
 
 type EksClusterStatus struct {
@@ -121,4 +137,13 @@ type EksClusterStatus struct {
 	KubVersion   string     `json:"kub_version"`
 	Status       string     `json:"status"`
 	Error        string     `json:"error"`
+}
+
+// async job processing
+type AsyncCloudJob struct {
+	Provider    string
+	Status      string
+	Reference   string
+	Information interface{} //this could be any struct that wraps provider specific information
+
 }

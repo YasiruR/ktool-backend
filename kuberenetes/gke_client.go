@@ -6,15 +6,10 @@ import (
 	"fmt"
 	"github.com/YasiruR/ktool-backend/database"
 	domain "github.com/YasiruR/ktool-backend/domain"
-	"github.com/YasiruR/ktool-backend/log"
-	"golang.org/x/oauth2/jwt"
-	//"encoding/json"
-	//"fmt"
-	//"github.com/YasiruR/ktool-backend/database"
-	//"github.com/YasiruR/ktool-backend/domain"
-	//"github.com/YasiruR/ktool-backend/log"
 	iam "github.com/YasiruR/ktool-backend/iam"
+	"github.com/YasiruR/ktool-backend/log"
 	oauth2 "golang.org/x/oauth2/google"
+	"golang.org/x/oauth2/jwt"
 	resource "google.golang.org/api/cloudresourcemanager/v1"
 	//"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -80,7 +75,7 @@ func CreateGkeCluster(clusterId string, secretId string, clusterOptions *domain.
 		log.Logger.ErrorContext(ctx, "Failed to add LRO to db.")
 		return nil, err
 	}
-	err = database.AddGkeCluster(ctx, clusterId, clusterOptions.UserId, clusterOptions.Name, resp.Name)
+	err = database.AddGkeCluster(ctx, clusterId, clusterOptions.UserId, clusterOptions.Name, resp.Name, clusterOptions.Location)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "Failed to add cluster details to db.")
 		return nil, err

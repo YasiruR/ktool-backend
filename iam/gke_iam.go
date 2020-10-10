@@ -222,7 +222,7 @@ func GetServiceAccountIamPolicies(userId string) (*iamadmin.Policy, error) {
 
 func GetGkeCredentialsForUser(userId string) ([]byte, domain.GkeSecret, error) {
 	ctx := context.Background()
-	secretDao := database.GetSecretInternal(ctx, userId, `Google`, `ktool-2020`)
+	secretDao := database.GetSecretInternal(ctx, userId, `Google`, "gke-ktool")
 
 	if err := secretDao.Error; err != nil {
 		log.Logger.ErrorContext(ctx, "Error occurred while fetching gke secret for client %s", userId)
