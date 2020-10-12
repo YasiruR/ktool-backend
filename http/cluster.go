@@ -591,7 +591,6 @@ func handleGetGraphMetrics(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	//number of data points required
 	clusterID, err := strconv.Atoi(req.FormValue("cluster_id"))
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "conversion of cluster id from string into int failed", err, req.FormValue("cluster_id"))

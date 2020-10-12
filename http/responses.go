@@ -30,6 +30,31 @@ type userRes struct {
 	Token 		string		`json:"token"`
 }
 
+//-----------------topic metrics-------------------------//
+
+type topicMetricsRes struct {
+	Name 				string				`json:"name"`
+	Brokers 			[]string			`json:"brokers"`
+	Partitions 			[]topicPartition	`json:"partitions"`
+	WritablePartitions	int					`json:"writable_partitions"`
+	UnderReplicatedPart	int					`json:"under_repl_partitions"`
+	Replicas 			int					`json:"replicas"`
+	InSyncReplicas		int					`json:"in_sync_replicas"`
+	OfflineReplicas		int					`json:"offline_replicas"`
+	Messages 			int					`json:"messages"`
+	BytesIn				int					`json:"bytes_in"`
+	BytesOut			int					`json:"bytes_out"`
+	BytesRejected		int					`json:"bytes_rejected"`
+	ReplBytesIn			int					`json:"repl_bytes_in"`
+	ReplBytesOut 		int					`json:"repl_bytes_out"`
+}
+
+type topicPartition struct {
+	ID 				int		`json:"id"`
+	FirstOffset 	int		`json:"first_offset"`
+	LastOffset		int		`json:"last_offset"`
+}
+
 ////-----------------broker overview---------------------//
 //
 //type brokerOverviewRes struct {

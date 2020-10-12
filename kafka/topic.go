@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/YasiruR/ktool-backend/log"
+	"sync"
 )
 
 type topicClient struct {
@@ -16,6 +17,11 @@ type topicClient struct {
 }
 
 var TopicClientList []*topicClient
+var topicListMu	*sync.Mutex
+
+func init() {
+	topicListMu = &sync.Mutex{}
+}
 
 func InitTopicConsumer(ctx context.Context, clusterID int, topic string) (err error) {
 	//mesgs := make(chan *sarama.ConsumerMessage)
@@ -24,6 +30,9 @@ func InitTopicConsumer(ctx context.Context, clusterID int, topic string) (err er
 	var t topicClient
 	t.Name = topic
 	t.ClusterID = clusterID
+
+	msgMu := &sync.Mutex{}
+	errMu := &sync.Mutex{}
 
 	client, err := GetClient(ctx, clusterID)
 	if err != nil {
@@ -38,7 +47,7 @@ func InitTopicConsumer(ctx context.Context, clusterID int, topic string) (err er
 	}
 
 	for _, partition := range partitions {
-		consumerPartition, err := client.Consumer.ConsumePartition(topic, partition, sarama.OffsetOldest)
+		partitionConsumer, err := client.Consumer.ConsumePartition(topic, partition, sarama.OffsetOldest)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, fmt.Sprintf("getting consumer partition for topic %v and partition %v failed", topic, partition), err)
 			return err
@@ -49,18 +58,24 @@ func InitTopicConsumer(ctx context.Context, clusterID int, topic string) (err er
 				select {
 				case consumerError := <- consumer.Errors():
 					//errors <- consumerError
+					errMu.Lock()
 					t.Errors = append(t.Errors, consumerError)
+					errMu.Unlock()
 					log.Logger.WarnContext(ctx, fmt.Sprintf("consumer error for topic %v", topic), consumerError)
-				case mesg := <- consumer.Messages():
+				case msg := <- consumer.Messages():
 					//mesgs <- mesg
-					t.Mesgs = append(t.Mesgs, mesg)
-					log.Logger.TraceContext(ctx, fmt.Sprintf("consumed message for topic %v", topic), mesg)
+					msgMu.Lock()
+					t.Mesgs = append(t.Mesgs, msg)
+					msgMu.Unlock()
+					log.Logger.TraceContext(ctx, fmt.Sprintf("consumed message for topic %v", topic), msg)
 				}
 			}
-		}(topic, consumerPartition)
+		}(topic, partitionConsumer)
 	}
 
+	topicListMu.Lock()
 	TopicClientList = append(TopicClientList, &t)
+	topicListMu.Unlock()
 
 	return nil
 }

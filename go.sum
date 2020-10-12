@@ -38,6 +38,7 @@ github.com/kr/text v0.1.0 h1:45sCR5RtlFHMR4UwH9sdQ5TC8v0qDQCHnXt+kaKSTVE=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
 github.com/logrusorgru/aurora v0.0.0-20190428105938-cea283e61946 h1:z+WaKrgu3kCpcdnbK9YG+JThpOCd1nU5jO5ToVmSlR4=
 github.com/logrusorgru/aurora v0.0.0-20190428105938-cea283e61946/go.mod h1:7rIyQOR62GCctdiQpZ/zOJlFyk6y+94wXzv6RNZgaR4=
+github.com/pickme-go/k-stream v0.0.5-beta-2 h1:NoWy8WfwhO3v09aZSvbElMWb1+Cu2fonJWFjVsOpfnQ=
 github.com/pickme-go/log v1.2.3 h1:DVDGyhe6pKpVAYPfVN8G3W7TlhGzrG8r0obTJXLEOUU=
 github.com/pickme-go/log v1.2.3/go.mod h1:7k8BN/9rsPLQwDNRI2iQ8aLO/Lm0WAIa0p+TBWYVor8=
 github.com/pickme-go/traceable-context v1.0.0 h1:q9ZOf0MZIIzgwi2YKx5MOP++2vxlqZFck4XZxZubIwk=

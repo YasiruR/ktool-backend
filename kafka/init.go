@@ -32,6 +32,7 @@ func InitAllClusters() {
 	}
 
 	var tempClustList []domain.KCluster
+	topicMap := map[int][]domain.TopicMetrics{}
 
 	clusterLoop:
 	for _, cluster := range clusterList {
@@ -88,7 +89,14 @@ func InitAllClusters() {
 		var numOfLeaders, numOfReplicas, numOfOfflineRepl, numOfInSyncRepl, numOfOnlinePartitions int
 		for _, topic := range topics {
 			var clusterTopic domain.KTopic
-			clusterTopic.Name = topic
+			var topicMetrics domain.TopicMetrics
+			//clusterTopic.Name = topic
+			topicMetrics.Name = topic
+			topicMetrics.WritablePartitions, err = client.WritablePartitions(topic)
+			if err != nil {
+				log.Logger.ErrorContext(ctx, err, "failed to get writable partitions", topic)
+			}
+
 			clusterTopic.Partitions, err = saramaConsumer.Partitions(topic)
 			if err != nil {
 				log.Logger.ErrorContext(ctx, err, fmt.Sprintf("partitions could not be fetched for %v topic in %v cluster", topic, cluster.ClusterName))
@@ -109,27 +117,49 @@ func InitAllClusters() {
 			//to fetch information about replicas
 			partitionLoop:
 			for _, partitionID := range clusterTopic.Partitions {
-				replicas, err := client.Replicas(clusterTopic.Name, partitionID)
+				var topicPartition domain.TopicPartition
+				topicPartition.ID = partitionID
+				topicPartition.Replicas, err = client.Replicas(topic, partitionID)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, err, fmt.Sprintf("replicas could not be fetched for %v topic and %v paritition in %v cluster", topic, partitionID, cluster.ClusterName))
 					continue partitionLoop
 				}
-				numOfReplicas += len(replicas)
+				numOfReplicas += len(topicPartition.Replicas)
 
-				inSyncReplicas, err := client.InSyncReplicas(clusterTopic.Name, partitionID)
+				topicPartition.InSyncReplicas, err = client.InSyncReplicas(topic, partitionID)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, err, fmt.Sprintf("insync replicas could not be fetched for %v topic and %v paritition in %v cluster", topic, partitionID, cluster.ClusterName))
 					continue partitionLoop
 				}
-				numOfInSyncRepl += len(inSyncReplicas)
+				numOfInSyncRepl += len(topicPartition.InSyncReplicas)
 
-				offlineReplicas, err := client.OfflineReplicas(clusterTopic.Name, partitionID)
+				if numOfReplicas > numOfInSyncRepl {
+					topicPartition.UnderReplicated = true
+				}
+
+				topicPartition.OfflineReplicas, err = client.OfflineReplicas(topic, partitionID)
 				if err != nil {
 					log.Logger.ErrorContext(ctx, err, fmt.Sprintf("offline replicas could not be fetched for %v topic and %v paritition in %v cluster", topic, partitionID, cluster.ClusterName))
 					continue partitionLoop
 				}
-				numOfOfflineRepl += len(offlineReplicas)
+				numOfOfflineRepl += len(topicPartition.OfflineReplicas)
+
+				//first available offset
+				topicPartition.FirstOffset, err = client.GetOffset(topic, partitionID, -2)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, err, "failed getting first offset", topic, partitionID)
+				}
+
+				//last offset
+				topicPartition.NextOffset, err = client.GetOffset(topic, partitionID, -1)
+				if err != nil {
+					log.Logger.ErrorContext(ctx, err, "failed getting next offset", topic, partitionID)
+				}
+
+				topicMetrics.Partitions = append(topicMetrics.Partitions, topicPartition)
 			}
+
+			topicMap[cluster.ID] = append(topicMap[cluster.ID], topicMetrics)
 		}
 
 		//getting cluster controller id
@@ -156,6 +186,21 @@ func InitAllClusters() {
 	}
 
 	ClusterList = tempClustList
+	domain.TopicMap = topicMap
 
 	//log.Logger.Trace("cluster initialization completed", fmt.Sprintf("No. of clusters : %v", len(ClusterList)))
+}
+
+func InitConsumers() {
+	ctx := traceable_context.WithUUID(uuid.New())
+	for _, cluster := range ClusterList {
+		for _, topic := range cluster.Topics {
+			go func(topic domain.KTopic) {
+				err := InitTopicConsumer(ctx, cluster.ClusterID, topic.Name)
+				if err != nil {
+					log.Logger.FatalContext(ctx, "initialization of topic consumer failed", topic.Name, cluster.ClusterID)
+				}
+			}(topic)
+		}
+	}
 }
