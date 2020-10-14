@@ -36,6 +36,9 @@ const (
 	totalMessages 		= "total_messages"
 	totalTopics 		= "total_topics"
 
+	//topic keys
+	message
+
 	partitionsQuery		= "kafka_server_replicamanager_partitioncount"
 	leadersQuery		= "kafka_server_replicamanager_leadercount"
 	activeContQuery		= "kafka_controller_kafkacontroller_activecontrollercount"

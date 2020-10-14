@@ -33,18 +33,26 @@ type userRes struct {
 //-----------------topic metrics-------------------------//
 
 type topicMetricsRes struct {
+	TotalMessages 		int				`json:"total_messages"`
+	BytesInRate			int				`json:"bytes_in_rate"`
+	BytesOutRate		int				`json:"bytes_out_rate"`
+	MessageRate			int				`json:"message_rate"`
+	Topics 				[]metricsTopic	`json:"topics"`
+}
+
+type metricsTopic struct {
 	Name 				string				`json:"name"`
 	Brokers 			[]string			`json:"brokers"`
 	Partitions 			[]topicPartition	`json:"partitions"`
-	WritablePartitions	int					`json:"writable_partitions"`
-	UnderReplicatedPart	int					`json:"under_repl_partitions"`
+	WritablePartitions	int					`json:"writable_part"`
+	UnderReplicatedPart	int					`json:"under_repl_part"`
 	Replicas 			int					`json:"replicas"`
-	InSyncReplicas		int					`json:"in_sync_replicas"`
-	OfflineReplicas		int					`json:"offline_replicas"`
+	InSyncReplicas		int					`json:"in_sync_repl"`
+	OfflineReplicas		int					`json:"offline_repl"`
 	Messages 			int					`json:"messages"`
 	BytesIn				int					`json:"bytes_in"`
 	BytesOut			int					`json:"bytes_out"`
-	BytesRejected		int					`json:"bytes_rejected"`
+	BytesRejected		int					`json:"bytes_rej"`
 	ReplBytesIn			int					`json:"repl_bytes_in"`
 	ReplBytesOut 		int					`json:"repl_bytes_out"`
 }

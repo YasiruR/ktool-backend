@@ -12,11 +12,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
-	"syscall"
 )
 
-func InitRouter() {
+func InitRouter(osChannel chan os.Signal) {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/user/register", handleAddNewUser).Methods(http.MethodPost)
@@ -36,9 +34,6 @@ func InitRouter() {
 
 	router.HandleFunc("/topics", handleGetTopicsForCluster).Methods(http.MethodGet)
 	router.HandleFunc("/brokers", handleGetBrokersForCluster).Methods(http.MethodGet)
-
-	osChannel := make(chan os.Signal, 1)
-	signal.Notify(osChannel, syscall.SIGINT, syscall.SIGKILL)
 
 	//handle OS kill and interrupt signals to close all connections
 	go func() {

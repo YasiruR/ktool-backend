@@ -1,6 +1,6 @@
 package domain
 
-var TopicMap map[int][]TopicMetrics
+var ClusterTopicMap map[int][]TopicMetrics
 
 type KTopic struct {
 	Name 		string

@@ -43,17 +43,26 @@ func handleGetTopicMetrics(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	//todo: include summary metrics
+
 	_, ok = domain.LoggedInUserMap[userID]
 	if ok {
-		var metricsRes []topicMetricsRes
-		promCluster, promClusterExists := prometheus.PromTopicMap[clusterID]
-		saramaTopics, saramaClusterExists := domain.TopicMap[clusterID]
-		if promClusterExists && saramaClusterExists {
+		var metricsRes topicMetricsRes
+		promCluster, promClusterExists := prometheus.PromClusterTopicMap[clusterID]
+		promSummary, promSummaryClustExists := prometheus.PromSummaryMap[clusterID]
+		saramaTopics, saramaClusterExists := domain.ClusterTopicMap[clusterID]
+		if promClusterExists && saramaClusterExists && promSummaryClustExists {
+			//adding summary metrics
+			metricsRes.TotalMessages = promSummary.TotalMessages
+			metricsRes.MessageRate = promSummary.MessageRate
+			metricsRes.BytesInRate = promSummary.BytesInRate
+			metricsRes.BytesOutRate = promSummary.BytesOutRate
+
 			for _, topic := range saramaTopics {
-				var topicRes topicMetricsRes
+				var topicRes metricsTopic
 				promTopic, topicExists := promCluster[topic.Name]
 				if topicExists {
-					topicRes.Brokers =promTopic.Brokers //to display no of brokers and for filter
+					topicRes.Brokers = promTopic.Brokers //to display no of brokers and for filter
 					topicRes.Messages = promTopic.Messages
 					topicRes.BytesIn = promTopic.BytesIn
 					topicRes.BytesOut = promTopic.BytesOut
@@ -80,7 +89,7 @@ func handleGetTopicMetrics(res http.ResponseWriter, req *http.Request) {
 					}
 					topicRes.Partitions = append(topicRes.Partitions, topicPartitionRes)
 				}
-				metricsRes = append(metricsRes, topicRes)
+				metricsRes.Topics = append(metricsRes.Topics, topicRes)
 			}
 
 			res.WriteHeader(http.StatusOK)
@@ -90,17 +99,14 @@ func handleGetTopicMetrics(res http.ResponseWriter, req *http.Request) {
 				res.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			log.Logger.TraceContext(ctx, "topic metrics fetched successfully", clusterID, len(metricsRes))
-			return
+			log.Logger.TraceContext(ctx, "topic metrics fetched successfully", clusterID, len(metricsRes.Topics))
 		} else {
-			log.Logger.ErrorContext(ctx, "requested cluster id is not present in either maps", clusterID, prometheus.PromTopicMap, domain.TopicMap)
+			log.Logger.ErrorContext(ctx, "requested cluster id is not present in either maps", clusterID, prometheus.PromClusterTopicMap, domain.ClusterTopicMap)
 			res.WriteHeader(http.StatusBadRequest)
-			return
 		}
 	} else {
 		log.Logger.ErrorContext(ctx, "could not find a user from the logged in user list from token", token)
 		res.WriteHeader(http.StatusForbidden)
-		return
 	}
 }
 

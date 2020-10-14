@@ -186,7 +186,7 @@ func InitAllClusters() {
 	}
 
 	ClusterList = tempClustList
-	domain.TopicMap = topicMap
+	domain.ClusterTopicMap = topicMap
 
 	//log.Logger.Trace("cluster initialization completed", fmt.Sprintf("No. of clusters : %v", len(ClusterList)))
 }
