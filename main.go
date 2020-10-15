@@ -56,11 +56,25 @@ func main() {
 
 	//update topic metrics
 	topicContext := traceable_context.WithUUID(uuid.New())
-	go prometheus.InitTopicMetrics(topicContext, osChannel)
+	go func() {
+		for {
+			select {
+			case <- metricsTicker.C:
+				prometheus.InitTopicMetrics(topicContext, osChannel)
+			}
+		}
+	}()
 
 	//update topic summary metrics
 	topicSummaryContext := traceable_context.WithUUID(uuid.New())
-	go prometheus.InitSummaryMetrics(topicSummaryContext, osChannel)
+	go func() {
+		for {
+			select {
+			case <- metricsTicker.C:
+				prometheus.InitSummaryMetrics(topicSummaryContext, osChannel)
+			}
+		}
+	}()
 
 	//update metrics ports of brokers
 	metricsPortContext := traceable_context.WithUUID(uuid.New())

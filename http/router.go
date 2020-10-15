@@ -31,6 +31,7 @@ func InitRouter(osChannel chan os.Signal) {
 	router.HandleFunc("/cluster/disconnect", handleDisconnectCluster).Methods(http.MethodGet)
 	router.HandleFunc("/cluster/broker_overview", handleGetBrokerOverview).Methods(http.MethodGet)
 	router.HandleFunc("/cluster/graph_metrics", handleGetGraphMetrics).Methods(http.MethodGet)
+	router.HandleFunc("/cluster/topic_metrics", handleGetTopicMetrics).Methods(http.MethodGet)
 
 	router.HandleFunc("/topics", handleGetTopicsForCluster).Methods(http.MethodGet)
 	router.HandleFunc("/brokers", handleGetBrokersForCluster).Methods(http.MethodGet)

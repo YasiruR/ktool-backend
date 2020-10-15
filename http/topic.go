@@ -43,13 +43,14 @@ func handleGetTopicMetrics(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	//todo: include summary metrics
-
 	_, ok = domain.LoggedInUserMap[userID]
 	if ok {
 		var metricsRes topicMetricsRes
 		promCluster, promClusterExists := prometheus.PromClusterTopicMap[clusterID]
 		promSummary, promSummaryClustExists := prometheus.PromSummaryMap[clusterID]
+
+		log.Logger.TraceContext(ctx, "prom summary", promSummary)
+
 		saramaTopics, saramaClusterExists := domain.ClusterTopicMap[clusterID]
 		if promClusterExists && saramaClusterExists && promSummaryClustExists {
 			//adding summary metrics

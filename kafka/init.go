@@ -90,7 +90,7 @@ func InitAllClusters() {
 		for _, topic := range topics {
 			var clusterTopic domain.KTopic
 			var topicMetrics domain.TopicMetrics
-			//clusterTopic.Name = topic
+			clusterTopic.Name = topic
 			topicMetrics.Name = topic
 			topicMetrics.WritablePartitions, err = client.WritablePartitions(topic)
 			if err != nil {
