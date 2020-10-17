@@ -39,5 +39,17 @@ func main() {
 		kubernetes.ProcessAsyncCloudJobs()
 	}()
 
+	//cloud deployment watcher
+	anotherTicker := time.NewTicker(time.Duration(service.Cfg.ClusterRefreshInterval) * time.Second)
+	go func() {
+		for {
+			select {
+			case <-anotherTicker.C:
+				kubernetes.UpdateAllClusterStatus()
+			}
+		}
+	}()
+
+	//init web router
 	http.InitRouter()
 }

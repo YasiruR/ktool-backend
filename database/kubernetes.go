@@ -10,7 +10,8 @@ import (
 	"strconv"
 )
 
-func GetAllKubernetesClusters(ctx context.Context, userId int) (clusterResponse domain.ClusterResponse) {
+//facade
+func GetAllKubernetesClustersForUser(ctx context.Context, userId int) (clusterResponse domain.ClusterResponse) {
 	query := fmt.Sprintf("SELECT s.id, s.cluster_id, s.name, s.service_provider, s.status, s.created_on, s.zone "+
 		" FROM %s s WHERE s.user_id = %d AND s.active = 1;", k8sTable, userId)
 
@@ -56,148 +57,6 @@ func GetAllKubernetesClusters(ctx context.Context, userId int) (clusterResponse 
 	clusterResponse.Status = 0
 	clusterResponse.Message = "Success"
 	return clusterResponse
-}
-
-func GetGkeLROperation(ctx context.Context, name string) (result domain.GkeLROperation) {
-
-	query := fmt.Sprintf("SELECT id, project_id, name, zone FROM %s  WHERE name = '%s'", operationsTable, name)
-
-	rows, err := Db.Query(query)
-
-	if err != nil {
-		result.Error = err
-		return result
-	}
-
-	defer rows.Close()
-
-	for rows.Next() {
-
-		err = rows.Scan(&result.Id, &result.ProjectId, &result.Name, &result.Zone)
-		if err != nil {
-			log.Logger.ErrorContext(ctx, "scanning rows in operations table failed", err)
-			result.Error = err
-			return result
-		}
-	}
-
-	return result
-}
-
-func AddGkeLROperation(ctx context.Context, Name string, ProjectId string, Zone string) (err error) {
-	//TODO: validate req params
-	//TODO: call a stored procedure
-	query := fmt.Sprintf("INSERT INTO kdb.%s (name, project_id, zone) VALUES('%s', '%s', '%s')", operationsTable, Name, ProjectId, Zone)
-
-	insert, err := Db.Query(query)
-
-	if err != nil {
-		log.Logger.ErrorContext(ctx, fmt.Sprintf("insert to %s table failed", operationsTable), err)
-		return err
-	}
-
-	defer insert.Close()
-	log.Logger.TraceContext(ctx, "successfully added a new operation ", Name)
-	return nil
-}
-
-func UpdateGkeLROperation(ctx context.Context, name string, status string) (opStatus bool, err error) {
-	query := fmt.Sprintf("UPDATE kdb.%s SET status='%s' WHERE name='%s'", operationsTable, status, name)
-
-	insert, err := Db.Query(query)
-
-	if err != nil {
-		log.Logger.ErrorContext(ctx, fmt.Sprintf("update %s table failed", operationsTable), err)
-		return false, err
-	}
-
-	defer insert.Close()
-	log.Logger.TraceContext(ctx, "successfully updated operation ", name)
-	return true, nil
-}
-
-func AddGkeCluster(ctx context.Context, clusterId string, userId int, clusterName string, operationName string, zone string) (err error) {
-	query := fmt.Sprintf("INSERT INTO kdb.%s (cluster_id, user_id, name, op_id, zone, service_provider, status, active) "+
-		"VALUES ('%s', %d, '%s', '%s', '%s', '%s', 'CREATING', 1);", k8sTable, clusterId, userId, clusterName, operationName, zone, "google")
-	insert, err := Db.Query(query)
-
-	if err != nil {
-		log.Logger.ErrorContext(ctx, fmt.Sprintf("insert to %s table failed", k8sTable), err)
-		return err
-	}
-
-	defer insert.Close()
-	log.Logger.TraceContext(ctx, "successfully added a new cluster.")
-	//todo: get id and return
-	return nil
-}
-
-func AddEksCluster(ctx context.Context, clusterId string, userId int, clusterName string, reqToken string, arn string, roleArn string, ids string, version string, zone string) (err error) {
-	query := fmt.Sprintf("INSERT INTO kdb.%s (cluster_id, user_id, name, request_token, service_provider, status, active, "+
-		"cluster_arn, role_arn, subnet_ids, kub_version, op_id, zone) "+ //todo: remove this op_id
-		"VALUES ('%s', %d, '%s', '%s', '%s', 'CREATING', 1, '%s', '%s', '%s', '%s', '%s', '%s');", k8sTable, clusterId, userId, clusterName, reqToken, "amazon", arn, roleArn, ids, version, clusterName, zone)
-	insert, err := Db.Query(query)
-
-	if err != nil {
-		log.Logger.ErrorContext(ctx, fmt.Sprintf("insert to %s table failed", k8sTable), err)
-		return err
-	}
-
-	defer insert.Close()
-	log.Logger.TraceContext(ctx, "successfully added a new cluster.")
-	//todo: get id and return
-	return nil
-}
-
-func UpdateEksClusterCreationStatus(ctx context.Context, status string, clusterName string) (opStatus bool, err error) {
-	statusDesc := status
-	//statusDesc := "UNSPECIFIED"
-	//switch status {
-	//case "SUBMITTED":
-	//	statusDesc = "INITIALIZING"
-	//case "CREATING":
-	//	statusDesc = "CREATING"
-	//case "ACTIVE":
-	//	statusDesc = "RUNNING"
-	//default:
-	//}
-	query := fmt.Sprintf("UPDATE kdb.%s SET status='%s' WHERE name='%s'", k8sTable, statusDesc, clusterName)
-
-	insert, err := Db.Query(query)
-
-	if err != nil {
-		log.Logger.ErrorContext(ctx, fmt.Sprintf("update %s table failed", k8sTable), err)
-		return false, err
-	}
-
-	defer insert.Close()
-	log.Logger.TraceContext(ctx, "successfully updated cluster ", clusterName)
-	return true, nil
-}
-
-func UpdateGkeClusterCreationStatus(ctx context.Context, status string, operationId string) (opStatus bool, err error) {
-	statusDesc := "UNSPECIFIED"
-	switch status {
-	case "SUBMITTED":
-		statusDesc = "INITIALIZING"
-	case "RUNNING":
-		statusDesc = "CREATING"
-	case "DONE":
-		statusDesc = "RUNNING"
-	default:
-	}
-	query := fmt.Sprintf("UPDATE kdb.%s SET status='%s' WHERE op_id='%s'", k8sTable, statusDesc, operationId)
-
-	insert, err := Db.Query(query)
-
-	if err != nil {
-		log.Logger.ErrorContext(ctx, fmt.Sprintf("update %s table failed", k8sTable), err)
-		return false, err
-	}
-
-	defer insert.Close()
-	log.Logger.TraceContext(ctx, "successfully updated cluster ", operationId)
-	return true, nil
 }
 
 func GetKubernetesResourcesRecommendation(ctx context.Context, Provider string, Continent []string, VCPU string, RAM string, Network []string, Type []string, MinNodes string, MaxNodes string) (result domain.GkeRecommendations) {
@@ -354,6 +213,216 @@ func GetKubernetesResources(ctx context.Context, Provider string) (result domain
 	result.Detail = "Success"
 	result.Status = 0
 	return result
+}
+
+func GetAllRunningKubernetesClusters(ctx context.Context) (result domain.ClusterResponse) {
+
+	query := fmt.Sprintf("SELECT name, user_id, status, service_provider, zone FROM %s WHERE active = 1;", k8sTable)
+
+	rows, err := Db.Query(query)
+
+	switch err {
+	case nil:
+		log.Logger.InfoContext(ctx, "get all kub clusters query success")
+	case sql.ErrNoRows:
+		log.Logger.InfoContext(ctx, "no running kub clusters found")
+		result.Message = "no clusters found"
+		result.Status = -1
+		return result
+	default:
+		log.Logger.InfoContext(ctx, "unhandled error occurred while fetching kub clusters")
+		result.Message = "error occurred"
+		result.Status = -1
+		return result
+	}
+
+	defer rows.Close()
+	clusters := make([]domain.KubCluster, 0)
+
+	for rows.Next() {
+		cluster := domain.KubCluster{}
+
+		err = rows.Scan(&cluster.ClusterName, &cluster.ClusterId, &cluster.Status, &cluster.ServiceProvider, &cluster.Location)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "scanning rows in kub clusters failed", err)
+			result.Message = "scanning rows in kub clusters failed"
+			result.Status = -1
+			return result
+		}
+		clusters = append(clusters, cluster)
+	}
+
+	log.Logger.TraceContext(ctx, "get all kub clusters db query was successful")
+	result.Clusters = clusters
+	result.Message = "Success"
+	result.Status = 0
+	return result
+}
+
+//gke
+func GetGkeLROperation(ctx context.Context, name string) (result domain.GkeLROperation) {
+
+	query := fmt.Sprintf("SELECT id, project_id, name, zone FROM %s  WHERE name = '%s'", operationsTable, name)
+
+	rows, err := Db.Query(query)
+
+	if err != nil {
+		result.Error = err
+		return result
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+
+		err = rows.Scan(&result.Id, &result.ProjectId, &result.Name, &result.Zone)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "scanning rows in operations table failed", err)
+			result.Error = err
+			return result
+		}
+	}
+
+	return result
+}
+
+func AddGkeLROperation(ctx context.Context, Name string, ProjectId string, Zone string) (err error) {
+	//TODO: validate req params
+	//TODO: call a stored procedure
+	query := fmt.Sprintf("INSERT INTO kdb.%s (name, project_id, zone) VALUES('%s', '%s', '%s')", operationsTable, Name, ProjectId, Zone)
+
+	insert, err := Db.Query(query)
+
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("insert to %s table failed", operationsTable), err)
+		return err
+	}
+
+	defer insert.Close()
+	log.Logger.TraceContext(ctx, "successfully added a new operation ", Name)
+	return nil
+}
+
+func UpdateGkeLROperation(ctx context.Context, name string, status string) (opStatus bool, err error) {
+	query := fmt.Sprintf("UPDATE kdb.%s SET status='%s' WHERE name='%s'", operationsTable, status, name)
+
+	insert, err := Db.Query(query)
+
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("update %s table failed", operationsTable), err)
+		return false, err
+	}
+
+	defer insert.Close()
+	log.Logger.TraceContext(ctx, "successfully updated operation ", name)
+	return true, nil
+}
+
+func AddGkeCluster(ctx context.Context, clusterId string, userId int, clusterName string, operationName string, zone string) (err error) {
+	query := fmt.Sprintf("INSERT INTO kdb.%s (cluster_id, user_id, name, op_id, zone, service_provider, status, active) "+
+		"VALUES ('%s', %d, '%s', '%s', '%s', '%s', 'CREATING', 1);", k8sTable, clusterId, userId, clusterName, operationName, zone, "google")
+	insert, err := Db.Query(query)
+
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("insert to %s table failed", k8sTable), err)
+		return err
+	}
+
+	defer insert.Close()
+	log.Logger.TraceContext(ctx, "successfully added a new cluster.")
+	//todo: get id and return
+	return nil
+}
+
+func UpdateGkeClusterCreationStatus(ctx context.Context, status string, operationId string) (opStatus bool, err error) {
+	statusDesc := "UNSPECIFIED"
+	switch status {
+	case "SUBMITTED":
+		statusDesc = "INITIALIZING"
+	case "RUNNING":
+		statusDesc = "CREATING"
+	case "DONE":
+		statusDesc = "RUNNING"
+	default:
+	}
+	query := fmt.Sprintf("UPDATE kdb.%s SET status='%s' WHERE op_id='%s'", k8sTable, statusDesc, operationId)
+
+	insert, err := Db.Query(query)
+
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("update %s table failed", k8sTable), err)
+		return false, err
+	}
+
+	defer insert.Close()
+	log.Logger.TraceContext(ctx, "successfully updated cluster ", operationId)
+	return true, nil
+}
+
+func CheckGkeClusterCreationStatus(opID string, userID string) (status domain.GkeClusterStatus, error error) {
+	//status.Name = clusterName
+	query := fmt.Sprintf("SELECT status, cluster_id, name FROM %s  WHERE op_id = '%s' AND user_id = '%s'", k8sTable, opID, userID)
+	rows, err := Db.Query(query)
+	if err != nil {
+		status.Error = err.Error()
+		status.Status = "CHECK FAILED"
+		return status, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+
+		err = rows.Scan(&status.Status, &status.ClusterId, &status.Name)
+		if err != nil {
+			status.Error = err.Error()
+			status.Status = "CHECK FAILED"
+			return status, err
+		}
+	}
+	return status, nil
+}
+
+//eks
+func AddEksCluster(ctx context.Context, clusterId string, userId int, clusterName string, reqToken string, arn string, roleArn string, ids string, version string, zone string) (err error) {
+	query := fmt.Sprintf("INSERT INTO kdb.%s (cluster_id, user_id, name, request_token, service_provider, status, active, "+
+		"cluster_arn, role_arn, subnet_ids, kub_version, op_id, zone) "+ //todo: remove this op_id
+		"VALUES ('%s', %d, '%s', '%s', '%s', 'CREATING', 1, '%s', '%s', '%s', '%s', '%s', '%s');", k8sTable, clusterId, userId, clusterName, reqToken, "amazon", arn, roleArn, ids, version, clusterName, zone)
+	insert, err := Db.Query(query)
+
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("insert to %s table failed", k8sTable), err)
+		return err
+	}
+
+	defer insert.Close()
+	log.Logger.TraceContext(ctx, "successfully added a new cluster.")
+	//todo: get id and return
+	return nil
+}
+
+func UpdateEksClusterCreationStatus(ctx context.Context, status string, clusterName string) (opStatus bool, err error) {
+	statusDesc := status
+	//statusDesc := "UNSPECIFIED"
+	//switch status {
+	//case "SUBMITTED":
+	//	statusDesc = "INITIALIZING"
+	//case "CREATING":
+	//	statusDesc = "CREATING"
+	//case "ACTIVE":
+	//	statusDesc = "RUNNING"
+	//default:
+	//}
+	query := fmt.Sprintf("UPDATE kdb.%s SET status='%s' WHERE name='%s'", k8sTable, statusDesc, clusterName)
+
+	insert, err := Db.Query(query)
+
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("update %s table failed", k8sTable), err)
+		return false, err
+	}
+
+	defer insert.Close()
+	log.Logger.TraceContext(ctx, "successfully updated cluster ", clusterName)
+	return true, nil
 }
 
 func CheckEksClusterCreationStatus(clusterName string, userID string) (status domain.GkeClusterStatus, error error) {

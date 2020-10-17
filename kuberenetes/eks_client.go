@@ -17,57 +17,44 @@ import (
 	"strconv"
 )
 
-//func main() {
-//	region := "us-east-2"
-//	cluster := "ktool-test-cluster"
-//
-//	config := aws.Config{
-//		Credentials: credentials.NewStaticCredentials("AKIAQMZUT3KWPZ3BLHUO", "cqKaFp0AHf/KOoiHUJd01DPfxSkYcAE3h9+uMSot", ""),
-//		//Credentials: credentials.NewStaticCredentials(id, secret, ""),
-//		Region: &region,
-//	}
-//	session, _ := session.NewSession(&config)
-//	svc := eks.New(session)
-//
-//	////list clusters
-//	//input := &eks.ListClustersInput{}
-//	//
-//	//result, err := svc.ListClusters(input)
-//
-//	//describe cluster
-//	input := &eks.DescribeClusterInput{Name: &cluster}
-//	result, err := svc.DescribeCluster(input)
-//	if err != nil {
-//		if aerr, ok := err.(awserr.Error); ok {
-//			switch aerr.Code() {
-//			case eks.ErrCodeInvalidParameterException:
-//				fmt.Println(eks.ErrCodeInvalidParameterException, aerr.Error())
-//			case eks.ErrCodeClientException:
-//				fmt.Println(eks.ErrCodeClientException, aerr.Error())
-//			case eks.ErrCodeServerException:
-//				fmt.Println(eks.ErrCodeServerException, aerr.Error())
-//			case eks.ErrCodeServiceUnavailableException:
-//				fmt.Println(eks.ErrCodeServiceUnavailableException, aerr.Error())
-//			default:
-//				fmt.Println(aerr.Error())
-//			}
-//		} else {
-//			// Print the error, cast err to awserr.Error to get the Code and
-//			// Message from an error.
-//			fmt.Println(err.Error())
-//		}
-//		return
-//	}
-//
-//	fmt.Println(result)
-//}
+func HealthCheckEKSCluster(clusterName string, svc *eks.EKS) bool {
+	//describe cluster
+	input := &eks.DescribeClusterInput{Name: &clusterName}
+	result, err := svc.DescribeCluster(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case eks.ErrCodeInvalidParameterException:
+				log.Logger.Trace(eks.ErrCodeInvalidParameterException, aerr.Error())
+			case eks.ErrCodeClientException:
+				log.Logger.Trace(eks.ErrCodeClientException, aerr.Error())
+			case eks.ErrCodeServerException:
+				log.Logger.Trace(eks.ErrCodeServerException, aerr.Error())
+			case eks.ErrCodeServiceUnavailableException:
+				log.Logger.Trace(eks.ErrCodeServiceUnavailableException, aerr.Error())
+			default:
+				log.Logger.Trace(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			log.Logger.Trace(err.Error())
+		}
+		return false
+	}
+	if *result.Cluster.Status == "ACTIVE" {
+		return true
+	}
+	return false
 
-func ListEksClusers(userID string) eks.ListClustersOutput {
-	region := "us-east-2" //TODO: global var
+}
+
+func ListEksClusters(userID string, region string) (eks.ListClustersOutput, error) {
+	//region := "us-east-2"
 	cred, err := iam.GetEksCredentialsForUser(userID)
 	if err != nil {
 		log.Logger.ErrorContext(context.Background(), "Error occurred while fetching eks secret for client %s", userID)
-		return eks.ListClustersOutput{}
+		return eks.ListClustersOutput{}, err
 	}
 	sess, _ := session.NewSession(&aws.Config{
 		Credentials: cred,
@@ -97,9 +84,9 @@ func ListEksClusers(userID string) eks.ListClustersOutput {
 			// Message from an error.
 			fmt.Println(err.Error())
 		}
-		return eks.ListClustersOutput{}
+		return eks.ListClustersOutput{}, err
 	}
-	return *result
+	return *result, nil
 }
 
 func CheckEksClusterCreationStatus(clusterName string, region string, secretId int) (eks.DescribeClusterOutput, error) {

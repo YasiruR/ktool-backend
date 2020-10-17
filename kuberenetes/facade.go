@@ -5,6 +5,7 @@ import (
 	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
+	containerpb "google.golang.org/genproto/googleapis/container/v1"
 	"math"
 	"time"
 )
@@ -86,6 +87,28 @@ func ProcessAsyncJob(job *domain.AsyncCloudJob) {
 		}
 	case "google":
 		{
+			if job.Status == domain.GKE_CREATING {
+				status := job.Information.(*containerpb.Operation)
+				result, err := CheckGkeClusterCreationStatus(job.Reference, status.Name)
+				if err == nil {
+					if result.Status == "DONE" {
+						log.Logger.Trace("Completed gke  creation for cluster name: ", status.Name)
+						return
+					} else if result.Status == "FAILED" {
+						//todo: process create failed
+						_, err = database.UpdateGkeClusterCreationStatus(context.Background(), domain.FAILED, status.Name)
+						log.Logger.Trace("Error occurred in control plane creation for cluster name: ", status.Name)
+						PushToJobList(*job)
+					} else if result.Status == "RUNNING" {
+						PushToJobList(*job)
+						log.Logger.Trace("Cluster is still being created for cluster: ", status.Name)
+					} else {
+						log.Logger.Trace("Unhandled status received for cluster: ", status.Name)
+					}
+				} else {
+					log.Logger.Trace("Cluster creation status check failed for cluster name: ", status.Name)
+				}
+			}
 		}
 	}
 }
@@ -96,19 +119,64 @@ func ProcessAsyncCloudJobs() {
 	var counter int64 = 1
 	var maxWait int64 = 60 // max wait is 1 min
 	for {
-		//go produce()
-	loop:
-		if len(jobs) != 0 {
+		//loop:
+		for len(jobs) != 0 {
 			job, jobs = pop(jobs)
 			go func(job domain.AsyncCloudJob) {
 				ProcessAsyncJob(&job)
 			}(job)
 			counter = 1
-			goto loop
+			//goto loop
 		}
 		counter = counter * 2
 		duration := math.Min(float64(maxWait), float64(counter*wait))
 		log.Logger.Trace("No jobs to process sleeping", time.Duration(duration)*time.Second)
 		time.Sleep(time.Duration(duration) * time.Second)
 	}
+}
+
+func UpdateAllClusterStatus() {
+	log.Logger.Info("Updating ktool managed kubernetes cluster status")
+	clustersToCheck := database.GetAllRunningKubernetesClusters(context.Background())
+	if clustersToCheck.Error != nil {
+		log.Logger.Info("Error occurred while fetching cluster information. Check the database connection")
+		return
+	}
+	eksClusters := make(map[string][]*domain.KubCluster, 0)
+	gkeClusters := make(map[string][]*domain.KubCluster, 0)
+	for _, cluster := range clustersToCheck.Clusters {
+		if cluster.ServiceProvider == "google" {
+			if gkeClusters[cluster.ClusterId] == nil {
+				gkeClusters[cluster.ClusterId] = []*domain.KubCluster{&cluster}
+			} else {
+				gkeClusters[cluster.ClusterId] = append(gkeClusters[cluster.ClusterId], &cluster)
+			}
+		} else if cluster.ServiceProvider == "amazon" {
+			if eksClusters[cluster.ClusterId] == nil {
+				eksClusters[cluster.ClusterId] = []*domain.KubCluster{&cluster}
+			} else {
+				eksClusters[cluster.ClusterId] = append(eksClusters[cluster.ClusterId], &cluster)
+			}
+		}
+	}
+	go func() {
+		processGkeClusters(gkeClusters)
+	}()
+	go func() {
+		processEksClusters(eksClusters)
+	}()
+}
+
+func processGkeClusters(clusters map[string][]*domain.KubCluster) {
+	//for s, kubClusters := range clusters {
+	//	runningClusters, _ := ListGkeClusters(s)
+	//	for cluster := range runningClusters {
+	//		log.Logger.Trace("cluster is running ", cluster)
+	//	}
+	//check against the list and update
+	//}
+}
+
+func processEksClusters(clusters map[string][]*domain.KubCluster) {
+
 }

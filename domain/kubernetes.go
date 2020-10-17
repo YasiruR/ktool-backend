@@ -5,6 +5,7 @@ import "github.com/aws/aws-sdk-go/service/eks"
 const (
 	SUBMITTED = "REQUEST_SUBMITTED"
 	COMPLETED = "RUNNING"
+	FAILED    = "FAILED"
 	// gke states
 	GKE_CREATING = "CREATING CLUSTER"
 	// eks states
