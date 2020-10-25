@@ -43,6 +43,7 @@ func InitRouter() {
 
 	router.HandleFunc("/kubernetes", handleGetAllKubClusters).Methods("GET")
 	router.HandleFunc("/kubernetes", handleCreateKubCluster).Methods("POST")
+	router.HandleFunc("/kubernetes/validate", handleValidateClusterName).Methods("GET")
 	router.HandleFunc("/kubernetes/status", handleCheckClusterCreationStatus).Methods("GET")
 	router.HandleFunc("/kubernetes/resources", handleGetGkeResource).Methods("GET")
 	router.HandleFunc("/kubernetes/recommend", handleRecommendGkeResource).Methods("GET")

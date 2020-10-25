@@ -12,7 +12,7 @@ import (
 
 //facade
 func GetAllKubernetesClustersForUser(ctx context.Context, userId int) (clusterResponse domain.ClusterResponse) {
-	query := fmt.Sprintf("SELECT s.id, s.cluster_id, s.name, s.service_provider, s.status, s.created_on, s.zone "+
+	query := fmt.Sprintf("SELECT s.id, s.cluster_id, s.name, s.service_provider, s.status, s.created_on, s.zone, s.op_id "+
 		" FROM %s s WHERE s.user_id = %d AND s.active = 1;", k8sTable, userId)
 
 	rows, err := Db.Query(query)
@@ -41,7 +41,7 @@ func GetAllKubernetesClustersForUser(ctx context.Context, userId int) (clusterRe
 		cluster := domain.KubCluster{}
 
 		err = rows.Scan(&cluster.Id, &cluster.ClusterId, &cluster.ClusterName, &cluster.ServiceProvider, &cluster.Status,
-			&cluster.CreatedOn, &cluster.Location)
+			&cluster.CreatedOn, &cluster.Location, &cluster.Reference)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "scanning rows in cluster table failed", err)
 			clusterResponse.Error = err
@@ -256,6 +256,44 @@ func GetAllRunningKubernetesClusters(ctx context.Context) (result domain.Cluster
 	result.Clusters = clusters
 	result.Message = "Success"
 	result.Status = 0
+	return result
+}
+
+func ValidateClusterName(ctx context.Context, userId string, name string, provider string) (result domain.ValidationResponse) {
+	query := fmt.Sprintf("SELECT CASE WHEN list.count > 0 THEN 0 ELSE 1 END AS status FROM (SELECT count(*) as count FROM %s WHERE user_id = '%s' AND name = '%s' AND active = 1) list;", k8sTable, userId, name)
+
+	rows, err := Db.Query(query)
+
+	switch err {
+	case nil:
+		log.Logger.InfoContext(ctx, "validate cluster name query success")
+	case sql.ErrNoRows:
+		log.Logger.InfoContext(ctx, "no clusters found for name "+name)
+		result.Message = "no clusters found"
+		result.Status = -1
+		return result
+	default:
+		log.Logger.InfoContext(ctx, "unhandled error occurred while validating cluster name")
+		result.Message = "error occurred"
+		result.Status = -1
+		return result
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		err = rows.Scan(&result.Status)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "scanning rows in validation request failed", err)
+			result.Message = "scanning rows in kub clusters failed"
+			result.Status = -1
+			return result
+		}
+	}
+
+	log.Logger.TraceContext(ctx, "validate cluster name db query was successful")
+	result.Message = "Success"
+	//result.Status = 0
 	return result
 }
 

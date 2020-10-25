@@ -364,6 +364,45 @@ func handleGetGkeResource(res http.ResponseWriter, req *http.Request) {
 	log.Logger.TraceContext(ctx, "get cluster recommendations request successful")
 }
 
+func handleValidateClusterName(res http.ResponseWriter, req *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+
+	////user validation by token header
+	//token := req.Header.Get("Authorization")
+	//_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
+	//if !ok {
+	//	log.Logger.DebugContext(ctx, "invalid user", token)
+	//	res.WriteHeader(http.StatusUnauthorized)
+	//	return
+	//}
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
+
+	User := req.FormValue("user_id")
+	Name := req.FormValue("name")
+	ServiceProvider := req.FormValue("service_provider")
+
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "unmarshal error", err)
+	//	res.WriteHeader(http.StatusBadRequest)
+	//	return
+	//}
+
+	//result := database.GetSecretInternal(ctx, Name, OwnerId, Provider)
+	result := database.ValidateClusterName(ctx, User, Name, ServiceProvider)
+
+	res.WriteHeader(http.StatusOK)
+	err := json.NewEncoder(res).Encode(&result)
+	if err != nil {
+		res.WriteHeader(http.StatusOK)
+		log.Logger.ErrorContext(ctx, "response json conversion failed in get cluster recommendations")
+	}
+	log.Logger.TraceContext(ctx, "get cluster recommendations request successful")
+}
+
 //EKS cluster commands
 func handleCreateEksKubClusters(res http.ResponseWriter, createEksCluster domain.ClusterOptions) {
 	ctx := traceableContext.WithUUID(uuid.New())

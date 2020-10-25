@@ -1,6 +1,8 @@
 package domain
 
-import "github.com/aws/aws-sdk-go/service/eks"
+import (
+	"github.com/aws/aws-sdk-go/service/eks"
+)
 
 const (
 	SUBMITTED = "REQUEST_SUBMITTED"
@@ -26,6 +28,7 @@ type ClusterResponse struct {
 
 type KubCluster struct {
 	Id              int    `json:"id"`
+	Reference       string `json:"reference"`
 	ClusterId       string `json:"cluster_id"`
 	ClusterName     string `json:"cluster_name"`
 	ServiceProvider string `json:"service_providers"`
@@ -51,6 +54,12 @@ type ClusterOptions struct {
 	DiskSize      int       `json:"disk_size"`
 	DiskType      string    `json:"disk_type"`
 	KubVersion    string    `json:"kub_version"`
+}
+
+type ValidationResponse struct {
+	Error   error  `json:"error"`
+	Status  int    `json:"status"`
+	Message string `json:"message"`
 }
 
 //GKE specific structs

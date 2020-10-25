@@ -130,7 +130,7 @@ func ProcessAsyncCloudJobs() {
 		}
 		counter = counter * 2
 		duration := math.Min(float64(maxWait), float64(counter*wait))
-		log.Logger.Trace("No jobs to process sleeping", time.Duration(duration)*time.Second)
+		log.Logger.Trace("No jobs to process. Sleeping", time.Duration(duration)*time.Second)
 		time.Sleep(time.Duration(duration) * time.Second)
 	}
 }
