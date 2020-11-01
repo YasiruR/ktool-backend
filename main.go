@@ -4,6 +4,7 @@ import (
 	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/http"
 	"github.com/YasiruR/ktool-backend/kafka"
+	kubernetes "github.com/YasiruR/ktool-backend/kuberenetes"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/YasiruR/ktool-backend/prometheus"
 	"github.com/YasiruR/ktool-backend/service"
@@ -29,12 +30,28 @@ func main() {
 	go func() {
 		for {
 			select {
-				case <- ticker.C:
-					kafka.InitAllClusters()
+			case <-ticker.C:
+				kafka.InitAllClusters()
 			}
 		}
 	}()
 
+	//process asynchronous background processes
+	go func() {
+		kubernetes.ProcessAsyncCloudJobs()
+	}()
+
+	//cloud deployment watcher
+	anotherTicker := time.NewTicker(time.Duration(service.Cfg.ClusterRefreshInterval) * time.Second)
+	go func() {
+		for {
+			select {
+			case <-anotherTicker.C:
+				kubernetes.UpdateAllClusterStatus()
+      }
+    }
+  }()
+  
 	//scrape prometheus metrics from jmx
 	metricsTicker := time.NewTicker(time.Duration(service.Cfg.MetricsUpdateInterval) * time.Second)
 	syncContext := traceable_context.WithUUID(uuid.New())
@@ -70,5 +87,6 @@ func main() {
 		}
 	}()
 
+	//init web router
 	http.InitRouter()
 }

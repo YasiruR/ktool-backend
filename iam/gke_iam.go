@@ -222,10 +222,10 @@ func GetServiceAccountIamPolicies(userId string) (*iamadmin.Policy, error) {
 
 func GetGkeCredentialsForUser(userId string) ([]byte, domain.GkeSecret, error) {
 	ctx := context.Background()
-	secretDao := database.GetSecretInternal(ctx, userId, `Google`, `ktool-2020`)
+	secretDao := database.GetSecretInternal(ctx, userId, `Google`, "gke-ktool")
 
 	if err := secretDao.Error; err != nil {
-		log.Logger.ErrorContext(ctx, "Error occurred while fetching eks secret for client %s", userId)
+		log.Logger.ErrorContext(ctx, "Error occurred while fetching gke secret for client %s", userId)
 		return nil, domain.GkeSecret{}, err
 	}
 	cred := domain.GkeSecret{
@@ -250,7 +250,7 @@ func GetGkeCredentialsForUser(userId string) ([]byte, domain.GkeSecret, error) {
 
 func GetGkeCredentialsForSecret(secretId string) ([]byte, domain.GkeSecret, error) {
 	ctx := context.Background()
-	secretDao := database.GetSecretByIdInternal(ctx, secretId)
+	secretDao := database.GetSecretByIdInternal(ctx, secretId, "google")
 
 	if err := secretDao.Error; err != nil {
 		log.Logger.ErrorContext(ctx, "Error occurred while fetching eks secret for client %s", secretId)

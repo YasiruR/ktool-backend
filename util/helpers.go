@@ -31,3 +31,16 @@ func StringListToEscapedCSV(list []string) (csv string) {
 	}
 	return ""
 }
+
+func StringPointerListToEscapedCSV(list *[]*string) (csv string) {
+	l := *list
+	if len(l) > 0 {
+		csv = ""
+		for i := 0; i < len(*list); i++ {
+			val := l[i]
+			csv = fmt.Sprintf(csv+"%q, ", *val)
+		}
+		return csv[:len(csv)-2]
+	}
+	return ""
+}
