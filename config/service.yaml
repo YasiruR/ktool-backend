@@ -3,6 +3,12 @@ service_port: "7071"
 #ping and telnet config
 ping_retry: 3
 ping_timeout: 5   #seconds
+config_file_path: "/home/gowork/src/github.com/YasiruR/ktool-backend/config"
 
 client_init_timeout: 1
-cluster_refresh_interval: 3000
+cluster_refresh_interval: 500
+metrics_update_interval: 10
+metrics_table_clean_interval: 5000
+
+default_prom_scrape_interval: 15s
+default_prom_scrape_timeout: 15s

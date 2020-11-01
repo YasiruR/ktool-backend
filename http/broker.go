@@ -2,17 +2,39 @@ package http
 
 import (
 	"encoding/json"
+	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/kafka"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	traceable_context "github.com/pickme-go/traceable-context"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 func handleGetBrokersForCluster(res http.ResponseWriter, req *http.Request) {
 	ctx := traceable_context.WithUUID(uuid.New())
+
+	//user validation by token header
+	tokenHeader := req.Header.Get("Authorization")
+	if len(strings.Split(tokenHeader, "Bearer")) < 2 {
+		log.Logger.ErrorContext(ctx, "token format is invalid", tokenHeader)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	token := strings.TrimSpace(strings.Split(tokenHeader, "Bearer")[1])
+	_, ok, err := database.ValidateUserByToken(ctx, token)
+	if !ok {
+		log.Logger.DebugContext(ctx, "invalid user", token)
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	//params := mux.Vars(req)
 	clusterID, err := strconv.Atoi(req.FormValue("cluster_id"))
@@ -52,8 +74,29 @@ func handleGetBrokersForCluster(res http.ResponseWriter, req *http.Request) {
 
 func handleGetTopicsForCluster(res http.ResponseWriter, req *http.Request) {
 	ctx := traceable_context.WithUUID(uuid.New())
-	params := mux.Vars(req)
-	clusterID, err := strconv.Atoi(params["cluster_id"])
+
+	//user validation by token header
+	tokenHeader := req.Header.Get("Authorization")
+	if len(strings.Split(tokenHeader, "Bearer")) < 2 {
+		log.Logger.ErrorContext(ctx, "token format is invalid", tokenHeader)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	token := strings.TrimSpace(strings.Split(tokenHeader, "Bearer")[1])
+	_, ok, err := database.ValidateUserByToken(ctx, token)
+	if !ok {
+		log.Logger.DebugContext(ctx, "invalid user", token)
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	//params := mux.Vars(req)
+	clusterID, err := strconv.Atoi(req.FormValue("cluster_id"))
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "cluster id param is not an int")
 		res.WriteHeader(http.StatusBadRequest)

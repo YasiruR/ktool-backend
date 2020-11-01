@@ -22,4 +22,5 @@ require (
 	google.golang.org/genproto v0.0.0-20200424135956-bca184e23272
 	//github.com/go-yaml/yaml v2.2.7
 	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v3 v3.0.0-20200506231410-2ff61e1afc86
 )

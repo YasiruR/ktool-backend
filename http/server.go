@@ -3,6 +3,7 @@ package http
 import (
 	"encoding/json"
 	"github.com/YasiruR/ktool-backend/cloud"
+	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/google/uuid"
 	//"github.com/gorilla/mux"
@@ -49,7 +50,7 @@ func handleTelnetToPort(res http.ResponseWriter, req *http.Request) {
 
 //handle ping to new server
 func handlePingToServer(res http.ResponseWriter, req *http.Request) {
-	var testClusterReq server
+	var testClusterReq domain.Server
 
 	ctx := traceable_context.WithUUID(uuid.New())
 	content, err := ioutil.ReadAll(req.Body)

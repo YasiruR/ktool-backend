@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
+	"strconv"
 )
 
 func AddNewCluster(ctx context.Context, clusterName string, kafkaVersion string) (err error) {
@@ -40,7 +41,7 @@ func DeleteCluster(ctx context.Context, clusterName string) (err error) {
 }
 
 func GetAllClusters(ctx context.Context) (clusterList []domain.Cluster, err error) {
-	query := "SELECT * FROM " + clusterTable + ";"
+	query := "SELECT id, cluster_name, kafka_version, active_controllers FROM " + clusterTable + ";"
 
 	rows, err := Db.Query(query)
 	if err != nil {
@@ -66,7 +67,7 @@ func GetAllClusters(ctx context.Context) (clusterList []domain.Cluster, err erro
 		return nil, err
 	}
 
-	log.Logger.TraceContext(ctx, "get all clusters db query was successful")
+	//log.Logger.TraceContext(ctx, "get all clusters db query was successful")
 	return clusterList, nil
 }
 
@@ -84,5 +85,22 @@ func GetClusterIdByName(ctx context.Context, clusterName string) (clusterId int,
 	default:
 		log.Logger.ErrorContext(ctx, "unhandled error in row scan", clusterName)
 		return 0, errors.New("row scan failed")
+	}
+}
+
+func GetClusterByClusterID(ctx context.Context, clusterID int) (cluster domain.Cluster, err error) {
+	query := "SELECT id, cluster_name, kafka_version, active_controllers FROM " + clusterTable + ` WHERE id="` + strconv.Itoa(clusterID) + `";`
+	row := Db.QueryRow(query)
+
+	switch err := row.Scan(&cluster.ID, &cluster.ClusterName, &cluster.KafkaVersion, &cluster.ActiveControllers); err {
+	case sql.ErrNoRows:
+		log.Logger.ErrorContext(ctx, "no rows scanned for the cluster", clusterID)
+		return cluster, errors.New("no rows found")
+	case nil:
+		log.Logger.TraceContext(ctx, "fetched cluster by cluster id", clusterID)
+		return cluster, nil
+	default:
+		log.Logger.ErrorContext(ctx, err, "unhandled error in row scan", clusterID)
+		return cluster, errors.New("row scan failed")
 	}
 }
