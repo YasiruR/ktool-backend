@@ -9,7 +9,7 @@ import (
 
 func GetEksCredentialsForUser(userId string) (*credentials.Credentials, error) {
 	ctx := context.Background()
-	secretDao := database.GetSecretInternal(ctx, userId, `Amazon`, `aws-ktool`)
+	secretDao := database.GetSecretInternal(ctx, userId, `Amazon`, `eks-ktool`)
 
 	if err := secretDao.Error; err != nil {
 		log.Logger.ErrorContext(ctx, "Error occurred while fetching eks secret for client %s", userId)

@@ -9,6 +9,7 @@ require (
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
+	github.com/hashicorp/go-uuid v1.0.1
 	github.com/pickme-go/log v1.2.3
 	github.com/pickme-go/traceable-context v1.0.0
 	github.com/reiver/go-oi v1.0.0 // indirect
