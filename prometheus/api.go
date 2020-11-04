@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 func GetMetricsForRange(ctx context.Context, metricsName, host string, port, from, to int, cluster string) (metrics domain.PromResponse, err error) {
@@ -247,6 +248,43 @@ func GetAllMetricsByTimestamp(ctx context.Context, host string, port, ts int, is
 		}
 	}
 	return brokerMetrics, nil
+}
+
+func GetMessagesByBroker(ctx context.Context, cluster string) (messageMap map[string]int, err error) {
+	messageMap = make(map[string]int)
+	ts := time.Now().Unix()
+	req := promUrl + "query?query=sum%20by%20(job%2C%20instance)%20(kafka_server_brokertopicmetrics_messagesin_total)&time=" + strconv.Itoa(int(ts))
+
+	metrics, err := getResponseByEndpoint(ctx, req)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "failed getting messages by topic")
+		return nil, err
+	}
+
+	for _, res := range metrics.Data.Result {
+		if cluster == res.Metric.Job {
+			if res.Metric.Topic == "" {
+				strVal, ok := res.Value[1].(string)
+				if ok {
+					intVal, err := strconv.Atoi(strVal)
+					if err != nil {
+						floatVal, err := strconv.ParseFloat(strVal, 64)
+						if err != nil {
+							log.Logger.ErrorContext(ctx, err, "res is not either int or float", res)
+							continue
+						}
+						messageMap[res.Metric.Instance] = int(floatVal)
+					} else {
+						messageMap[res.Metric.Instance] = intVal
+					}
+					continue
+				}
+				log.Logger.ErrorContext(ctx, "fetched val is not a string", res.Value)
+			}
+		}
+	}
+
+	return messageMap, nil
 }
 
 func getResponseByEndpoint(ctx context.Context, req string) (metrics domain.PromResponse, err error) {

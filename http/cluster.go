@@ -734,6 +734,13 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 					return
 				}
 
+				//get messages for brokers
+				messageMap, err := prometheus.GetMessagesByBroker(ctx, userCluster.ClusterName)
+				if err != nil {
+					res.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
 				//fetching cluster object from kafkaList since user.connectedClusters do not update summary stats
 				var metricsCluster domain.KCluster
 				for _, c := range kafka.ClusterList {
@@ -823,8 +830,14 @@ func handleGetBrokerOverview(res http.ResponseWriter, req *http.Request) {
 							totalBytesOut[t] += brokerMetricsMap[t].ByteOutRate
 							totalBytesIn[t] += brokerMetricsMap[t].ByteInRate
 
-							val := brokerMetricsMap[t]
-							brokerOverview.Metrics[t] = val
+							//adding message count to the broker
+							tmpBrokerMetrics := brokerMetricsMap[t]
+							msgVal, ok := messageMap[broker.Host + strconv.Itoa(broker.Port)]
+							if ok {
+								tmpBrokerMetrics.Messages = int64(msgVal)
+							}
+
+							brokerOverview.Metrics[t] = tmpBrokerMetrics
 						} else {
 							tsList = append(tsList, t)
 						}

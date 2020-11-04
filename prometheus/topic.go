@@ -6,6 +6,7 @@ import (
 	"github.com/YasiruR/ktool-backend/log"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -252,6 +253,11 @@ func getMetricsByTopic(ctx context.Context, req string) (tmpMap map[int]map[stri
 
 	outerLoop:
 	for _, res := range metrics.Data.Result {
+		if strings.Contains(req, "kafka_server_brokertopicmetrics_messagesin_total") {
+			if res.Metric.Topic == "" {
+				continue
+			}
+		}
 		strVal, ok := res.Value[1].(string)
 		if ok {
 			intVal, err := strconv.Atoi(strVal)
@@ -262,8 +268,11 @@ func getMetricsByTopic(ctx context.Context, req string) (tmpMap map[int]map[stri
 					continue
 				}
 				for _, cluster := range kafka.ClusterList {
-					tmpMap[cluster.ClusterID] = make(map[string]int)
 					if cluster.ClusterName ==  res.Metric.Job {
+						_, ok := tmpMap[cluster.ClusterID]
+						if !ok {
+							tmpMap[cluster.ClusterID] = make(map[string]int)
+						}
 						tmpMap[cluster.ClusterID][res.Metric.Topic] = int(floatVal)
 						continue outerLoop
 					}
@@ -271,8 +280,11 @@ func getMetricsByTopic(ctx context.Context, req string) (tmpMap map[int]map[stri
 			} else {
 				//check for message metrics whether it contains null topic
 				for _, cluster := range kafka.ClusterList {
-					tmpMap[cluster.ClusterID] = make(map[string]int)
 					if cluster.ClusterName ==  res.Metric.Job {
+						_, ok := tmpMap[cluster.ClusterID]
+						if !ok {
+							tmpMap[cluster.ClusterID] = make(map[string]int)
+						}
 						tmpMap[cluster.ClusterID][res.Metric.Topic] = intVal
 						continue outerLoop
 					}
