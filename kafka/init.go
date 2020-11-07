@@ -28,7 +28,8 @@ func InitAllClusters() {
 	ctx := traceable_context.WithUUID(uuid.New())
 	clusterList, err := database.GetAllClusters(ctx)
 	if err != nil {
-		log.Logger.Fatal("initializing clusters failed")
+		log.Logger.ErrorContext(ctx,"initializing clusters failed")
+		return
 	}
 
 	var tempClustList []domain.KCluster
