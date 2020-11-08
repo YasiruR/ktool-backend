@@ -142,41 +142,30 @@ func UpdateAllClusterStatus() {
 		log.Logger.Info("Error occurred while fetching cluster information. Check the database connection")
 		return
 	}
-	eksClusters := make(map[string][]*domain.KubCluster, 0)
-	gkeClusters := make(map[string][]*domain.KubCluster, 0)
 	for _, cluster := range clustersToCheck.Clusters {
 		if cluster.ServiceProvider == "google" {
-			if gkeClusters[cluster.ClusterId] == nil {
-				gkeClusters[cluster.ClusterId] = []*domain.KubCluster{&cluster}
-			} else {
-				gkeClusters[cluster.ClusterId] = append(gkeClusters[cluster.ClusterId], &cluster)
-			}
+			go checkGKEStatus(cluster)
 		} else if cluster.ServiceProvider == "amazon" {
-			if eksClusters[cluster.ClusterId] == nil {
-				eksClusters[cluster.ClusterId] = []*domain.KubCluster{&cluster}
-			} else {
-				eksClusters[cluster.ClusterId] = append(eksClusters[cluster.ClusterId], &cluster)
-			}
+			go checkEKSStatus(cluster)
 		}
 	}
-	go func() {
-		processGkeClusters(gkeClusters)
-	}()
-	go func() {
-		processEksClusters(eksClusters)
-	}()
+	log.Logger.Info("Checks are performed on all active clusters.")
 }
 
-func processGkeClusters(clusters map[string][]*domain.KubCluster) {
-	//for s, kubClusters := range clusters {
-	//	runningClusters, _ := ListGkeClusters(s)
-	//	for cluster := range runningClusters {
-	//		log.Logger.Trace("cluster is running ", cluster)
-	//	}
-	//check against the list and update
-	//}
+func checkGKEStatus(cluster domain.KubCluster) {
+	isRunning := CheckGKEClusterStatus(cluster.SecretId, cluster.ClusterName, cluster.ProjectName, cluster.Location)
+	if isRunning && cluster.Status != domain.COMPLETED {
+		database.UpdateGkeClusterStatusById(context.Background(), domain.IsRunning, cluster.Id, "RUNNING")
+	} else if !isRunning {
+		database.UpdateGkeClusterStatusById(context.Background(), domain.IsRunning, cluster.Id, "STOPPED")
+	}
 }
 
-func processEksClusters(clusters map[string][]*domain.KubCluster) {
-
+func checkEKSStatus(cluster domain.KubCluster) {
+	isRunning := CheckEKSClusterStatus(cluster.ClusterName, cluster.Location, cluster.SecretId)
+	if isRunning && cluster.Status != domain.COMPLETED {
+		database.UpdateGkeClusterStatusById(context.Background(), domain.IsRunning, cluster.Id, "RUNNING")
+	} else if !isRunning {
+		database.UpdateGkeClusterStatusById(context.Background(), domain.IsRunning, cluster.Id, "STOPPED")
+	}
 }
