@@ -2,7 +2,7 @@ package database
 
 import (
 	"github.com/YasiruR/ktool-backend/log"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"io/ioutil"
 )
 
@@ -12,6 +12,7 @@ type Config struct {
 	Port 			int			`yaml:"port"`
 	Username 		string 		`yaml:"username"`
 	Password 		string 		`yaml:"password"`
+	MetricsMaxSize	int			`yaml:"metricsTableMaxSize"`
 }
 
 var Cfg = new(Config)
@@ -26,6 +27,6 @@ func (c *Config) LoadConfigurations() *Config {
 		log.Logger.Fatal("unmarshal error (database.yaml) : ", err)
 	}
 
-	log.Logger.Trace("database configurations initialized")
+	log.Logger.Info("database configurations initialized")
 	return c
 }

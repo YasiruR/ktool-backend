@@ -12,6 +12,11 @@ type Config struct {
 	PingTimeout				int			`yaml:"ping_timeout"`
 	ClientInitTimeout		int			`yaml:"client_init_timeout"`
 	ClusterRefreshInterval	int			`yaml:"cluster_refresh_interval"`
+	MetricsUpdateInterval 	int			`yaml:"metrics_update_interval"`
+	MetricsCleanInterval	int			`yaml:"metrics_table_clean_interval"`
+	PromScrapeInterval		string		`yaml:"default_prom_scrape_interval"`
+	PromScrapeTimeout		string		`yaml:"default_prom_scrape_timeout"`
+	ConfigFilePath 			string		`yaml:"config_file_path"`
 }
 
 var Cfg = new(Config)
@@ -26,6 +31,6 @@ func (c *Config) LoadConfigurations() *Config {
 		log.Logger.Fatal("unmarshal error (service.yaml) : ", err)
 	}
 
-	log.Logger.Trace("service configurations initialized")
+	log.Logger.Info("service configurations initialized")
 	return c
 }

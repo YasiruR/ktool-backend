@@ -167,18 +167,18 @@ func GetSecretInternal(ctx context.Context, OwnerId string, Provider string, Sec
 	return result
 }
 
-func GetSecretByIdInternal(ctx context.Context, SecretId string) (result domain.DAOResult) {
-	result = GetSecretById(ctx, SecretId)
+func GetSecretByIdInternal(ctx context.Context, secretId string, provider string) (result domain.DAOResult) {
+	result = GetSecretById(ctx, secretId, provider)
 	switch result.Error {
 	case nil:
 		log.Logger.InfoContext(ctx, "get secret query success")
 	case sql.ErrNoRows:
-		log.Logger.InfoContext(ctx, "no secrets found for secretId %s", SecretId)
+		log.Logger.InfoContext(ctx, "no secrets found for secretId %s", secretId)
 		result.Status = -1
 		result.Message = "no secrets found"
 		return result
 	default:
-		log.Logger.InfoContext(ctx, "unhandled error occurred while fetching records for secretId %s", SecretId)
+		log.Logger.InfoContext(ctx, "unhandled error occurred while fetching records for secretId %s", secretId)
 		result.Status = -1
 		result.Message = "unhandled error occurred from db"
 		return result
@@ -189,10 +189,19 @@ func GetSecretByIdInternal(ctx context.Context, SecretId string) (result domain.
 	return result
 }
 
-func GetSecretById(ctx context.Context, secretId string) (result domain.DAOResult) {
-	query := "SELECT id, gkeSecretType, gkeProjectId, gkePrivateKeyId, gkePrivateKey, gkeClientEmail, " +
-		"gkeClientId, gkeAuthUri, gkeTokenUri, gkeAuthCertUrl, gkeClientCertUrl FROM " + cloudSecretTable +
-		" WHERE id = " + secretId + ";"
+func GetSecretById(ctx context.Context, secretId string, provider string) (result domain.DAOResult) {
+	query := ""
+	switch provider {
+	case "google":
+		query = "SELECT id, gkeSecretType, gkeProjectId, gkePrivateKeyId, gkePrivateKey, gkeClientEmail, " +
+			"gkeClientId, gkeAuthUri, gkeTokenUri, gkeAuthCertUrl, gkeClientCertUrl FROM " + cloudSecretTable +
+			" WHERE id = " + secretId + ";"
+	case "amazon":
+		query = "SELECT id, eksAccessKeyId, eksSecretAccessKey FROM " + cloudSecretTable +
+			" WHERE id = " + secretId + ";"
+	default:
+		query = ""
+	}
 
 	rows, err := Db.Query(query)
 
@@ -204,9 +213,13 @@ func GetSecretById(ctx context.Context, secretId string) (result domain.DAOResul
 	defer rows.Close()
 
 	for rows.Next() {
-		err = rows.Scan(&result.Secret.ID, &result.Secret.GkeType, &result.Secret.GkeProjectId, &result.Secret.GkePrivateKeyId,
-			&result.Secret.GkePrivateKey, &result.Secret.GkeClientMail, &result.Secret.GkeClientId, &result.Secret.GkeAuthUri,
-			&result.Secret.GkeTokenUri, &result.Secret.GkeAuthX509CertUrl, &result.Secret.GkeClientX509CertUrl)
+		if provider == "google" {
+			err = rows.Scan(&result.Secret.ID, &result.Secret.GkeType, &result.Secret.GkeProjectId, &result.Secret.GkePrivateKeyId,
+				&result.Secret.GkePrivateKey, &result.Secret.GkeClientMail, &result.Secret.GkeClientId, &result.Secret.GkeAuthUri,
+				&result.Secret.GkeTokenUri, &result.Secret.GkeAuthX509CertUrl, &result.Secret.GkeClientX509CertUrl)
+		} else if provider == "amazon" {
+			err = rows.Scan(&result.Secret.ID, &result.Secret.EksAccessKeyId, &result.Secret.EksSecretAccessKey)
+		}
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "scanning rows in secret table failed", err)
 			result.Error = err
@@ -429,7 +442,7 @@ func AddEksSecret(ctx context.Context, UserId string, SecretName string, Tags st
 	EksAccessKeyId string, EksSecretAccessKey string) (err error) {
 	//TODO: validate req params
 	//TODO: call a stored procedure
-	query := "INSERT INTO kdb.cloud_secret (ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
+	query := "INSERT INTO kdb." + cloudSecretTable + "(ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
 		" modifiedOn, activated, deleted, eksAccessKeyId, eksSecretAccessKey) VALUES(" +
 		UserId + ",'" + SecretName + "','" + "amazon" + "','" + Tags + "'," +
 		UserId + ", CURRENT_TIMESTAMP, " + UserId + ", CURRENT_TIMESTAMP, 0, 0,'" + EksAccessKeyId + "','" + EksSecretAccessKey + "')"
@@ -450,7 +463,7 @@ func AddAksSecret(ctx context.Context, UserId string, SecretName string, Tags st
 	AksClientId string, AksClientSecret string, AksTenantId string, AksSubscriptionId string) (err error) {
 	//TODO: validate req params
 	//TODO: call a stored procedure
-	query := "INSERT INTO kdb.cloud_secret (ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
+	query := "INSERT INTO kdb." + cloudSecretTable + "(ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
 		" modifiedOn, activated, deleted, aksClientId, aksClientSecret, aksTenantId, aksSubscriptionId) VALUES(" +
 		UserId + ",'" + SecretName + "','" + "microsoft" + "','" + Tags + "'," + UserId +
 		", CURRENT_TIMESTAMP, " + UserId + ",CURRENT_TIMESTAMP, 0, 0,'" + AksClientId + "','" + AksClientSecret + "','" + AksTenantId + "','" +
@@ -474,7 +487,7 @@ func AddGkeSecret(ctx context.Context, UserId string, SecretName string, Tags st
 	GkeTokenUri string, GkeAuthCertUrl string, GkeClientCertUrl string) (err error) {
 	//TODO: validate req params
 	//TODO: call a stored procedure
-	query := "INSERT INTO kdb.cloud_secret (ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
+	query := "INSERT INTO kdb." + cloudSecretTable + "(ownerId, name, provider, tags, createdBy, createdOn, modifiedBy," +
 		" modifiedOn, activated, deleted, gkeSecretType, gkeProjectId, gkePrivateKeyId, gkePrivateKey, gkeClientEmail, " +
 		"gkeClientId, gkeAuthUri, gkeTokenUri, gkeAuthCertUrl, gkeClientCertUrl) VALUES(" + UserId + ",'" + SecretName +
 		"','" + "google" + "','" + Tags + "'," + UserId + ", CURRENT_TIMESTAMP, " + UserId + ",CURRENT_TIMESTAMP, 0, 0,'" + GkeType + "','" +
