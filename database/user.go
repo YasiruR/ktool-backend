@@ -81,7 +81,7 @@ func GetUserByToken(ctx context.Context, token string) (username string, ok bool
 		//log.Logger.TraceContext(ctx, "fetched user by token", username)
 		return username, true, nil
 	default:
-		log.Logger.ErrorContext(ctx, "unhandled error in row scan", token)
+		log.Logger.ErrorContext(ctx, "unhandled error in row scan", token, err)
 		return "", false, errors.New("row scan failed")
 	}
 }
