@@ -17,8 +17,14 @@ import (
 	"strconv"
 )
 
-func HealthCheckEKSCluster(clusterName string, svc *eks.EKS) bool {
+func CheckEKSClusterStatus(clusterName string, zone string, secretId string) bool {
 	//describe cluster
+	cred, err := iam.GetEksCredentialsForSecretId(secretId)
+	sess, _ := session.NewSession(&aws.Config{
+		Credentials: cred,
+		Region:      aws.String(zone),
+	})
+	svc := eks.New(sess)
 	input := &eks.DescribeClusterInput{Name: &clusterName}
 	result, err := svc.DescribeCluster(input)
 	if err != nil {

@@ -38,6 +38,7 @@ type KubCluster struct {
 	CreatedOn       string `json:"created_on"`
 	ProjectName     string `json:"project_name"`
 	Location        string `json:"location"`
+	SecretId        string `json:"secret_id"`
 }
 
 type ClusterOptions struct {
@@ -158,5 +159,9 @@ type AsyncCloudJob struct {
 	Status      string
 	Reference   string
 	Information interface{} //this could be any struct that wraps provider specific information
-
 }
+
+const (
+	IsRunning = 1
+	IsStopped = 0
+)

@@ -217,7 +217,7 @@ func GetKubernetesResources(ctx context.Context, Provider string) (result domain
 
 func GetAllRunningKubernetesClusters(ctx context.Context) (result domain.ClusterResponse) {
 
-	query := fmt.Sprintf("SELECT name, user_id, status, service_provider, zone FROM %s WHERE active = 1;", k8sTable)
+	query := fmt.Sprintf("SELECT k.id, k.cluster_id, k.name, k.user_id, k.status, k.service_provider, k.zone, s.id, IFNULL(s.gkeProjectId, '') AS project_id FROM %s k, %s s WHERE k.active = 1 AND k.service_provider = s.provider AND k.user_id = s.ownerId AND s.deleted = 0;", k8sTable, secretTable)
 
 	rows, err := Db.Query(query)
 
@@ -242,7 +242,7 @@ func GetAllRunningKubernetesClusters(ctx context.Context) (result domain.Cluster
 	for rows.Next() {
 		cluster := domain.KubCluster{}
 
-		err = rows.Scan(&cluster.ClusterName, &cluster.ClusterId, &cluster.Status, &cluster.ServiceProvider, &cluster.Location)
+		err = rows.Scan(&cluster.Id, &cluster.ClusterId, &cluster.ClusterName, &cluster.ClusterId, &cluster.Status, &cluster.ServiceProvider, &cluster.Location, &cluster.SecretId, &cluster.ProjectName)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "scanning rows in kub clusters failed", err)
 			result.Message = "scanning rows in kub clusters failed"
@@ -372,6 +372,28 @@ func AddGkeCluster(ctx context.Context, clusterId string, userId int, clusterNam
 	return nil
 }
 
+func CheckGkeClusterCreationStatus(opID string, userID string) (status domain.GkeClusterStatus, error error) {
+	//status.Name = clusterName
+	query := fmt.Sprintf("SELECT status, cluster_id, name FROM %s  WHERE op_id = '%s' AND user_id = '%s'", k8sTable, opID, userID)
+	rows, err := Db.Query(query)
+	if err != nil {
+		status.Error = err.Error()
+		status.Status = "CHECK FAILED"
+		return status, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+
+		err = rows.Scan(&status.Status, &status.ClusterId, &status.Name)
+		if err != nil {
+			status.Error = err.Error()
+			status.Status = "CHECK FAILED"
+			return status, err
+		}
+	}
+	return status, nil
+}
+
 func UpdateGkeClusterCreationStatus(ctx context.Context, status string, operationId string) (opStatus bool, err error) {
 	statusDesc := "UNSPECIFIED"
 	switch status {
@@ -397,26 +419,19 @@ func UpdateGkeClusterCreationStatus(ctx context.Context, status string, operatio
 	return true, nil
 }
 
-func CheckGkeClusterCreationStatus(opID string, userID string) (status domain.GkeClusterStatus, error error) {
-	//status.Name = clusterName
-	query := fmt.Sprintf("SELECT status, cluster_id, name FROM %s  WHERE op_id = '%s' AND user_id = '%s'", k8sTable, opID, userID)
-	rows, err := Db.Query(query)
-	if err != nil {
-		status.Error = err.Error()
-		status.Status = "CHECK FAILED"
-		return status, err
-	}
-	defer rows.Close()
-	for rows.Next() {
+func UpdateGkeClusterStatusById(ctx context.Context, isActive int, clusterId int, status string) (opStatus bool, err error) {
 
-		err = rows.Scan(&status.Status, &status.ClusterId, &status.Name)
-		if err != nil {
-			status.Error = err.Error()
-			status.Status = "CHECK FAILED"
-			return status, err
-		}
+	query := fmt.Sprintf("UPDATE kdb.%s SET active = %d, status = '%s' WHERE id= %d ", k8sTable, isActive, status, clusterId)
+	insert, err := Db.Query(query)
+
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("update %s table failed", k8sTable), err)
+		return false, err
 	}
-	return status, nil
+
+	defer insert.Close()
+	log.Logger.TraceContext(ctx, "successfully updated cluster ", clusterId)
+	return true, nil
 }
 
 //eks

@@ -51,6 +51,31 @@ var JWTConfigPool = make(map[string]jwt.Config)
 //	return resp, nil
 //}
 
+func CheckGKEClusterStatus(secretId string, cluster_name string, project_name string, zone string) (isRunning bool) {
+	ctx := context.Background()
+	b, _, err := iam.GetGkeCredentialsForSecret(secretId)
+	if err != nil {
+		//return nil, err
+	}
+	c, err := container.NewClusterManagerClient(ctx, option.WithCredentialsJSON(b))
+	if err != nil {
+		//return nil, err
+	}
+	resp, err := c.GetCluster(ctx, &containerpb.GetClusterRequest{
+		Name: fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project_name, zone, cluster_name),
+	})
+	if err != nil {
+		log.Logger.Info("Cluster with name, " + cluster_name + " not found in GCP. Updating status to stopped")
+		return false
+	}
+	if resp.Status != containerpb.Cluster_ERROR && resp.Status != containerpb.Cluster_STATUS_UNSPECIFIED && resp.Status != containerpb.Cluster_STOPPING {
+		//todo: process cluster not running
+		return true
+	}
+	return false
+	//log.Logger.Info(resp)
+}
+
 func CreateGkeCluster(clusterId string, secretId string, clusterOptions *domain.ClusterOptions) (*containerpb.Operation, error) {
 	ctx := context.Background()
 	b, cred, err := iam.GetGkeCredentialsForSecret(secretId)
