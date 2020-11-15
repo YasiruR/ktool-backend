@@ -199,8 +199,10 @@ func GetSecretById(ctx context.Context, secretId string, provider string) (resul
 	case "amazon":
 		query = "SELECT id, eksAccessKeyId, eksSecretAccessKey FROM " + cloudSecretTable +
 			" WHERE id = " + secretId + ";"
+	case "microsoft":
+		query = "SELECT id, aksClientId, aksClientSecret, aksTenantId, aksSubscriptionId FROM " + cloudSecretTable +
+			" WHERE id = " + secretId + ";"
 	default:
-		query = ""
 	}
 
 	rows, err := Db.Query(query)
@@ -219,6 +221,8 @@ func GetSecretById(ctx context.Context, secretId string, provider string) (resul
 				&result.Secret.GkeTokenUri, &result.Secret.GkeAuthX509CertUrl, &result.Secret.GkeClientX509CertUrl)
 		} else if provider == "amazon" {
 			err = rows.Scan(&result.Secret.ID, &result.Secret.EksAccessKeyId, &result.Secret.EksSecretAccessKey)
+		} else if provider == "microsoft" {
+			err = rows.Scan(&result.Secret.ID, &result.Secret.AksClientId, &result.Secret.AksClientSecret, &result.Secret.AksTenantId, &result.Secret.AksSubscriptionId)
 		}
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "scanning rows in secret table failed", err)

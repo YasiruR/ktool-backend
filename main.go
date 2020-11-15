@@ -21,7 +21,6 @@ func main() {
 
 	kafka.InitAllClusters()
 	//prometheus.Init()
-	//prometheus.Init()
 
 	//refresh cluster data
 	ticker := time.NewTicker(time.Duration(service.Cfg.ClusterRefreshInterval) * time.Second)
@@ -50,6 +49,41 @@ func main() {
 		}
 	}()
 
+	//scrape prometheus metrics from jmx
+	//metricsTicker := time.NewTicker(time.Duration(service.Cfg.MetricsUpdateInterval) * time.Second)
+	//syncContext := traceable_context.WithUUID(uuid.New())
+	//go func() {
+	//	for {
+	//		select {
+	//		case <- metricsTicker.C:
+	//			prometheus.SyncBrokerMetrics(syncContext)
+	//		}
+	//	}
+	//}()
+
+	//to update metrics ports of brokers
+	//metricsPortContext := traceable_context.WithUUID(uuid.New())
+	//go func() {
+	//	for {
+	//		select {
+	//		case <- metricsTicker.C:
+	//			prometheus.InitBrokerMetricsPorts(metricsPortContext)
+	//		}
+	//	}
+	//}()
+
+	//run metrics clean job
+	//cleanTicker := time.NewTicker(time.Duration(service.Cfg.MetricsCleanInterval) * time.Second)
+	//cleanContext := traceable_context.WithUUID(uuid.New())
+	//go func() {
+	//	for {
+	//		select {
+	//		case <- cleanTicker.C:
+	//			database.CleanMetricsTable(cleanContext)
+	//		}
+	//	}
+	//}()
+  
 	//init web router
 	http.InitRouter()
 }
