@@ -63,6 +63,8 @@ func InitRouter() {
 	router.HandleFunc("/kubernetes/eks/nodegroup/status", handleCheckEksNodeGroupCreationStatus).Methods("GET")
 	//router.HandleFunc("/kubernetes/ec2/vpc", handleGetVPCConfigForRegion).Methods("GET")
 
+	router.HandleFunc("/kubernetes/aks", handleDeleteAksKubClusters).Methods("DELETE")
+
 	osChannel := make(chan os.Signal, 1)
 	signal.Notify(osChannel, syscall.SIGINT, syscall.SIGKILL)
 

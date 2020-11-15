@@ -113,3 +113,24 @@ func CreateAKSCluster(clusterName, resourceGroupName string, secretId int, optio
 
 	return future.Result(aksClient)
 }
+
+func DeleteAksCluster(clusterName, resourceGroupName, secretId string) (err error) {
+	cred, err := iam.GetAksCredentialsForSecretId(secretId)
+	aksClient := containerservice.NewManagedClustersClientWithBaseURI(azure.PublicCloud.ResourceManagerEndpoint, cred.SubscriptionId)
+	a, err := auth.NewClientCredentialsConfig(cred.ClientId, cred.ClientSecret, cred.TenantId).Authorizer()
+	if err != nil {
+		return err
+	}
+	aksClient.Authorizer = a
+	aksClient.AddToUserAgent("ktool")
+	aksClient.PollingDuration = time.Hour * 1
+	res, err := aksClient.Delete(context.Background(), resourceGroupName, clusterName)
+	if err != nil {
+		return err
+	}
+	err = res.WaitForCompletionRef(context.Background(), aksClient.Client)
+	if err != nil {
+		return err
+	}
+	return nil
+}

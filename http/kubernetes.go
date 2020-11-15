@@ -812,3 +812,64 @@ func handleCreateAksKubCluster(res http.ResponseWriter, createAksCluster domain.
 	}
 	log.Logger.TraceContext(ctx, "add EKS k8s cluster request successful", createAksCluster.Name)
 }
+
+func handleDeleteAksKubClusters(res http.ResponseWriter, req *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+	//var createEksCluster domain.ClusterOptions
+
+	//user validation by token header
+	//token := req.Header.Get("Authorization")
+	//_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
+	//if !ok {
+	//	log.Logger.DebugContext(ctx, "invalid user", token)
+	//	res.WriteHeader(http.StatusUnauthorized)
+	//	return
+	//}
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
+
+	secretId := req.FormValue("secret_id")
+	clusterName := req.FormValue("cluster_name")
+	resourceGroup := req.FormValue("resource_group")
+
+	fmt.Println("Delete AKS k8s cluster request received")
+	err := kubernetes.DeleteAksCluster(clusterName, resourceGroup, secretId)
+	log.Logger.InfoContext(ctx, "Cluster deletion request sent to Microsoft", clusterName)
+	if err != nil {
+		res.WriteHeader(http.StatusOK)
+		result := domain.GkeClusterStatus{
+			Name:      clusterName,
+			OpId:      "",
+			ClusterId: clusterName,
+			Status:    "FAILED TO DELETE",
+			Error:     err.Error(),
+		}
+		err = json.NewEncoder(res).Encode(&result)
+		log.Logger.ErrorContext(ctx, "Cluster deletion failed, check logs", clusterName)
+		return
+	}
+	//_, err = database.AddGkeCluster(ctx, clusterId, createGkeCluster.UserId, createGkeCluster.Name, op.Name)
+	//if err != nil {
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	log.Logger.ErrorContext(ctx, "Could not add cluster creation request to db", createGkeCluster.Name)
+	//	return
+	//}
+	//result, err = database.UpdateGkeClusterCreationStatus(ctx, op.Name, 3)
+	result := domain.GkeClusterStatus{
+		Name:      clusterName,
+		ClusterId: clusterName,
+		Status:    "DELETED",
+		Error:     "",
+	}
+	res.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(res).Encode(&result)
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		log.Logger.ErrorContext(ctx, "response json conversion failed", clusterName)
+		return
+	}
+	log.Logger.TraceContext(ctx, "delete eks k8s cluster request successful", clusterName)
+}
