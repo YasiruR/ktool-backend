@@ -9,6 +9,8 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/iam"
+	"github.com/YasiruR/ktool-backend/log"
+	"github.com/YasiruR/ktool-backend/util"
 	"strconv"
 	"time"
 )
@@ -59,6 +61,12 @@ func CreateAKSCluster(clusterName, resourceGroupName string, secretId int, optio
 	aksClient.AddToUserAgent("ktool")
 	aksClient.PollingDuration = time.Hour * 1
 
+	//TODO; get from request
+	clientName := "ktool-" + "admin"
+
+	pvtSSHKey, _ := util.GeneratePrivateKey(4096)
+	publicSSHKey, _ := util.GeneratePublicKey(&pvtSSHKey.PublicKey)
+	log.Logger.Info("Generated SSH pvt key for user " + clientName + ", key: ")
 	//TODO: check whetehr resource group exists, if not create it
 	future, err := aksClient.CreateOrUpdate(
 		ctx,
@@ -70,20 +78,21 @@ func CreateAKSCluster(clusterName, resourceGroupName string, secretId int, optio
 			ManagedClusterProperties: &containerservice.ManagedClusterProperties{
 				DNSPrefix: &clusterName,
 				LinuxProfile: &containerservice.LinuxProfile{
-					AdminUsername: to.StringPtr("admin"),
-					//SSH: &containerservice.SSHConfiguration{
-					//	PublicKeys: &[]containerservice.SSHPublicKey{
-					//		{
-					//			KeyData: to.StringPtr(sshKeyData),
-					//		},
-					//	},
-					//},
+					AdminUsername: to.StringPtr(clientName),
+					SSH: &containerservice.SSHConfiguration{
+						PublicKeys: &[]containerservice.SSHPublicKey{
+							{
+								KeyData: to.StringPtr(string(publicSSHKey)),
+							},
+						},
+					},
 				},
 				AgentPoolProfiles: &[]containerservice.ManagedClusterAgentPoolProfile{
 					{
 						Count:  to.Int32Ptr(options.InstanceCount),
 						Name:   to.StringPtr("agentpool1"),
-						VMSize: containerservice.StandardA1,
+						VMSize: containerservice.StandardF2sV2,
+						Mode:   containerservice.System,
 					},
 				},
 				ServicePrincipalProfile: &containerservice.ManagedClusterServicePrincipalProfile{
