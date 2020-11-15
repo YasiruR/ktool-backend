@@ -17,6 +17,8 @@ const (
 	EKS_NODE_GROUP_CREATING = "CREATING NODE GROUP"
 	EKS_NODE_GROUP_CREATED  = "NODE GROUP CREATED"
 	EKS_NODE_GROUP_FAILED   = "NODE GROUP CREATION FAILED"
+	// aks state
+	AKS_CREATING = "CREATING CLUSTER"
 )
 
 type ClusterResponse struct {
@@ -39,21 +41,22 @@ type KubCluster struct {
 }
 
 type ClusterOptions struct {
-	Provider      string    `json:"provider"`
-	UserId        int       `json:"user_id"` //todo: remove this, doesnt make sense
-	SecretId      int       `json:"secret_id"`
-	Name          string    `json:"name"`
-	ClusterId     string    `json:"cluster_id"`
-	Description   string    `json:"description"`
-	Location      string    `json:"location"`
-	Zone          string    `json:"zone"`
-	InstanceCount int32     `json:"instances"`
-	ImageType     string    `json:"image_type"`
-	MachineType   string    `json:"machine_type"`
-	MachineFamily []*string `json:"machine_family"`
-	DiskSize      int       `json:"disk_size"`
-	DiskType      string    `json:"disk_type"`
-	KubVersion    string    `json:"kub_version"`
+	Provider          string    `json:"provider"`
+	UserId            int       `json:"user_id"` //todo: remove this, doesnt make sense
+	SecretId          int       `json:"secret_id"`
+	ResourceGroupName string    `json:"resource_group"`
+	Name              string    `json:"name"`
+	ClusterId         string    `json:"cluster_id"`
+	Description       string    `json:"description"`
+	Location          string    `json:"location"`
+	Zone              string    `json:"zone"`
+	InstanceCount     int32     `json:"instances"`
+	ImageType         string    `json:"image_type"`
+	MachineType       string    `json:"machine_type"`
+	MachineFamily     []*string `json:"machine_family"`
+	DiskSize          int       `json:"disk_size"`
+	DiskType          string    `json:"disk_type"`
+	KubVersion        string    `json:"kub_version"`
 }
 
 type ValidationResponse struct {

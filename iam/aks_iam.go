@@ -7,7 +7,7 @@ import (
 )
 
 func GetAksCredentialsForSecretId(secretId string) (cred *domain.AksSecret, err error) {
-	resp := database.GetAksSecret(context.Background(), "1", secretId)
+	resp := database.GetSecretById(context.Background(), secretId, "microsoft")
 	if resp.Error != nil {
 		return nil, resp.Error
 	}

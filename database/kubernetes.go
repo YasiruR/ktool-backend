@@ -484,3 +484,26 @@ func CheckEksClusterCreationStatus(clusterName string, userID string) (status do
 	}
 	return status, nil
 }
+
+//aks
+func AddAKsCluster(ctx context.Context, clusterId string, userId int, clusterName string, resourceGroupName string, zone string) (err error) {
+	query := fmt.Sprintf("INSERT INTO kdb.%s (cluster_id, user_id, name, resource_group_name, service_provider, status, active, zone) "+
+		"VALUES ('%s', %d, '%s', '%s', '%s', 'CREATING', 1, '%s');", k8sTable, clusterId, userId, clusterName, resourceGroupName, "amazon", zone)
+	insert, err := Db.Query(query)
+
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("insert to %s table failed", k8sTable), err)
+		return err
+	}
+
+	defer insert.Close()
+	log.Logger.TraceContext(ctx, "successfully added a new AKS cluster to the database.")
+	//todo: get id and return
+	return nil
+}
+
+func UpdateAksClusterCreationStatus() {}
+
+func CheckAksCLusterCreationStatus(clusterName string, userId string) (status domain.GkeClusterStatus, err error) {
+	return domain.GkeClusterStatus{}, nil
+}

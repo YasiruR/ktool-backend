@@ -16,11 +16,11 @@ const (
 	metricsLimit       = 1
 	secretTable        = "secret"
 	gkeSecretTable     = "gke_secret"
-	cloudSecretTable = "secret"
-	operationsTable  = "operation"
-	k8sTable         = "kubernetes_cluster"
-	productsTable    = "product"
-	locationsTable     = "locations"
+	cloudSecretTable   = "secret"
+	operationsTable    = "operation"
+	k8sTable           = "kubernetes_cluster"
+	productsTable      = "product"
+	locationsTable     = "location"
 	priceTable         = "price_by_region"
 )
 

@@ -3,8 +3,13 @@ package util
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/profiles/latest/containerservice/mgmt/containerservice"
 	"github.com/YasiruR/ktool-backend/domain"
 )
+
+func StrToVMType(strVmType string) (vmType containerservice.VMSizeTypes) {
+	return containerservice.StandardA1
+}
 
 func ConvertSecretToGKESecretBytes(secret domain.CloudSecret) (gkeSecret []byte, err error) {
 	return json.Marshal(domain.GkeSecret{
