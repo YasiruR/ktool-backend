@@ -46,7 +46,7 @@ func UpdateToken(ctx context.Context, username, token string) (err error) {
 	}
 	defer tx.Rollback()
 
-	query, err := tx.Prepare("UPDATE " + userTable + ` SET token="` + token + `" WHERE username="` + username +`";`)
+	query, err := tx.Prepare("UPDATE " + userTable + ` SET token="` + token + `" WHERE username="` + username + `";`)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "preparing the query failed", username)
 		return err
@@ -113,17 +113,17 @@ func ValidateUserByPassword(ctx context.Context, username, password string) (id 
 	switch err := row.Scan(&id, &encryptedPass); err {
 	case sql.ErrNoRows:
 		log.Logger.ErrorContext(ctx, "no rows scanned for the user", username)
-		return id,false, errors.New("incorrect username")
+		return id, false, errors.New("incorrect username")
 	case nil:
 		if checkPasswordForHash(ctx, password, encryptedPass) {
 			log.Logger.TraceContext(ctx, "fetched user by username and password", username)
-			return id,true, nil
+			return id, true, nil
 		}
 		log.Logger.ErrorContext(ctx, "user found with incorrect password")
 		return id, false, errors.New("incorrect password")
 	default:
 		log.Logger.ErrorContext(ctx, "unhandled error in row scan", username, err)
-		return id,false, errors.New("row scan failed")
+		return id, false, errors.New("row scan failed")
 	}
 }
 
@@ -134,13 +134,13 @@ func ValidateUserByToken(ctx context.Context, token string) (userID int, ok bool
 	switch err := row.Scan(&userID); err {
 	case sql.ErrNoRows:
 		log.Logger.ErrorContext(ctx, "no rows scanned for the token", token)
-		return userID,false, errors.New("incorrect credentials")
+		return userID, false, errors.New("incorrect credentials")
 	case nil:
 		log.Logger.TraceContext(ctx, "fetched user by token", token)
-		return userID,true, nil
+		return userID, true, nil
 	default:
 		log.Logger.ErrorContext(ctx, "unhandled error in row scan", token, err)
-		return userID,false, errors.New("row scan failed")
+		return userID, false, errors.New("row scan failed")
 	}
 }
 
@@ -191,4 +191,28 @@ func checkPasswordForHash(ctx context.Context, password, hash string) (ok bool) 
 		return false
 	}
 	return true
+}
+
+func GetUserById(ctx context.Context, userId int) (username string, err error) {
+	query := "SELECT username FROM " + userTable + " WHERE id = " + strconv.Itoa(userId) + ";"
+	rows, err := Db.Query(query)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "get user from id db query failed", err)
+		return "", err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.Scan(&username)
+		if err != nil {
+			log.Logger.ErrorContext(ctx, "scanning rows in user table failed", err)
+			return "", err
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "error occurred when scanning rows", err)
+		return "", err
+	}
+	log.Logger.TraceContext(ctx, "get user from id db query was successful")
+	return username, nil
 }

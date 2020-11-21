@@ -7,20 +7,23 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure"
 	auth "github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/iam"
 	"github.com/YasiruR/ktool-backend/log"
 	"github.com/YasiruR/ktool-backend/util"
 	"strconv"
+	"strings"
 	"time"
 )
 
-func GetAKSClusterStatus(clusterName string, resourceGroupName string, secretId string) (status containerservice.ManagedCluster, err error) {
+func CheckAKSClusterStatus(clusterName string, resourceGroupName string, secretId string) bool {
 	cred, err := iam.GetAksCredentialsForSecretId(secretId)
 	aksClient := containerservice.NewManagedClustersClientWithBaseURI(azure.PublicCloud.ResourceManagerEndpoint, cred.SubscriptionId)
 	a, err := auth.NewClientCredentialsConfig(cred.ClientId, cred.ClientSecret, cred.TenantId).Authorizer()
 	if err != nil {
-		return containerservice.ManagedCluster{}, err
+		log.Logger.Warn("AKs cluster status check failed")
+		return true
 	}
 	aksClient.Authorizer = a
 	aksClient.AddToUserAgent("ktool")
@@ -28,14 +31,15 @@ func GetAKSClusterStatus(clusterName string, resourceGroupName string, secretId 
 	conClust, err := aksClient.Get(context.Background(), resourceGroupName, clusterName)
 	//conClust, err := aksClient.Get(context.Background(), "TestAKS", "TestCluster")
 	if err != nil {
-		print(conClust.Status)
-	} else {
-		print(conClust.ID)
+		return true
 	}
-	return conClust, nil
+	if conClust.ManagedClusterProperties.PowerState.Code == "Running" {
+		return true
+	}
+	return false
 }
 
-func CreateAKSCluster(clusterName, resourceGroupName string, secretId int, options *domain.ClusterOptions) (c containerservice.ManagedCluster, err error) {
+func CreateAKSCluster(options *domain.ClusterOptions) (resp domain.AksClusterContext, err error) {
 	//var sshKeyData string
 	//if _, err = os.Stat(sshPublicKeyPath); err == nil {
 	//	sshBytes, err := ioutil.ReadFile(sshPublicKeyPath)
@@ -51,67 +55,101 @@ func CreateAKSCluster(clusterName, resourceGroupName string, secretId int, optio
 	//	return c, fmt.Errorf("cannot get AKS client: %v", err)
 	//}
 	ctx := context.Background()
-	cred, err := iam.GetAksCredentialsForSecretId(strconv.Itoa(secretId))
+	cred, err := iam.GetAksCredentialsForSecretId(strconv.Itoa(options.SecretId))
 	aksClient := containerservice.NewManagedClustersClientWithBaseURI(azure.PublicCloud.ResourceManagerEndpoint, cred.SubscriptionId)
 	a, err := auth.NewClientCredentialsConfig(cred.ClientId, cred.ClientSecret, cred.TenantId).Authorizer()
 	if err != nil {
-		return containerservice.ManagedCluster{}, err
+		return domain.AksClusterContext{
+			//ClusterResponse:
+			ClusterRequest: *options,
+			SecretID:       options.SecretId,
+		}, err
 	}
 	aksClient.Authorizer = a
 	aksClient.AddToUserAgent("ktool")
 	aksClient.PollingDuration = time.Hour * 1
 
 	//TODO; get from request
-	clientName := "ktool-" + "admin"
+	clientName, err := database.GetUserById(ctx, options.UserId)
+	if err != nil {
+		log.Logger.Warn("Could not fetch the username for the id, " + strconv.Itoa(options.UserId))
+		log.Logger.Warn("Using default name ktool-admin")
+		clientName = "ktool-admin"
+	}
 
 	pvtSSHKey, _ := util.GeneratePrivateKey(4096)
 	publicSSHKey, _ := util.GeneratePublicKey(&pvtSSHKey.PublicKey)
 	log.Logger.Info("Generated SSH pvt key for user " + clientName + ", key: ")
-	//TODO: check whetehr resource group exists, if not create it
-	future, err := aksClient.CreateOrUpdate(
-		ctx,
-		resourceGroupName,
-		clusterName,
-		containerservice.ManagedCluster{
-			Name:     &clusterName,
-			Location: &options.Location,
-			ManagedClusterProperties: &containerservice.ManagedClusterProperties{
-				DNSPrefix: &clusterName,
-				LinuxProfile: &containerservice.LinuxProfile{
-					AdminUsername: to.StringPtr(clientName),
-					SSH: &containerservice.SSHConfiguration{
-						PublicKeys: &[]containerservice.SSHPublicKey{
-							{
-								KeyData: to.StringPtr(string(publicSSHKey)),
+	//TODO: check whether resource group exists, if not create it
+
+	//microsoft sync process -> async
+	PushToJobList(domain.AsyncCloudJob{
+		Provider:  "microsoft",
+		Status:    domain.AKS_SUBMITTED,
+		Reference: options.Name,
+		Information: domain.AksAsyncJobParams{
+			ClusterOptions: *options,
+			CreateRequest: containerservice.ManagedCluster{
+				Name:     &options.Name,
+				Location: &options.Location,
+				ManagedClusterProperties: &containerservice.ManagedClusterProperties{
+					DNSPrefix: &options.Name,
+					LinuxProfile: &containerservice.LinuxProfile{
+						AdminUsername: to.StringPtr(clientName),
+						SSH: &containerservice.SSHConfiguration{
+							PublicKeys: &[]containerservice.SSHPublicKey{
+								{
+									KeyData: to.StringPtr(string(publicSSHKey)),
+								},
 							},
 						},
 					},
-				},
-				AgentPoolProfiles: &[]containerservice.ManagedClusterAgentPoolProfile{
-					{
-						Count:  to.Int32Ptr(options.InstanceCount),
-						Name:   to.StringPtr("agentpool1"),
-						VMSize: containerservice.StandardF2sV2,
-						Mode:   containerservice.System,
+					AgentPoolProfiles: &[]containerservice.ManagedClusterAgentPoolProfile{ //todo: extend here if there needs to be more nodepools
+						{
+							Count:  to.Int32Ptr(options.InstanceCount),
+							Name:   to.StringPtr(strings.ToLower(options.Name) + "p1"),
+							VMSize: containerservice.StandardF2sV2,
+							Mode:   containerservice.System,
+						},
+					},
+					ServicePrincipalProfile: &containerservice.ManagedClusterServicePrincipalProfile{
+						ClientID: to.StringPtr(cred.ClientId),
+						Secret:   to.StringPtr(cred.ClientSecret),
 					},
 				},
-				ServicePrincipalProfile: &containerservice.ManagedClusterServicePrincipalProfile{
-					ClientID: to.StringPtr(cred.ClientId),
-					Secret:   to.StringPtr(cred.ClientSecret),
-				},
 			},
+			Client: aksClient,
 		},
-	)
+	})
+	err = database.AddAKsCluster(ctx, options.Name, options.UserId, options.Name, options.ResourceGroupName, options.Location, pvtSSHKey.D.String())
 	if err != nil {
-		return c, fmt.Errorf("cannot create AKS cluster: %v", err)
+		return domain.AksClusterContext{
+			ClusterResponse: domain.AksClusterStatus{
+				Name:          options.Name,
+				ResourceGroup: options.ResourceGroupName,
+				UserName:      clientName,
+				SSHPvtKey:     pvtSSHKey.D.String(),
+				SSHPubKey:     string(publicSSHKey),
+				Status:        "DATABASE INSERT FAILED", //todo: disable on prod
+				Error:         err.Error(),
+			},
+			ClusterRequest: *options,
+			SecretID:       options.SecretId,
+		}, fmt.Errorf("cannot update the AKS cluster creation in database: %v", err)
 	}
 
-	err = future.WaitForCompletionRef(ctx, aksClient.Client)
-	if err != nil {
-		return c, fmt.Errorf("cannot get the AKS cluster create or update future response: %v", err)
-	}
-
-	return future.Result(aksClient)
+	return domain.AksClusterContext{
+		ClusterResponse: domain.AksClusterStatus{
+			Name:          options.Name,
+			ResourceGroup: options.ResourceGroupName,
+			UserName:      clientName,
+			SSHPvtKey:     pvtSSHKey.D.String(),
+			SSHPubKey:     string(publicSSHKey),
+			Status:        domain.AKS_CREATING, //todo: disable on prod
+		},
+		ClusterRequest: *options,
+		SecretID:       options.SecretId,
+	}, nil
 }
 
 func DeleteAksCluster(clusterName, resourceGroupName, secretId string) (err error) {
@@ -124,6 +162,23 @@ func DeleteAksCluster(clusterName, resourceGroupName, secretId string) (err erro
 	aksClient.Authorizer = a
 	aksClient.AddToUserAgent("ktool")
 	aksClient.PollingDuration = time.Hour * 1
+	database.UpdateAksClusterCreationStatus(context.Background(), 1, "DELETING", clusterName, resourceGroupName)
+	PushToJobList(domain.AsyncCloudJob{
+		Provider:  "microsoft",
+		Status:    domain.AKS_SUBMITTED_FOR_DELETION,
+		Reference: clusterName,
+		Information: domain.AksAsyncJobParams{
+			ClusterOptions: domain.ClusterOptions{
+				ResourceGroupName: resourceGroupName,
+				Name:              clusterName,
+			},
+			Client: aksClient,
+		},
+	})
+	return nil
+}
+
+func SyncDeleteAksCluster(ctx context.Context, aksClient containerservice.ManagedClustersClient, resourceGroupName, clusterName string) error {
 	res, err := aksClient.Delete(context.Background(), resourceGroupName, clusterName)
 	if err != nil {
 		return err
@@ -133,4 +188,19 @@ func DeleteAksCluster(clusterName, resourceGroupName, secretId string) (err erro
 		return err
 	}
 	return nil
+}
+
+func SyncCreateAksCluster(ctx context.Context, aksClient containerservice.ManagedClustersClient, options domain.ClusterOptions,
+	params containerservice.ManagedCluster) (containerservice.ManagedClustersCreateOrUpdateFuture, error) {
+	future, err := aksClient.CreateOrUpdate(
+		ctx,
+		options.ResourceGroupName,
+		options.Name,
+		params,
+	)
+	if err != nil {
+		log.Logger.Error(fmt.Errorf("aks cluster creation failed by microsoft; %s", err))
+		return future, err
+	}
+	return future, nil
 }

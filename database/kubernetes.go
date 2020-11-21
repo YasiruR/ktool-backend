@@ -217,7 +217,7 @@ func GetKubernetesResources(ctx context.Context, Provider string) (result domain
 
 func GetAllRunningKubernetesClusters(ctx context.Context) (result domain.ClusterResponse) {
 
-	query := fmt.Sprintf("SELECT k.id, k.cluster_id, k.name, k.user_id, k.status, k.service_provider, k.zone, s.id, IFNULL(s.gkeProjectId, '') AS project_id FROM %s k, %s s WHERE k.active = 1 AND k.service_provider = s.provider AND k.user_id = s.ownerId AND s.deleted = 0;", k8sTable, secretTable)
+	query := fmt.Sprintf("SELECT k.id, k.cluster_id, k.name, k.user_id, k.status, k.service_provider, k.zone, s.id, IFNULL(s.gkeProjectId, '') AS project_id, IFNULL(k.resource_group, '') AS resource_group FROM %s k, %s s WHERE k.active = 1 AND k.status = 'RUNNING' AND k.service_provider = s.provider AND k.user_id = s.ownerId AND s.deleted = 0;", k8sTable, secretTable)
 
 	rows, err := Db.Query(query)
 
@@ -242,7 +242,7 @@ func GetAllRunningKubernetesClusters(ctx context.Context) (result domain.Cluster
 	for rows.Next() {
 		cluster := domain.KubCluster{}
 
-		err = rows.Scan(&cluster.Id, &cluster.ClusterId, &cluster.ClusterName, &cluster.ClusterId, &cluster.Status, &cluster.ServiceProvider, &cluster.Location, &cluster.SecretId, &cluster.ProjectName)
+		err = rows.Scan(&cluster.Id, &cluster.ClusterId, &cluster.ClusterName, &cluster.ClusterId, &cluster.Status, &cluster.ServiceProvider, &cluster.Location, &cluster.SecretId, &cluster.ProjectName, &cluster.ResourceGroup)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "scanning rows in kub clusters failed", err)
 			result.Message = "scanning rows in kub clusters failed"
@@ -501,9 +501,9 @@ func CheckEksClusterCreationStatus(clusterName string, userID string) (status do
 }
 
 //aks
-func AddAKsCluster(ctx context.Context, clusterId string, userId int, clusterName string, resourceGroupName string, zone string) (err error) {
-	query := fmt.Sprintf("INSERT INTO kdb.%s (cluster_id, user_id, name, resource_group_name, service_provider, status, active, zone) "+
-		"VALUES ('%s', %d, '%s', '%s', '%s', 'CREATING', 1, '%s');", k8sTable, clusterId, userId, clusterName, resourceGroupName, "amazon", zone)
+func AddAKsCluster(ctx context.Context, clusterId string, userId int, clusterName string, resourceGroupName string, zone string, pvtKeySSH string) (err error) {
+	query := fmt.Sprintf("INSERT INTO kdb.%s (cluster_id, user_id, name, resource_group, service_provider, status, active, zone, ssh_key_pvt) "+
+		"VALUES ('%s', %d, '%s', '%s', '%s', 'CREATING', 1, '%s', '%s');", k8sTable, clusterId, userId, clusterName, resourceGroupName, "microsoft", zone, pvtKeySSH)
 	insert, err := Db.Query(query)
 
 	if err != nil {
@@ -517,8 +517,37 @@ func AddAKsCluster(ctx context.Context, clusterId string, userId int, clusterNam
 	return nil
 }
 
-func UpdateAksClusterCreationStatus() {}
+func UpdateAksClusterCreationStatus(ctx context.Context, isActive int, status, clusterName, resourceGroupName string) (bool, error) {
+	query := fmt.Sprintf("UPDATE kdb.%s SET active = %d, status = '%s' WHERE name = '%s' AND resource_group = '%s' ", k8sTable, isActive, status, clusterName, resourceGroupName)
+	insert, err := Db.Query(query)
 
-func CheckAksCLusterCreationStatus(clusterName string, userId string) (status domain.GkeClusterStatus, err error) {
-	return domain.GkeClusterStatus{}, nil
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("update %s table failed", k8sTable), err)
+		return false, err
+	}
+
+	defer insert.Close()
+	log.Logger.TraceContext(ctx, "successfully updated cluster ", clusterName)
+	return true, nil
+}
+
+func CheckAksClusterCreationStatus(clusterName string, resourceGroupName string, userId string) (status domain.GkeClusterStatus, err error) {
+	status.Name = clusterName
+	query := fmt.Sprintf("SELECT status,cluster_id FROM %s  WHERE name = '%s' AND resource_group = '%s' AND user_id = '%s'", k8sTable, clusterName, resourceGroupName, userId)
+	rows, err := Db.Query(query)
+	if err != nil {
+		status.Error = err.Error()
+		status.Status = "CHECK FAILED"
+		return status, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.Scan(&status.Status, &status.ClusterId)
+		if err != nil {
+			status.Error = err.Error()
+			status.Status = "CHECK FAILED"
+			return status, err
+		}
+	}
+	return status, nil
 }

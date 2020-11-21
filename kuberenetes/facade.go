@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
@@ -110,6 +111,51 @@ func ProcessAsyncJob(job *domain.AsyncCloudJob) {
 				}
 			}
 		}
+	case "microsoft":
+		{
+			if job.Status == domain.AKS_SUBMITTED {
+				ctx := context.Background()
+				params := job.Information.(domain.AksAsyncJobParams)
+				future, err := SyncCreateAksCluster(ctx, params.Client, params.ClusterOptions, params.CreateRequest)
+				if err != nil {
+					log.Logger.Error(fmt.Errorf("aks cluster creation failed by microsoft; %s", err))
+					database.UpdateAksClusterCreationStatus(ctx, 1, "CREATION FAILED", params.ClusterOptions.Name, params.ClusterOptions.ResourceGroupName)
+				}
+				err = future.WaitForCompletionRef(ctx, params.Client.Client)
+				if err != nil {
+					log.Logger.Error(fmt.Errorf("aks cluster creation failed by microsoft; %s", err))
+					database.UpdateAksClusterCreationStatus(ctx, 1, "CREATION FAILED", params.ClusterOptions.Name, params.ClusterOptions.ResourceGroupName)
+				}
+				futureResolve, err := future.Result(params.Client) //we resolve the future
+				if err != nil {
+					log.Logger.Error(fmt.Errorf("aks cluster creation future resolve failed; %s", err))
+					//database.UpdateAksClusterCreationStatus(ctx, 1,  "CREATION FAILED", params.ClusterOptions.Name, params.ClusterOptions.ResourceGroupName)
+					PushToJobList(*job)
+					return
+				}
+				if *futureResolve.ManagedClusterProperties.ProvisioningState == "Succeeded" {
+					log.Logger.Info("aks cluster creation successful")
+					database.UpdateAksClusterCreationStatus(ctx, 1, "RUNNING", params.ClusterOptions.Name, params.ClusterOptions.ResourceGroupName)
+				} else {
+					log.Logger.Error(fmt.Errorf("aks cluster creation failed; %s", err))
+					database.UpdateAksClusterCreationStatus(ctx, 1, "CREATION FAILED", params.ClusterOptions.Name, params.ClusterOptions.ResourceGroupName)
+				}
+				return
+			} else if job.Status == domain.AKS_SUBMITTED_FOR_DELETION {
+				ctx := context.Background()
+				params := job.Information.(domain.AksAsyncJobParams)
+				err := SyncDeleteAksCluster(ctx, params.Client, params.ClusterOptions.ResourceGroupName, params.ClusterOptions.Name)
+				if err != nil {
+					//todo: something happened
+					PushToJobList(*job)
+					log.Logger.Trace("aks deletion failed for cluster name: ", params.ClusterOptions.Name)
+				} else {
+					log.Logger.Trace("Completed aks deletion for cluster name: ", params.ClusterOptions.Name)
+					database.UpdateAksClusterCreationStatus(ctx, 1, "DELETED", params.ClusterOptions.Name, params.ClusterOptions.ResourceGroupName)
+					return
+				}
+			}
+		}
 	}
 }
 
@@ -129,6 +175,9 @@ func ProcessAsyncCloudJobs() {
 			//goto loop
 		}
 		counter = counter * 2
+		if counter == 0 { //todo: why?
+			counter = 10
+		}
 		duration := math.Min(float64(maxWait), float64(counter*wait))
 		log.Logger.Trace("No jobs to process. Sleeping", time.Duration(duration)*time.Second)
 		time.Sleep(time.Duration(duration) * time.Second)
@@ -147,6 +196,8 @@ func UpdateAllClusterStatus() {
 			go checkGKEStatus(cluster)
 		} else if cluster.ServiceProvider == "amazon" {
 			go checkEKSStatus(cluster)
+		} else {
+			go checkAKSStatus(cluster)
 		}
 	}
 	log.Logger.Info("Checks are performed on all active clusters.")
@@ -163,6 +214,15 @@ func checkGKEStatus(cluster domain.KubCluster) {
 
 func checkEKSStatus(cluster domain.KubCluster) {
 	isRunning := CheckEKSClusterStatus(cluster.ClusterName, cluster.Location, cluster.SecretId)
+	if isRunning && cluster.Status != domain.COMPLETED {
+		database.UpdateGkeClusterStatusById(context.Background(), domain.IsRunning, cluster.Id, "RUNNING")
+	} else if !isRunning {
+		database.UpdateGkeClusterStatusById(context.Background(), domain.IsRunning, cluster.Id, "STOPPED")
+	}
+}
+
+func checkAKSStatus(cluster domain.KubCluster) {
+	isRunning := CheckAKSClusterStatus(cluster.ClusterName, cluster.ResourceGroup, cluster.SecretId)
 	if isRunning && cluster.Status != domain.COMPLETED {
 		database.UpdateGkeClusterStatusById(context.Background(), domain.IsRunning, cluster.Id, "RUNNING")
 	} else if !isRunning {

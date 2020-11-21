@@ -55,7 +55,7 @@ func handleGetAllKubClusters(res http.ResponseWriter, req *http.Request) {
 
 func handleCreateKubCluster(res http.ResponseWriter, req *http.Request) {
 	ctx := traceableContext.WithUUID(uuid.New())
-	var createGkeCluster domain.ClusterOptions
+	var createCluster domain.ClusterOptions
 
 	//user validation by token header
 	//token := req.Header.Get("Authorization")
@@ -78,19 +78,19 @@ func handleCreateKubCluster(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err = json.Unmarshal(content, &createGkeCluster)
+	err = json.Unmarshal(content, &createCluster)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "unmarshal error", err)
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	//todo:refactor this
-	if createGkeCluster.Provider == "google" {
-		handleCreateGkeKubClusters(res, createGkeCluster)
-	} else if createGkeCluster.Provider == "amazon" {
-		handleCreateEksKubClusters(res, createGkeCluster)
+	if createCluster.Provider == "google" {
+		handleCreateGkeKubClusters(res, createCluster)
+	} else if createCluster.Provider == "amazon" {
+		handleCreateEksKubClusters(res, createCluster)
 	} else {
-		handleCreateAksKubCluster(res, createGkeCluster)
+		handleCreateAksKubCluster(res, createCluster)
 	}
 }
 
@@ -115,8 +115,10 @@ func handleCheckClusterCreationStatus(res http.ResponseWriter, req *http.Request
 
 	if provider == "google" {
 		handleCheckGkeClusterCreationStatus(res, req)
-	} else {
+	} else if provider == "amazon" {
 		handleCheckEksClusterCreationStatus(res, req)
+	} else {
+		handleCheckAksClusterCreationStatus(res, req)
 	}
 
 }
@@ -244,7 +246,7 @@ func handleCreateGkeKubClusters(res http.ResponseWriter, createGkeCluster domain
 		log.Logger.ErrorContext(ctx, "Cluster creation failed, check logs", createGkeCluster.Name)
 		return
 	}
-	//_, err = database.AddGkeCluster(ctx, clusterId, createGkeCluster.UserId, createGkeCluster.Name, op.Name)
+	//err = database.AddGkeCluster(ctx, clusterId, createGkeCluster.UserId, createGkeCluster.Name, op.Name, op.Location)
 	//if err != nil {
 	//	res.WriteHeader(http.StatusInternalServerError)
 	//	log.Logger.ErrorContext(ctx, "Could not add cluster creation request to db", createGkeCluster.Name)
@@ -437,7 +439,7 @@ func handleCreateEksKubClusters(res http.ResponseWriter, createEksCluster domain
 	//	res.WriteHeader(http.StatusBadRequest)
 	//	return
 	//}
-	fmt.Println("Create EKS k8s cluster request received")
+	//fmt.Println("Create EKS k8s cluster request received")
 	clusterId := uuid.New().String()
 	result, err := kubernetes.CreateEksCluster(clusterId, createEksCluster.SecretId, &createEksCluster)
 	if err != nil {
@@ -615,7 +617,7 @@ func handleCreateEksNodeGroup(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	fmt.Println("Create EKS k8s node group request received")
+	//fmt.Println("Create EKS k8s node group request received")
 	clusterId := uuid.New().String()
 	result, err := kubernetes.CreateEksNodeGroup(createEksNodeGroup.SecretID, createEksNodeGroup)
 	if err != nil {
@@ -766,9 +768,9 @@ func handleCreateAksKubCluster(res http.ResponseWriter, createAksCluster domain.
 	//	res.WriteHeader(http.StatusBadRequest)
 	//	return
 	//}
-	fmt.Println("Create EKS k8s cluster request received")
+	//fmt.Println("Create EKS k8s cluster request received")
 	clusterId := uuid.New().String()
-	result, err := kubernetes.CreateAKSCluster(clusterId, createAksCluster.ResourceGroupName, createAksCluster.SecretId, &createAksCluster)
+	result, err := kubernetes.CreateAKSCluster(&createAksCluster)
 	if err != nil {
 		res.WriteHeader(http.StatusOK)
 		result := domain.GkeClusterStatus{
@@ -782,27 +784,21 @@ func handleCreateAksKubCluster(res http.ResponseWriter, createAksCluster domain.
 		log.Logger.ErrorContext(ctx, "Cluster creation failed, check logs", createAksCluster.Name)
 		return
 	}
-	log.Logger.InfoContext(ctx, "Cluster creation request sent to Amazon", createAksCluster.Name)
-	//_, err = database.AddGkeCluster(ctx, clusterId, createGkeCluster.UserId, createGkeCluster.Name, op.Name)
+	log.Logger.InfoContext(ctx, "Cluster creation request sent to Microsoft", createAksCluster.Name)
+	//_, err = database.AddAKsCluster(ctx, clusterId, createAksCluster.UserId, createAksCluster.Name, createAksCluster.ResourceGroupName, createAksCluster.Location)
 	//if err != nil {
 	//	res.WriteHeader(http.StatusInternalServerError)
 	//	log.Logger.ErrorContext(ctx, "Could not add cluster creation request to db", createGkeCluster.Name)
 	//	return
 	//}
-	//service.PushToJobList(service.AsyncCloudJob{
-	//	Provider:    "amazon",
-	//	Status:      service.RUNNING,
-	//	Reference:   result.ClusterStatus.Name,
+	// submit job for the watcher
+	//kubernetes.PushToJobList(domain.AsyncCloudJob{
+	//	Provider:    "microsoft",
+	//	Status:      domain.AKS_CREATING,
+	//	Reference:   result.Status,
 	//	Information: result,
 	//})
-	// submit job for the watcher
-	kubernetes.PushToJobList(domain.AsyncCloudJob{
-		Provider:    "microsoft",
-		Status:      domain.AKS_CREATING,
-		Reference:   result.Status,
-		Information: result,
-	})
-	_, err = database.UpdateEksClusterCreationStatus(ctx, domain.AKS_CREATING, createAksCluster.Name)
+	//_, err = database.UpdateAksClusterCreationStatus(ctx, domain.AKS_CREATING, createAksCluster.Name)
 	res.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(res).Encode(&result)
 	if err != nil {
@@ -810,7 +806,47 @@ func handleCreateAksKubCluster(res http.ResponseWriter, createAksCluster domain.
 		log.Logger.ErrorContext(ctx, "response json conversion failed", createAksCluster.Name)
 		return
 	}
-	log.Logger.TraceContext(ctx, "add EKS k8s cluster request successful", createAksCluster.Name)
+	log.Logger.TraceContext(ctx, "add AKS k8s cluster request successful", createAksCluster.Name)
+}
+
+func handleCheckAksClusterCreationStatus(res http.ResponseWriter, req *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+
+	//user validation by token header
+	//token := req.Header.Get("Authorization")
+	//_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
+	//if !ok {
+	//	log.Logger.DebugContext(ctx, "invalid user", token)
+	//	res.WriteHeader(http.StatusUnauthorized)
+	//	return
+	//}
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
+
+	userId := req.FormValue("user_id")
+	clusterName := req.FormValue("cluster_name")
+	resoureGroupName := req.FormValue("resource_group_name")
+
+	fmt.Printf("Check cluster creation status request received %s", userId)
+	// todo: replace with external call
+	result, err := database.CheckAksClusterCreationStatus(clusterName, resoureGroupName, userId)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "checking the operation status failed")
+		res.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(res).Encode(&result)
+		return
+	}
+	log.Logger.InfoContext(ctx, "Successfully retrieved op status from EKS")
+	res.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(res).Encode(&result)
+	if err != nil {
+		res.WriteHeader(http.StatusOK)
+		log.Logger.ErrorContext(ctx, "response json conversion failed")
+	}
+	log.Logger.TraceContext(ctx, "Check kub cluster creation status request successful")
 }
 
 func handleDeleteAksKubClusters(res http.ResponseWriter, req *http.Request) {
@@ -835,7 +871,6 @@ func handleDeleteAksKubClusters(res http.ResponseWriter, req *http.Request) {
 	clusterName := req.FormValue("cluster_name")
 	resourceGroup := req.FormValue("resource_group")
 
-	fmt.Println("Delete AKS k8s cluster request received")
 	err := kubernetes.DeleteAksCluster(clusterName, resourceGroup, secretId)
 	log.Logger.InfoContext(ctx, "Cluster deletion request sent to Microsoft", clusterName)
 	if err != nil {
@@ -861,7 +896,7 @@ func handleDeleteAksKubClusters(res http.ResponseWriter, req *http.Request) {
 	result := domain.GkeClusterStatus{
 		Name:      clusterName,
 		ClusterId: clusterName,
-		Status:    "DELETED",
+		Status:    "DELETING",
 		Error:     "",
 	}
 	res.WriteHeader(http.StatusOK)

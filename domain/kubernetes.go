@@ -1,11 +1,12 @@
 package domain
 
 import (
+	"github.com/Azure/azure-sdk-for-go/profiles/latest/containerservice/mgmt/containerservice"
 	"github.com/aws/aws-sdk-go/service/eks"
 )
 
 const (
-	SUBMITTED = "REQUEST_SUBMITTED"
+	SUBMITTED = "REQUEST SUBMITTED"
 	COMPLETED = "RUNNING"
 	FAILED    = "FAILED"
 	// gke states
@@ -18,7 +19,9 @@ const (
 	EKS_NODE_GROUP_CREATED  = "NODE GROUP CREATED"
 	EKS_NODE_GROUP_FAILED   = "NODE GROUP CREATION FAILED"
 	// aks state
-	AKS_CREATING = "CREATING CLUSTER"
+	AKS_CREATING               = "CREATING CLUSTER"
+	AKS_SUBMITTED              = "REQUEST SUBMITTED"
+	AKS_SUBMITTED_FOR_DELETION = "TO BE DELETED"
 )
 
 type ClusterResponse struct {
@@ -39,6 +42,7 @@ type KubCluster struct {
 	ProjectName     string `json:"project_name"`
 	Location        string `json:"location"`
 	SecretId        string `json:"secret_id"`
+	ResourceGroup   string `json:"resource_group"`
 }
 
 type ClusterOptions struct {
@@ -121,6 +125,30 @@ type ResourceLocation struct {
 	Continent  string `json:"continent"`
 	RegionName string `json:"region_name"`
 	RegionId   string `json:"region_id"`
+}
+
+//AKS specific structures
+type AksClusterContext struct {
+	ClusterResponse AksClusterStatus `json:"cluster_status"`
+	ClusterRequest  ClusterOptions   `json:"cluster_request"`
+	SecretID        int              `json:"secret_id"`
+}
+
+type AksClusterStatus struct {
+	Name          string `json:"name"`
+	ResourceGroup string `json:"resource_group"`
+	KubVersion    string `json:"kub_version"`
+	UserName      string `json:"user_name"`
+	SSHPvtKey     string `json:"ssh_key_pvt"`
+	SSHPubKey     string `json:"ssh_key_pub"`
+	Status        string `json:"status"`
+	Error         string `json:"error"`
+}
+
+type AksAsyncJobParams struct {
+	ClusterOptions ClusterOptions
+	CreateRequest  containerservice.ManagedCluster
+	Client         containerservice.ManagedClustersClient
 }
 
 //EKS specific structs
