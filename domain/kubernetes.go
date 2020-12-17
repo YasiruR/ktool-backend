@@ -11,6 +11,7 @@ const (
 	FAILED    = "FAILED"
 	// gke states
 	GKE_CREATING = "CREATING CLUSTER"
+	GKE_DELETING = "DELETING"
 	// eks states
 	EKS_MASTER_CREATING     = "CREATING CONTROL PLANE"
 	EKS_MASTER_CREATED      = "CONTROL PLANE CREATED"
@@ -149,6 +150,11 @@ type AksAsyncJobParams struct {
 	ClusterOptions ClusterOptions
 	CreateRequest  containerservice.ManagedCluster
 	Client         containerservice.ManagedClustersClient
+}
+type AksResourceGroup struct {
+	Groups []string `json:"groups"`
+	Status string   `json:"status"`
+	Error  string   `json:"error"`
 }
 
 //EKS specific structs

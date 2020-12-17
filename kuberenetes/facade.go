@@ -8,6 +8,7 @@ import (
 	"github.com/YasiruR/ktool-backend/log"
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
 	"math"
+	"strconv"
 	"time"
 )
 
@@ -108,7 +109,11 @@ func ProcessAsyncJob(job *domain.AsyncCloudJob) {
 					}
 				} else {
 					log.Logger.Trace("Cluster creation status check failed for cluster name: ", status.Name)
+					PushToJobList(*job)
 				}
+			} else if job.Status == domain.GKE_DELETING {
+				//op := job.Information.(*containerpb.Operation)
+				//result, err := CheckOperationStatus(job.Reference, status.Name)
 			}
 		}
 	case "microsoft":
@@ -116,10 +121,19 @@ func ProcessAsyncJob(job *domain.AsyncCloudJob) {
 			if job.Status == domain.AKS_SUBMITTED {
 				ctx := context.Background()
 				params := job.Information.(domain.AksAsyncJobParams)
+				// create the resource group if not exists
+				_, err := CreateResourceGroupIfNotExist(ctx, params.ClusterOptions.ResourceGroupName, params.ClusterOptions.Zone,
+					strconv.Itoa(params.ClusterOptions.SecretId))
+				if err != nil {
+					log.Logger.Error(fmt.Errorf("aks resource group creation failed by microsoft; %s", err))
+					database.UpdateAksClusterCreationStatus(ctx, 1, "CREATION FAILED (RESOURCE GROUP)", params.ClusterOptions.Name, params.ClusterOptions.ResourceGroupName)
+					return
+				}
 				future, err := SyncCreateAksCluster(ctx, params.Client, params.ClusterOptions, params.CreateRequest)
 				if err != nil {
 					log.Logger.Error(fmt.Errorf("aks cluster creation failed by microsoft; %s", err))
 					database.UpdateAksClusterCreationStatus(ctx, 1, "CREATION FAILED", params.ClusterOptions.Name, params.ClusterOptions.ResourceGroupName)
+					return
 				}
 				err = future.WaitForCompletionRef(ctx, params.Client.Client)
 				if err != nil {

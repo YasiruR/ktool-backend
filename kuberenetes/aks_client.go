@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/containerservice/mgmt/containerservice"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-06-01/resources"
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
 	auth "github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -178,6 +180,59 @@ func DeleteAksCluster(clusterName, resourceGroupName, secretId string) (err erro
 	return nil
 }
 
+func CreateResourceGroupIfNotExist(ctx context.Context, resourceGroupName, region, secretId string) (result domain.AksResourceGroup, err error) {
+	cred, err := iam.GetAksCredentialsForSecretId(secretId)
+	aksClient := resources.NewGroupsClientWithBaseURI(azure.PublicCloud.ResourceManagerEndpoint, cred.SubscriptionId)
+	a, err := auth.NewClientCredentialsConfig(cred.ClientId, cred.ClientSecret, cred.TenantId).Authorizer()
+	if err != nil {
+		return result, err
+	}
+	aksClient.Authorizer = a
+	aksClient.AddToUserAgent("ktool")
+	aksClient.PollingDuration = time.Hour * 1
+	res, err := aksClient.CheckExistence(ctx, resourceGroupName)
+	//if err != nil {
+	//	return result, err
+	//}
+	s := strings.Split(res.Status, " ")[0]
+	if s == "404" {
+		log.Logger.Info("Resource group %s not found. Attempting to create", resourceGroupName)
+		group, err := aksClient.CreateOrUpdate(ctx, resourceGroupName, resources.Group{
+			Response:   autorest.Response{},
+			ID:         nil,
+			Name:       &resourceGroupName,
+			Type:       nil,
+			Properties: nil,
+			Location:   &region,
+			ManagedBy:  nil,
+			Tags:       nil,
+		})
+		if err != nil {
+			return result, err
+		}
+		log.Logger.Info("Resource group %s created in region %s", resourceGroupName, region)
+		log.Logger.Info("group resp, %s", group.Response.Status)
+		return domain.AksResourceGroup{
+			Groups: []string{resourceGroupName},
+			Status: "CREATED",
+			Error:  "",
+		}, nil
+	} else if s == "204" {
+		return domain.AksResourceGroup{
+			Groups: nil,
+			Status: "EXISTING",
+			Error:  "",
+		}, nil
+	} else {
+		return domain.AksResourceGroup{
+			Groups: nil,
+			Status: "ERROR OCCURRED",
+			Error:  err.Error(),
+		}, err
+	}
+}
+
+//internal helpers
 func SyncDeleteAksCluster(ctx context.Context, aksClient containerservice.ManagedClustersClient, resourceGroupName, clusterName string) error {
 	res, err := aksClient.Delete(context.Background(), resourceGroupName, clusterName)
 	if err != nil {
@@ -192,6 +247,7 @@ func SyncDeleteAksCluster(ctx context.Context, aksClient containerservice.Manage
 
 func SyncCreateAksCluster(ctx context.Context, aksClient containerservice.ManagedClustersClient, options domain.ClusterOptions,
 	params containerservice.ManagedCluster) (containerservice.ManagedClustersCreateOrUpdateFuture, error) {
+
 	future, err := aksClient.CreateOrUpdate(
 		ctx,
 		options.ResourceGroupName,

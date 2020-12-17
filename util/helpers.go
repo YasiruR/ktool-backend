@@ -136,6 +136,13 @@ func GeneratePublicKey(privatekey *rsa.PublicKey) ([]byte, error) {
 	return pubKeyBytes, nil
 }
 
+//func EncodePrivateKey(privateKey *rsa.PrivateKey) (string, error) {
+//	pubKeyBytes := ssh.MarshalAuthorizedKey(privateKey)
+//
+//	log.Println("Private key encoded to string")
+//	return string(pubKeyBytes), nil
+//}
+
 // writePemToFile writes keys to a file
 func WriteKeyToFile(keyBytes []byte, saveFileTo string) error {
 	err := ioutil.WriteFile(saveFileTo, keyBytes, 0600)

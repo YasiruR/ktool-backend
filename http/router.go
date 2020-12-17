@@ -48,8 +48,8 @@ func InitRouter() {
 	router.HandleFunc("/kubernetes", handleCreateKubCluster).Methods("POST")
 	router.HandleFunc("/kubernetes/validate", handleValidateClusterName).Methods("GET")
 	router.HandleFunc("/kubernetes/status", handleCheckClusterCreationStatus).Methods("GET")
-	router.HandleFunc("/kubernetes/resources", handleGetGkeResource).Methods("GET")
-	router.HandleFunc("/kubernetes/recommend", handleRecommendGkeResource).Methods("GET")
+	router.HandleFunc("/kubernetes/resources", handleGetKubResource).Methods("GET")
+	router.HandleFunc("/kubernetes/recommend", handleRecommendResource).Methods("GET")
 
 	router.HandleFunc("/kubernetes/gke", handleGetAllGkeKubClusters).Methods("GET")
 	router.HandleFunc("/kubernetes/gke/status", handleCheckGkeClusterCreationStatus).Methods("GET")
@@ -65,6 +65,7 @@ func InitRouter() {
 
 	router.HandleFunc("/kubernetes/aks", handleDeleteAksKubClusters).Methods("DELETE")
 	router.HandleFunc("/kubernetes/aks/status", handleCheckAksClusterCreationStatus).Methods("GET")
+	router.HandleFunc("/kubernetes/aks/resourcegroup/status", handleCheckExistenceResourceGroup).Methods("GET")
 
 	osChannel := make(chan os.Signal, 1)
 	signal.Notify(osChannel, syscall.SIGINT, syscall.SIGKILL)

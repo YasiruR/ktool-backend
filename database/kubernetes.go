@@ -12,7 +12,8 @@ import (
 
 //facade
 func GetAllKubernetesClustersForUser(ctx context.Context, userId int) (clusterResponse domain.ClusterResponse) {
-	query := fmt.Sprintf("SELECT s.id, s.cluster_id, s.name, s.service_provider, s.status, s.created_on, s.zone, s.op_id "+
+	query := fmt.Sprintf("SELECT s.id, s.cluster_id, s.name, s.service_provider, s.status, s.created_on, s.zone,"+
+		" IFNULL(s.op_id, '') AS op_id, IFNULL(s.resource_group, '') AS resource_group "+
 		" FROM %s s WHERE s.user_id = %d AND s.active = 1;", k8sTable, userId)
 
 	rows, err := Db.Query(query)
@@ -41,7 +42,7 @@ func GetAllKubernetesClustersForUser(ctx context.Context, userId int) (clusterRe
 		cluster := domain.KubCluster{}
 
 		err = rows.Scan(&cluster.Id, &cluster.ClusterId, &cluster.ClusterName, &cluster.ServiceProvider, &cluster.Status,
-			&cluster.CreatedOn, &cluster.Location, &cluster.Reference)
+			&cluster.CreatedOn, &cluster.Location, &cluster.Reference, &cluster.ResourceGroup)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "scanning rows in cluster table failed", err)
 			clusterResponse.Error = err
@@ -70,9 +71,11 @@ func GetKubernetesResourcesRecommendation(ctx context.Context, Provider string, 
 	//categoryOk 	:= false
 	//networkOk 	:= false
 
-	provider := 1
+	provider := 2
 	if Provider == "google" {
 		provider = 0
+	} else if Provider == "amazon" {
+		provider = 1
 	}
 
 	baseQuery :=
@@ -159,9 +162,11 @@ func GetKubernetesResources(ctx context.Context, Provider string) (result domain
 	//regiondNameQuery := "SELECT DISTINCT(region_name) as continents FROM locations;"
 	//regionIdQuery := "SELECT DISTINCT(region_id) as continents FROM locations;"
 
-	provider := 1
+	provider := 2
 	if Provider == "google" {
 		provider = 0
+	} else if Provider == "amazon" {
+		provider = 1
 	}
 
 	query := fmt.Sprintf("SELECT continent, region_name, region_id FROM %s WHERE provider = %d;", locationsTable, provider)
@@ -498,6 +503,27 @@ func CheckEksClusterCreationStatus(clusterName string, userID string) (status do
 		}
 	}
 	return status, nil
+}
+
+func GetAvailableResourceGroups(userId string) (groups domain.AksResourceGroup, err error) {
+	query := fmt.Sprintf("SELECT DISTINCT(resource_group) FROM %s  WHERE provider = 'microsoft' AND user_id = '%s'", k8sTable, userId)
+	rows, err := Db.Query(query)
+	if err != nil {
+		groups.Error = err.Error()
+		groups.Status = "CHECK FAILED"
+		return groups, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+
+		err = rows.Scan(&groups.Groups)
+		if err != nil {
+			groups.Error = err.Error()
+			groups.Status = "CHECK FAILED"
+			return groups, err
+		}
+	}
+	return groups, nil
 }
 
 //aks

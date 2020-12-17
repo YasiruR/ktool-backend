@@ -279,7 +279,7 @@ func handleCreateGkeKubClusters(res http.ResponseWriter, createGkeCluster domain
 	log.Logger.TraceContext(ctx, "add gke k8s cluster request successful", createGkeCluster.Name)
 }
 
-func handleRecommendGkeResource(res http.ResponseWriter, req *http.Request) {
+func handleRecommendResource(res http.ResponseWriter, req *http.Request) {
 	ctx := traceableContext.WithUUID(uuid.New())
 
 	//user validation by token header
@@ -331,7 +331,7 @@ func handleRecommendGkeResource(res http.ResponseWriter, req *http.Request) {
 	log.Logger.TraceContext(ctx, "get cluster recommendations request successful")
 }
 
-func handleGetGkeResource(res http.ResponseWriter, req *http.Request) {
+func handleGetKubResource(res http.ResponseWriter, req *http.Request) {
 	ctx := traceableContext.WithUUID(uuid.New())
 
 	////user validation by token header
@@ -828,11 +828,11 @@ func handleCheckAksClusterCreationStatus(res http.ResponseWriter, req *http.Requ
 
 	userId := req.FormValue("user_id")
 	clusterName := req.FormValue("cluster_name")
-	resoureGroupName := req.FormValue("resource_group_name")
+	resourceGroupName := req.FormValue("resource_group")
 
 	fmt.Printf("Check cluster creation status request received %s", userId)
 	// todo: replace with external call
-	result, err := database.CheckAksClusterCreationStatus(clusterName, resoureGroupName, userId)
+	result, err := database.CheckAksClusterCreationStatus(clusterName, resourceGroupName, userId)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "checking the operation status failed")
 		res.WriteHeader(http.StatusInternalServerError)
@@ -907,4 +907,62 @@ func handleDeleteAksKubClusters(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	log.Logger.TraceContext(ctx, "delete eks k8s cluster request successful", clusterName)
+}
+
+func handleCheckExistenceResourceGroup(res http.ResponseWriter, req *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+	//var createEksCluster domain.ClusterOptions
+
+	//user validation by token header
+	//token := req.Header.Get("Authorization")
+	//_, ok, err := database.ValidateUserByToken(ctx, strings.TrimSpace(strings.Split(token, "Bearer")[1]))
+	//if !ok {
+	//	log.Logger.DebugContext(ctx, "invalid user", token)
+	//	res.WriteHeader(http.StatusUnauthorized)
+	//	return
+	//}
+	//if err != nil {
+	//	log.Logger.ErrorContext(ctx, "error occurred in token validation", err)
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
+
+	secretId := req.FormValue("secret_id")
+	region := req.FormValue("region")
+	resourceGroup := req.FormValue("resource_group")
+
+	result, err := kubernetes.CreateResourceGroupIfNotExist(ctx, resourceGroup, region, secretId)
+	log.Logger.InfoContext(ctx, "Resource group check request sent to Microsoft", resourceGroup)
+	if err != nil {
+		res.WriteHeader(http.StatusOK)
+		result := domain.GkeClusterStatus{
+			Status: "FAILED TO CHECK",
+			Error:  err.Error(),
+		}
+		err = json.NewEncoder(res).Encode(&result)
+		log.Logger.ErrorContext(ctx, "Resource group check failed, check logs", resourceGroup)
+		return
+	}
+	//_, err = database.AddGkeCluster(ctx, clusterId, createGkeCluster.UserId, createGkeCluster.Name, op.Name)
+	//if err != nil {
+	//	res.WriteHeader(http.StatusInternalServerError)
+	//	log.Logger.ErrorContext(ctx, "Could not add cluster creation request to db", createGkeCluster.Name)
+	//	return
+	//}
+	//result, err = database.UpdateGkeClusterCreationStatus(ctx, op.Name, 3)
+
+	//result := domain.GkeClusterStatus{
+	//	Name:      clusterName,
+	//	ClusterId: clusterName,
+	//	Status:    "DELETING",
+	//	Error:     "",
+	//}
+	res.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(res).Encode(&result)
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		log.Logger.ErrorContext(ctx, "response json conversion failed", resourceGroup)
+		return
+	}
+	log.Logger.TraceContext(ctx, "check resource group request successful", resourceGroup)
 }
