@@ -33,9 +33,12 @@ func CheckAKSClusterStatus(clusterName string, resourceGroupName string, secretI
 	conClust, err := aksClient.Get(context.Background(), resourceGroupName, clusterName)
 	//conClust, err := aksClient.Get(context.Background(), "TestAKS", "TestCluster")
 	if err != nil {
-		return true
+		return false
 	}
-	if conClust.ManagedClusterProperties.PowerState.Code == "Running" {
+	if conClust.Response.StatusCode != 200 { // most prolly not found 404
+		return false
+	}
+	if conClust.ManagedClusterProperties.PowerState.Code == "Running" { // cluster is there but is it running?
 		return true
 	}
 	return false
