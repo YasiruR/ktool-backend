@@ -1,5 +1,6 @@
 database: "kdb"
 host: "localhost"
 port: 3306
-username: "yasi"
-password: "123"
+username: "ktool"
+password: "password"
+metricsTableMaxSize: 1000

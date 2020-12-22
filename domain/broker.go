@@ -14,3 +14,9 @@ type Broker struct {
 	CreatedAt 			string
 	ClusterID 			int
 }
+
+type Server struct {
+	Host 			string 		`json:"host"`
+	Port 			int			`json:"port"`
+	MetricsPort 	int			`json:"metrics_port"`
+}

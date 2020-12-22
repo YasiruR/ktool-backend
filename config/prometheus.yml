@@ -1,0 +1,43 @@
+global:
+    scrape_interval: 15s
+    evaluation_interval: 15s
+scrape_configs:
+  - job_name: prometheus
+    scrape_interval: 5s
+    scrape_timeout: 5s
+    static_configs:
+      - targets:
+          - localhost:9090
+  - job_name: node
+    scrape_interval: 5s
+    scrape_timeout: 5s
+    static_configs:
+      - targets:
+          - localhost:9100
+  - job_name: local
+    scrape_interval: 15s
+    scrape_timeout: 15s
+    static_configs:
+      - targets:
+          - localhost:29092
+  - job_name: test-cluster
+    scrape_interval: 15s
+    scrape_timeout: 15s
+    static_configs:
+      - {}
+  - job_name: load
+    scrape_interval: 15s
+    scrape_timeout: 15s
+    static_configs:
+      - targets:
+          - 34.87.54.215:9092
+          - 35.247.191.104:9092
+          - 34.87.28.46:9092
+  - job_name: dev
+    scrape_interval: 15s
+    scrape_timeout: 15s
+    static_configs:
+      - targets:
+          - 35.198.225.80:7070
+remote_write:
+  - url: http://localhost:1234/receive

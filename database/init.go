@@ -8,10 +8,20 @@ import (
 )
 
 const (
-	clusterTable  	= 	"cluster"
-	zookeeperTable 	= 	"zookeeper"
-	brokerTable		=	"broker"
-	userTable		= 	"user"
+	clusterTable       = "cluster"
+	zookeeperTable     = "zookeeper"
+	brokerTable        = "broker"
+	userTable          = "user"
+	brokerMetricsTable = "broker_metrics"
+	metricsLimit       = 1
+	secretTable        = "secret"
+	gkeSecretTable     = "gke_secret"
+	cloudSecretTable   = "secret"
+	operationsTable    = "operation"
+	k8sTable           = "kubernetes_cluster"
+	productsTable      = "product"
+	locationsTable     = "location"
+	priceTable         = "price_by_region"
 )
 
 var Db *sql.DB
@@ -25,4 +35,5 @@ func Init() {
 	}
 
 	Db = db
+	log.Logger.Info("connection to mysql database is established")
 }
