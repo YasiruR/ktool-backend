@@ -34,9 +34,9 @@ func main() {
 	}()
 
 	//process asynchronous background processes
-	//go func() {
-	//	kubernetes.ProcessAsyncCloudJobs()
-	//}()
+	go func() {
+		kubernetes.ProcessAsyncCloudJobs()
+	}()
 
 	//cloud deployment watcher
 	anotherTicker := time.NewTicker(time.Duration(service.Cfg.ClusterRefreshInterval) * time.Second)
@@ -83,7 +83,7 @@ func main() {
 	//		}
 	//	}
 	//}()
-  
+
 	//init web router
 	http.InitRouter()
 }
