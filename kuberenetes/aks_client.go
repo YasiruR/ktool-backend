@@ -98,7 +98,8 @@ func CreateAKSCluster(options *domain.ClusterOptions) (resp domain.AksClusterCon
 				Name:     &options.Name,
 				Location: &options.Location,
 				ManagedClusterProperties: &containerservice.ManagedClusterProperties{
-					DNSPrefix: &options.Name,
+					KubernetesVersion: &options.KubVersion,
+					DNSPrefix:         &options.Name,
 					LinuxProfile: &containerservice.LinuxProfile{
 						AdminUsername: to.StringPtr(clientName),
 						SSH: &containerservice.SSHConfiguration{
@@ -113,7 +114,7 @@ func CreateAKSCluster(options *domain.ClusterOptions) (resp domain.AksClusterCon
 						{
 							Count:  to.Int32Ptr(options.InstanceCount),
 							Name:   to.StringPtr(strings.ToLower(options.Name) + "p1"),
-							VMSize: containerservice.StandardF2sV2,
+							VMSize: util.StrToVMType(options.MachineType),
 							Mode:   containerservice.System,
 						},
 					},
@@ -126,7 +127,7 @@ func CreateAKSCluster(options *domain.ClusterOptions) (resp domain.AksClusterCon
 			Client: aksClient,
 		},
 	})
-	err = database.AddAKsCluster(ctx, options.Name, options.UserId, options.Name, options.ResourceGroupName, options.Location, pvtSSHKey.D.String())
+	err = database.AddAKsCluster(ctx, options.Name, options.UserId, options.SecretId, options.Name, options.ResourceGroupName, options.Location, pvtSSHKey.D.String())
 	if err != nil {
 		return domain.AksClusterContext{
 			ClusterResponse: domain.AksClusterStatus{

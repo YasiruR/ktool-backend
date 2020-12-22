@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
@@ -13,7 +14,7 @@ import (
 //facade
 func GetAllKubernetesClustersForUser(ctx context.Context, userId int) (clusterResponse domain.ClusterResponse) {
 	query := fmt.Sprintf("SELECT s.id, s.cluster_id, s.name, s.service_provider, s.status, s.created_on, s.zone,"+
-		" IFNULL(s.op_id, '') AS op_id, IFNULL(s.resource_group, '') AS resource_group "+
+		" IFNULL(s.op_id, '') AS op_id, IFNULL(s.resource_group, '') AS resource_group, s.secret_id "+
 		" FROM %s s WHERE s.user_id = %d AND s.active = 1;", k8sTable, userId)
 
 	rows, err := Db.Query(query)
@@ -42,7 +43,7 @@ func GetAllKubernetesClustersForUser(ctx context.Context, userId int) (clusterRe
 		cluster := domain.KubCluster{}
 
 		err = rows.Scan(&cluster.Id, &cluster.ClusterId, &cluster.ClusterName, &cluster.ServiceProvider, &cluster.Status,
-			&cluster.CreatedOn, &cluster.Location, &cluster.Reference, &cluster.ResourceGroup)
+			&cluster.CreatedOn, &cluster.Location, &cluster.Reference, &cluster.ResourceGroup, &cluster.SecretId)
 		if err != nil {
 			log.Logger.ErrorContext(ctx, "scanning rows in cluster table failed", err)
 			clusterResponse.Error = err
@@ -222,7 +223,7 @@ func GetKubernetesResources(ctx context.Context, Provider string) (result domain
 
 func GetAllRunningKubernetesClusters(ctx context.Context) (result domain.ClusterResponse) {
 
-	query := fmt.Sprintf("SELECT k.id, k.cluster_id, k.name, k.user_id, k.status, k.service_provider, k.zone, s.id, IFNULL(s.gkeProjectId, '') AS project_id, IFNULL(k.resource_group, '') AS resource_group FROM %s k, %s s WHERE k.active = 1 AND k.status = 'RUNNING' AND k.service_provider = s.provider AND k.user_id = s.ownerId AND s.deleted = 0;", k8sTable, secretTable)
+	query := fmt.Sprintf("SELECT k.id, k.cluster_id, k.name, k.user_id, k.status, k.service_provider, k.zone, s.id, IFNULL(s.gkeProjectId, '') AS project_id, IFNULL(k.resource_group, '') AS resource_group FROM %s k, %s s WHERE k.active = 1 AND k.status IN ('RUNNING', 'TO BE DELETED', 'DELETING CONTROL PLANE') AND k.service_provider = s.provider AND k.user_id = s.ownerId AND s.deleted = 0;", k8sTable, secretTable)
 
 	rows, err := Db.Query(query)
 
@@ -302,6 +303,26 @@ func ValidateClusterName(ctx context.Context, userId string, name string, provid
 	return result
 }
 
+func RemoveClusterEntry(ctx context.Context, rowId string) (err error) {
+	query := fmt.Sprintf("UPDATE %s SET active=0 WHERE id=%s", k8sTable, rowId)
+	res, err := Db.Exec(query)
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "")
+		return err
+	}
+
+	count, err := res.RowsAffected()
+	if err != nil {
+		log.Logger.WarnContext(ctx, "getting deleted broker count failed")
+		return err
+	}
+
+	if count != 1 {
+		return errors.New(fmt.Sprintf("%d rows were affected by removing cluster id: %s", count, rowId))
+	}
+	return nil
+}
+
 //gke
 func GetGkeLROperation(ctx context.Context, name string) (result domain.GkeLROperation) {
 
@@ -361,9 +382,9 @@ func UpdateGkeLROperation(ctx context.Context, name string, status string) (opSt
 	return true, nil
 }
 
-func AddGkeCluster(ctx context.Context, clusterId string, userId int, clusterName string, operationName string, zone string) (err error) {
-	query := fmt.Sprintf("INSERT INTO kdb.%s (cluster_id, user_id, name, op_id, zone, service_provider, status, active) "+
-		"VALUES ('%s', %d, '%s', '%s', '%s', '%s', 'CREATING', 1);", k8sTable, clusterId, userId, clusterName, operationName, zone, "google")
+func AddGkeCluster(ctx context.Context, clusterId string, userId int, clusterName string, operationName string, zone string, secretId int) (err error) {
+	query := fmt.Sprintf("INSERT INTO kdb.%s (cluster_id, user_id, name, op_id, zone, service_provider, status, active, secret_id) "+
+		"VALUES ('%s', %d, '%s', '%s', '%s', '%s', 'CREATING', 1, '%d');", k8sTable, clusterId, userId, clusterName, operationName, zone, "google", secretId)
 	insert, err := Db.Query(query)
 
 	if err != nil {
@@ -409,6 +430,7 @@ func UpdateGkeClusterCreationStatus(ctx context.Context, status string, operatio
 	case "DONE":
 		statusDesc = "RUNNING"
 	default:
+		statusDesc = status
 	}
 	query := fmt.Sprintf("UPDATE kdb.%s SET status='%s' WHERE op_id='%s'", k8sTable, statusDesc, operationId)
 
@@ -424,7 +446,20 @@ func UpdateGkeClusterCreationStatus(ctx context.Context, status string, operatio
 	return true, nil
 }
 
-func UpdateGkeClusterStatusById(ctx context.Context, isActive int, clusterId int, status string) (opStatus bool, err error) {
+func UpdateGkeClusterMetaById(ctx context.Context, clusterId, opId string) (status bool, err error) {
+	query := fmt.Sprintf("UPDATE kdb.%s SET op_id = '%s' WHERE id= %s ", k8sTable, opId, clusterId)
+	_, err = Db.Exec(query)
+
+	if err != nil {
+		log.Logger.ErrorContext(ctx, fmt.Sprintf("update %s table failed", k8sTable), err)
+		return false, err
+	}
+
+	log.Logger.TraceContext(ctx, "successfully updated cluster ", clusterId)
+	return true, nil
+}
+
+func UpdateClusterStatusById(ctx context.Context, isActive int, clusterId int, status string) (opStatus bool, err error) {
 
 	query := fmt.Sprintf("UPDATE kdb.%s SET active = %d, status = '%s' WHERE id= %d ", k8sTable, isActive, status, clusterId)
 	insert, err := Db.Query(query)
@@ -440,10 +475,10 @@ func UpdateGkeClusterStatusById(ctx context.Context, isActive int, clusterId int
 }
 
 //eks
-func AddEksCluster(ctx context.Context, clusterId string, userId int, clusterName string, reqToken string, arn string, roleArn string, ids string, version string, zone string) (err error) {
+func AddEksCluster(ctx context.Context, clusterId string, userId, secretId int, clusterName string, reqToken string, arn string, roleArn string, ids string, version string, zone string) (err error) {
 	query := fmt.Sprintf("INSERT INTO kdb.%s (cluster_id, user_id, name, request_token, service_provider, status, active, "+
-		"cluster_arn, role_arn, subnet_ids, kub_version, op_id, zone) "+ //todo: remove this op_id
-		"VALUES ('%s', %d, '%s', '%s', '%s', 'CREATING', 1, '%s', '%s', '%s', '%s', '%s', '%s');", k8sTable, clusterId, userId, clusterName, reqToken, "amazon", arn, roleArn, ids, version, clusterName, zone)
+		"cluster_arn, role_arn, subnet_ids, kub_version, op_id, zone, secret_id) "+ //todo: remove this op_id
+		"VALUES ('%s', %d, '%s', '%s', '%s', 'CREATING', 1, '%s', '%s', '%s', '%s', '%s', '%s', '%d');", k8sTable, clusterId, userId, clusterName, reqToken, "amazon", arn, roleArn, ids, version, clusterName, zone, secretId)
 	insert, err := Db.Query(query)
 
 	if err != nil {
@@ -527,9 +562,9 @@ func GetAvailableResourceGroups(userId string) (groups domain.AksResourceGroup, 
 }
 
 //aks
-func AddAKsCluster(ctx context.Context, clusterId string, userId int, clusterName string, resourceGroupName string, zone string, pvtKeySSH string) (err error) {
-	query := fmt.Sprintf("INSERT INTO kdb.%s (cluster_id, user_id, name, resource_group, service_provider, status, active, zone, ssh_key_pvt) "+
-		"VALUES ('%s', %d, '%s', '%s', '%s', 'CREATING', 1, '%s', '%s');", k8sTable, clusterId, userId, clusterName, resourceGroupName, "microsoft", zone, pvtKeySSH)
+func AddAKsCluster(ctx context.Context, clusterId string, userId, secretId int, clusterName string, resourceGroupName string, zone string, pvtKeySSH string) (err error) {
+	query := fmt.Sprintf("INSERT INTO kdb.%s (cluster_id, user_id, name, resource_group, service_provider, status, active, zone, ssh_key_pvt, secret_id) "+
+		"VALUES ('%s', %d, '%s', '%s', '%s', 'CREATING', 1, '%s', '%s', '%d');", k8sTable, clusterId, userId, clusterName, resourceGroupName, "microsoft", zone, pvtKeySSH, secretId)
 	insert, err := Db.Query(query)
 
 	if err != nil {

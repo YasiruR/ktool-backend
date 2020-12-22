@@ -11,6 +11,8 @@ import (
 	oauth2 "golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
 	resource "google.golang.org/api/cloudresourcemanager/v1"
+	"strconv"
+
 	//"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
@@ -68,7 +70,7 @@ func CreateGkeCluster(clusterId string, secretId string, clusterOptions *domain.
 		log.Logger.ErrorContext(ctx, "Failed to add LRO to db.")
 		return nil, err
 	}
-	err = database.AddGkeCluster(ctx, clusterId, clusterOptions.UserId, clusterOptions.Name, resp.Name, clusterOptions.Location)
+	err = database.AddGkeCluster(ctx, clusterId, clusterOptions.UserId, clusterOptions.Name, resp.Name, clusterOptions.Location, clusterOptions.SecretId)
 	if err != nil {
 		log.Logger.ErrorContext(ctx, "Failed to add cluster details to db.")
 		return nil, err
@@ -76,7 +78,25 @@ func CreateGkeCluster(clusterId string, secretId string, clusterOptions *domain.
 	return resp, nil
 }
 
-func CheckOperationStatus(c *container.ClusterManagerClient, zone string, name string, projectId string) (response containerpb.Operation, err error) {
+func CheckOperationStatus(secretId, operationName string) (response containerpb.Operation, err error) {
+	ctx := context.Background()
+	b, _, err := iam.GetGkeCredentialsForSecret(secretId)
+	if err != nil {
+		return containerpb.Operation{Status: containerpb.Operation_STATUS_UNSPECIFIED}, err
+	}
+	c, err := container.NewClusterManagerClient(ctx, option.WithCredentialsJSON(b))
+	if err != nil {
+		return containerpb.Operation{Status: containerpb.Operation_STATUS_UNSPECIFIED}, err
+	}
+	operation := database.GetGkeLROperation(ctx, operationName)
+	if operation.Error != nil {
+		log.Logger.Error("Error occurred while fetching operation id {}", operationName)
+		return containerpb.Operation{Status: containerpb.Operation_STATUS_UNSPECIFIED}, err
+	}
+	return checkOperationStatus(c, operation.Zone, operation.Name, operation.ProjectId)
+}
+
+func checkOperationStatus(c *container.ClusterManagerClient, zone string, name string, projectId string) (response containerpb.Operation, err error) {
 	ctx := context.Background()
 	opReq := &containerpb.GetOperationRequest{
 		//projects/ktool-280018/locations/us-central1-a/operations/operation-1592570796611-3735784d
@@ -85,7 +105,7 @@ func CheckOperationStatus(c *container.ClusterManagerClient, zone string, name s
 	resp, err := c.GetOperation(ctx, opReq)
 	if err != nil {
 		// TODO: Handle error.
-		return containerpb.Operation{}, err
+		return containerpb.Operation{Status: containerpb.Operation_STATUS_UNSPECIFIED}, err
 	}
 	return *resp, nil
 }
@@ -134,11 +154,11 @@ func CheckGkeClusterCreationStatus(secretId string, operationName string) (statu
 	}
 	operation := database.GetGkeLROperation(ctx, operationName)
 	if operation.Error != nil {
-		log.Logger.Error("Error occured while fetching operation id {}", operationName)
+		log.Logger.Error("Error occurred while fetching operation id {}", operationName)
 	}
 	if operation.Status != "DONE" {
 		retriesLeft := 3
-		resp, err := CheckOperationStatus(c, operation.Zone, operation.Name, operation.ProjectId)
+		resp, err := checkOperationStatus(c, operation.Zone, operation.Name, operation.ProjectId)
 	updateFailed: // if update failed, we must retry
 		operation.Status = resp.GetStatus().String()
 		updateStatus, err := database.UpdateGkeLROperation(ctx, resp.Name, resp.GetStatus().String())
@@ -168,7 +188,7 @@ func CheckGkeClusterCreationStatus(secretId string, operationName string) (statu
 	}, nil
 }
 
-func DeleteGkeCluster(secretId string, clusterId int, clusterName string, projectName string, zone string) (bool, error) {
+func DeleteGkeCluster(secretId string, clusterId int, clusterName string, zone string) (bool, error) {
 	ctx := context.Background()
 	b, cred, err := iam.GetGkeCredentialsForSecret(secretId)
 	if err != nil {
@@ -178,22 +198,33 @@ func DeleteGkeCluster(secretId string, clusterId int, clusterName string, projec
 	if err != nil {
 		return false, err
 	}
-	resp, err := c.DeleteCluster(ctx, generateDestroyClusterRequest(&cred, clusterName, projectName, zone))
+	resp, err := c.DeleteCluster(ctx, generateDestroyClusterRequest(&cred, clusterName, clusterName, zone))
 	if err != nil {
 		log.Logger.Info("Cluster with name, " + clusterName + " not found in GCP. Updating status to stopped")
+		_, err = database.UpdateClusterStatusById(ctx, 1, clusterId, domain.STOPPED)
 		return false, err
 	}
-	_, err = database.UpdateGkeClusterStatusById(context.Background(), 1, clusterId, "DELETING")
-	PushToJobList(domain.AsyncCloudJob{
-		Provider:    "google",
-		Status:      domain.GKE_DELETING,
-		Reference:   resp.GetName(),
-		Information: resp,
-	})
+	_, err = database.UpdateClusterStatusById(ctx, 1, clusterId, domain.GKE_DELETING)
+	_, err = database.UpdateGkeClusterMetaById(ctx, strconv.Itoa(clusterId), resp.GetName()) // updating the associated operation id
+	if err != nil {
+		log.Logger.Info("Failed to update cluster status in db. Cluster delete request sent.")
+		return true, err
+	}
 	//if resp.Status != containerpb.Cluster_ERROR && resp.Status != containerpb.Cluster_STATUS_UNSPECIFIED && resp.Status != containerpb.Cluster_STOPPING {
 	//	//todo: process cluster not running
 	//	return true
 	//}
+	err = database.AddGkeLROperation(ctx, resp.GetName(), cred.ProjectId, zone)
+	if err != nil {
+		log.Logger.Info("Failed to add LRO to db. Cluster delete request sent.")
+		return true, err
+	}
+	PushToJobList(domain.AsyncCloudJob{
+		Provider:    "google",
+		Status:      domain.GKE_DELETING,
+		Reference:   secretId,
+		Information: resp,
+	})
 	return true, nil
 }
 

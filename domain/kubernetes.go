@@ -8,7 +8,9 @@ import (
 const (
 	SUBMITTED = "REQUEST SUBMITTED"
 	COMPLETED = "RUNNING"
+	STOPPED   = "STOPPED"
 	FAILED    = "FAILED"
+	DELETED   = "DELETED"
 	// gke states
 	GKE_CREATING = "CREATING CLUSTER"
 	GKE_DELETING = "DELETING"
@@ -19,6 +21,14 @@ const (
 	EKS_NODE_GROUP_CREATING = "CREATING NODE GROUP"
 	EKS_NODE_GROUP_CREATED  = "NODE GROUP CREATED"
 	EKS_NODE_GROUP_FAILED   = "NODE GROUP CREATION FAILED"
+
+	EKS_NODE_GROUP_DELETING      = "DELETING NODE GROUP"
+	EKS_NODE_GROUP_DELETED       = "NODE GROUP DELETED"
+	EKS_NODE_GROUP_DELETE_FAILED = "DELETING NODE GROUP FAILED"
+	EKS_MASTER_DELETING          = "DELETING CONTROL PLANE"
+	EKS_MASTER_DELETED           = "CONTROL PLANE DELETED"
+	EKS_MASTER_DELETE_FAILED     = "DELETING CONTROL PLANE FAILED"
+	EKS_SUBMITTED_FOR_DELETION   = "TO BE DELETED"
 	// aks state
 	AKS_CREATING               = "CREATING CLUSTER"
 	AKS_SUBMITTED              = "REQUEST SUBMITTED"
@@ -151,6 +161,7 @@ type AksAsyncJobParams struct {
 	CreateRequest  containerservice.ManagedCluster
 	Client         containerservice.ManagedClustersClient
 }
+
 type AksResourceGroup struct {
 	Groups []string `json:"groups"`
 	Status string   `json:"status"`
@@ -185,6 +196,11 @@ type EksClusterStatus struct {
 	KubVersion   string     `json:"kub_version"`
 	Status       string     `json:"status"`
 	Error        string     `json:"error"`
+}
+
+type EksAsyncJobParams struct {
+	NodeGroupName string
+	Client        eks.EKS
 }
 
 // async job processing

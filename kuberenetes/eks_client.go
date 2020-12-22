@@ -219,7 +219,7 @@ func CreateEksCluster(clusterId string, secretId int, createClusterRequest *doma
 
 	// persist in db
 	//err = database.AddGkeLROperation(context.Background(), createClusterRequest.Name, createClusterRequest.Name, createClusterRequest.Location)
-	err = database.AddEksCluster(context.Background(), clusterId, createClusterRequest.UserId, createClusterRequest.Name,
+	err = database.AddEksCluster(context.Background(), clusterId, createClusterRequest.UserId, createClusterRequest.SecretId, createClusterRequest.Name,
 		ctrlResp.RequestToken, ctrlResp.ClusterArn, ctrlResp.RoleArn, util.StringPointerListToEscapedCSV(ctrlResp.SubnetIds), ctrlResp.KubVersion, createClusterRequest.Location)
 	//return nodeGroupResp, nil
 	return resp, nil
@@ -361,50 +361,61 @@ func createEksNodeGroup(svc *eks.EKS, eksClusterContext domain.EksClusterContext
 	return *result, nil
 }
 
-func DeleteEksCluster(clusterName string, secretId string, region string) (out *eks.DeleteClusterOutput, err error) {
+func DeleteEksCluster(ctx context.Context, clusterName, nodeGroupName string, secretId string, region string) (err error) {
 	//TODO; get the secret using id here
 	cred, err := iam.GetEksCredentialsForSecretId(secretId)
-	//if err != nil{
-	//	return &eks.DeleteClusterOutput{}
-	//}
-	//id := "AKIA5CVBUZ342ISPRDVJ"
-	//secret := "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"
-
-	session, _ := session.NewSession(&aws.Config{
+	if err != nil {
+		log.Logger.ErrorContext(ctx, "Could not get secret form db %s", secretId)
+		return err
+	}
+	sess, _ := session.NewSession(&aws.Config{
 		Credentials: cred,
 		Region:      aws.String(region),
 	})
-	svc := eks.New(session)
-	input := &eks.DeleteClusterInput{
-		Name: &clusterName,
-	}
-
-	result, err := svc.DeleteCluster(input)
+	svc := eks.New(sess)
+	PushToJobList(domain.AsyncCloudJob{
+		Provider:  "amazon",
+		Status:    domain.EKS_SUBMITTED_FOR_DELETION,
+		Reference: clusterName,
+		Information: domain.EksAsyncJobParams{
+			NodeGroupName: nodeGroupName,
+			Client:        *svc,
+		},
+	})
+	_, err = database.UpdateEksClusterCreationStatus(ctx, domain.EKS_SUBMITTED_FOR_DELETION, clusterName)
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case eks.ErrCodeResourceInUseException:
-				log.Logger.Error(eks.ErrCodeResourceInUseException, aerr.Error())
-			case eks.ErrCodeResourceNotFoundException:
-				log.Logger.Error(eks.ErrCodeResourceNotFoundException, aerr.Error())
-			case eks.ErrCodeClientException:
-				log.Logger.Error(eks.ErrCodeClientException, aerr.Error())
-			case eks.ErrCodeServerException:
-				log.Logger.Error(eks.ErrCodeServerException, aerr.Error())
-			case eks.ErrCodeServiceUnavailableException:
-				log.Logger.Error(eks.ErrCodeServiceUnavailableException, aerr.Error())
-			default:
-				log.Logger.Error(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			log.Logger.Error(err.Error())
-		}
+		log.Logger.ErrorContext(ctx, "Could not update cluster state in db", clusterName)
+		return err
+	}
+	return nil
+}
+
+func deleteControlPlane(client *eks.EKS, clusterId, nodeGroupId string) (result *eks.DeleteClusterOutput, err error) {
+	return client.DeleteCluster(&eks.DeleteClusterInput{
+		Name: &clusterId,
+	})
+}
+
+func deleteNodeGroup(client *eks.EKS, clusterId string) (state *eks.DeleteNodegroupOutput, err error) {
+	var res *eks.DeleteNodegroupOutput
+
+	nodeGroups, err := client.ListNodegroups(&eks.ListNodegroupsInput{ClusterName: aws.String(clusterId)})
+	if err != nil {
+		log.Logger.Info("list node group request failed with error, ", err.Error())
 		return nil, err
 	}
-
-	return result, nil
+	for i, nodegroup := range nodeGroups.Nodegroups {
+		log.Logger.Info(fmt.Sprintf("requesting to delete node group %d: %s for cluster %s", i, *nodegroup, clusterId))
+		res, err = client.DeleteNodegroup(&eks.DeleteNodegroupInput{
+			ClusterName:   &clusterId,
+			NodegroupName: nodegroup,
+		})
+		if err != nil {
+			log.Logger.Info("delete node group request failed with error, ", err.Error())
+			continue
+		}
+	}
+	return res, nil
 }
 
 // helper cloud services
