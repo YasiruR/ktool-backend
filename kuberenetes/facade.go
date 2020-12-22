@@ -2,11 +2,14 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
+	"github.com/aws/aws-sdk-go/service/eks"
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
 	"math"
+	"strconv"
 	"time"
 )
 
@@ -82,6 +85,46 @@ func ProcessAsyncJob(job *domain.AsyncCloudJob) {
 					_, err = database.UpdateEksClusterCreationStatus(context.Background(), domain.EKS_NODE_GROUP_FAILED, *status.Response.ClusterName)
 					//PushToJobList(*job)
 				}
+			} else if job.Status == domain.EKS_SUBMITTED_FOR_DELETION {
+				params := job.Information.(domain.EksAsyncJobParams)
+				result, err := deleteNodeGroup(&params.Client, job.Reference)
+				if err == nil {
+					if *result.Nodegroup.Status == "DELETING" {
+						log.Logger.Trace("Node group delete request successful for cluster name: ", job.Reference)
+						_, err = database.UpdateEksClusterCreationStatus(context.Background(), domain.EKS_NODE_GROUP_DELETING, job.Reference)
+						job.Status = domain.EKS_NODE_GROUP_DELETING
+					} else {
+						//todo: what are the possible states? handle them here
+						//log.Logger.Trace("Node group is still being deleted for cluster name: ", status.Response.ClusterName)
+						//PushToJobList(*job)
+					}
+				} else {
+					log.Logger.Trace("Node group delete failed for cluster name: ", job.Reference)
+					_, err = database.UpdateEksClusterCreationStatus(context.Background(), domain.COMPLETED, job.Reference)
+					return
+				}
+				PushToJobList(*job)
+				//} else if job.Status == domain.EKS_NODE_GROUP_DELETING {
+
+			} else if job.Status == domain.EKS_NODE_GROUP_DELETED || job.Status == domain.EKS_NODE_GROUP_DELETING {
+				params := job.Information.(domain.EksAsyncJobParams)
+				result, err := deleteControlPlane(&params.Client, job.Reference, params.NodeGroupName)
+				if err == nil {
+					if *result.Cluster.Status == "DELETING" {
+						log.Logger.Trace("Node group delete successful for cluster name: ", job.Reference)
+						_, err = database.UpdateEksClusterCreationStatus(context.Background(), domain.EKS_MASTER_DELETING, job.Reference)
+						job.Status = domain.EKS_MASTER_DELETING
+					} else {
+						//todo: handle other scenarios here
+						//log.Logger.Trace("Node group is still being deleted for cluster name: ", status.Response.ClusterName)
+						PushToJobList(*job)
+					}
+				} else {
+					err = err.(*eks.ResourceInUseException)
+					log.Logger.Trace("Node group is still being deleted for cluster name: ", job.Reference)
+					//_, err = database.UpdateEksClusterCreationStatus(context.Background(), domain.EKS_NODE_GROUP_DELETE_FAILED, job.Reference)
+					PushToJobList(*job)
+				}
 			}
 
 		}
@@ -107,6 +150,77 @@ func ProcessAsyncJob(job *domain.AsyncCloudJob) {
 					}
 				} else {
 					log.Logger.Trace("Cluster creation status check failed for cluster name: ", status.Name)
+					PushToJobList(*job)
+				}
+			} else if job.Status == domain.GKE_DELETING {
+				opInfo := job.Information.(*containerpb.Operation)
+				result, err := CheckOperationStatus(job.Reference, opInfo.GetName())
+				if err != nil || result.Status == containerpb.Operation_STATUS_UNSPECIFIED {
+					log.Logger.Trace("Error occurred while checking cluster delete operation status: ", opInfo.GetName())
+					PushToJobList(*job)
+				} else {
+					if result.GetStatus() == containerpb.Operation_DONE {
+						log.Logger.Trace("Cluster delete operation success: ", opInfo.GetName())
+						_, err = database.UpdateGkeClusterCreationStatus(context.Background(), domain.DELETED, opInfo.GetName())
+						_, err = database.UpdateGkeLROperation(context.Background(), opInfo.GetName(), "DONE")
+					} else {
+						// we have to check repeatedly
+						PushToJobList(*job)
+					}
+				}
+			}
+		}
+	case "microsoft":
+		{
+			if job.Status == domain.AKS_SUBMITTED {
+				ctx := context.Background()
+				params := job.Information.(domain.AksAsyncJobParams)
+				// create the resource group if not exists
+				_, err := CreateResourceGroupIfNotExist(ctx, params.ClusterOptions.ResourceGroupName, params.ClusterOptions.Zone,
+					strconv.Itoa(params.ClusterOptions.SecretId))
+				if err != nil {
+					log.Logger.Error(fmt.Errorf("aks resource group creation failed by microsoft; %s", err))
+					_, _ = database.UpdateAksClusterCreationStatus(ctx, 1, domain.FAILED, params.ClusterOptions.Name, params.ClusterOptions.ResourceGroupName)
+					return
+				}
+				future, err := SyncCreateAksCluster(ctx, params.Client, params.ClusterOptions, params.CreateRequest)
+				if err != nil {
+					log.Logger.Error(fmt.Errorf("aks cluster creation failed by microsoft; %s", err))
+					_, _ = database.UpdateAksClusterCreationStatus(ctx, 1, domain.FAILED, params.ClusterOptions.Name, params.ClusterOptions.ResourceGroupName)
+					return
+				}
+				err = future.WaitForCompletionRef(ctx, params.Client.Client)
+				if err != nil {
+					log.Logger.Error(fmt.Errorf("aks cluster creation failed by microsoft; %s", err))
+					_, _ = database.UpdateAksClusterCreationStatus(ctx, 1, domain.FAILED, params.ClusterOptions.Name, params.ClusterOptions.ResourceGroupName)
+				}
+				futureResolve, err := future.Result(params.Client) //we resolve the future
+				if err != nil {
+					log.Logger.Error(fmt.Errorf("aks cluster creation future resolve failed; %s", err))
+					//database.UpdateAksClusterCreationStatus(ctx, 1,  "CREATION FAILED", params.ClusterOptions.Name, params.ClusterOptions.ResourceGroupName)
+					PushToJobList(*job)
+					return
+				}
+				if *futureResolve.ManagedClusterProperties.ProvisioningState == "Succeeded" {
+					log.Logger.Info("aks cluster creation successful")
+					_, _ = database.UpdateAksClusterCreationStatus(ctx, 1, domain.COMPLETED, params.ClusterOptions.Name, params.ClusterOptions.ResourceGroupName)
+				} else {
+					log.Logger.Error(fmt.Errorf("aks cluster creation failed; %s", err))
+					_, _ = database.UpdateAksClusterCreationStatus(ctx, 1, domain.FAILED, params.ClusterOptions.Name, params.ClusterOptions.ResourceGroupName)
+				}
+				return
+			} else if job.Status == domain.AKS_SUBMITTED_FOR_DELETION {
+				ctx := context.Background()
+				params := job.Information.(domain.AksAsyncJobParams)
+				err := SyncDeleteAksCluster(ctx, params.Client, params.ClusterOptions.ResourceGroupName, params.ClusterOptions.Name)
+				if err != nil {
+					//todo: something happened
+					PushToJobList(*job)
+					log.Logger.Trace("aks deletion failed for cluster name: ", params.ClusterOptions.Name)
+				} else {
+					log.Logger.Trace("Completed aks deletion for cluster name: ", params.ClusterOptions.Name)
+					_, _ = database.UpdateAksClusterCreationStatus(ctx, 1, domain.DELETED, params.ClusterOptions.Name, params.ClusterOptions.ResourceGroupName)
+					return
 				}
 			}
 		}
@@ -129,12 +243,16 @@ func ProcessAsyncCloudJobs() {
 			//goto loop
 		}
 		counter = counter * 2
+		if counter == 0 { //todo: why?
+			counter = 10
+		}
 		duration := math.Min(float64(maxWait), float64(counter*wait))
 		log.Logger.Trace("No jobs to process. Sleeping", time.Duration(duration)*time.Second)
 		time.Sleep(time.Duration(duration) * time.Second)
 	}
 }
 
+// This method checks cluster status by pinging cloud
 func UpdateAllClusterStatus() {
 	log.Logger.Info("Updating ktool managed kubernetes cluster status")
 	clustersToCheck := database.GetAllRunningKubernetesClusters(context.Background())
@@ -142,41 +260,41 @@ func UpdateAllClusterStatus() {
 		log.Logger.Info("Error occurred while fetching cluster information. Check the database connection")
 		return
 	}
-	eksClusters := make(map[string][]*domain.KubCluster, 0)
-	gkeClusters := make(map[string][]*domain.KubCluster, 0)
 	for _, cluster := range clustersToCheck.Clusters {
 		if cluster.ServiceProvider == "google" {
-			if gkeClusters[cluster.ClusterId] == nil {
-				gkeClusters[cluster.ClusterId] = []*domain.KubCluster{&cluster}
-			} else {
-				gkeClusters[cluster.ClusterId] = append(gkeClusters[cluster.ClusterId], &cluster)
-			}
+			go checkGKEStatus(cluster)
 		} else if cluster.ServiceProvider == "amazon" {
-			if eksClusters[cluster.ClusterId] == nil {
-				eksClusters[cluster.ClusterId] = []*domain.KubCluster{&cluster}
-			} else {
-				eksClusters[cluster.ClusterId] = append(eksClusters[cluster.ClusterId], &cluster)
-			}
+			go checkEKSStatus(cluster)
+		} else {
+			go checkAKSStatus(cluster)
 		}
 	}
-	go func() {
-		processGkeClusters(gkeClusters)
-	}()
-	go func() {
-		processEksClusters(eksClusters)
-	}()
+	log.Logger.Info("Checks are performed on all active clusters.")
 }
 
-func processGkeClusters(clusters map[string][]*domain.KubCluster) {
-	//for s, kubClusters := range clusters {
-	//	runningClusters, _ := ListGkeClusters(s)
-	//	for cluster := range runningClusters {
-	//		log.Logger.Trace("cluster is running ", cluster)
-	//	}
-	//check against the list and update
-	//}
+func checkGKEStatus(cluster domain.KubCluster) {
+	isRunning := CheckGKEClusterStatus(cluster.SecretId, cluster.ClusterName, cluster.ProjectName, cluster.Location)
+	if isRunning && cluster.Status != domain.COMPLETED {
+		_, _ = database.UpdateClusterStatusById(context.Background(), domain.IsRunning, cluster.Id, domain.COMPLETED)
+	} else if !isRunning {
+		_, _ = database.UpdateClusterStatusById(context.Background(), domain.IsRunning, cluster.Id, domain.STOPPED)
+	}
 }
 
-func processEksClusters(clusters map[string][]*domain.KubCluster) {
+func checkEKSStatus(cluster domain.KubCluster) {
+	isRunning := CheckEKSClusterStatus(cluster.ClusterName, cluster.Location, cluster.SecretId)
+	if isRunning && cluster.Status != domain.COMPLETED {
+		_, _ = database.UpdateClusterStatusById(context.Background(), domain.IsRunning, cluster.Id, domain.COMPLETED)
+	} else if !isRunning {
+		_, _ = database.UpdateClusterStatusById(context.Background(), domain.IsRunning, cluster.Id, domain.STOPPED)
+	}
+}
 
+func checkAKSStatus(cluster domain.KubCluster) {
+	isRunning := CheckAKSClusterStatus(cluster.ClusterName, cluster.ResourceGroup, cluster.SecretId)
+	if isRunning && cluster.Status != domain.COMPLETED {
+		_, _ = database.UpdateClusterStatusById(context.Background(), domain.IsRunning, cluster.Id, domain.COMPLETED)
+	} else if !isRunning {
+		_, _ = database.UpdateClusterStatusById(context.Background(), domain.IsRunning, cluster.Id, domain.STOPPED)
+	}
 }

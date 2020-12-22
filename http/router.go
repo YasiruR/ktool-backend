@@ -46,10 +46,12 @@ func InitRouter() {
 
 	router.HandleFunc("/kubernetes", handleGetAllKubClusters).Methods("GET")
 	router.HandleFunc("/kubernetes", handleCreateKubCluster).Methods("POST")
+	router.HandleFunc("/kubernetes", handleDeleteKubCluster).Methods("DELETE")
+	router.HandleFunc("/kubernetes/entry", handleRemoveClusterEntry).Methods("DELETE")
 	router.HandleFunc("/kubernetes/validate", handleValidateClusterName).Methods("GET")
 	router.HandleFunc("/kubernetes/status", handleCheckClusterCreationStatus).Methods("GET")
-	router.HandleFunc("/kubernetes/resources", handleGetGkeResource).Methods("GET")
-	router.HandleFunc("/kubernetes/recommend", handleRecommendGkeResource).Methods("GET")
+	router.HandleFunc("/kubernetes/resources", handleGetKubResource).Methods("GET")
+	router.HandleFunc("/kubernetes/recommend", handleRecommendResource).Methods("GET")
 
 	router.HandleFunc("/kubernetes/gke", handleGetAllGkeKubClusters).Methods("GET")
 	router.HandleFunc("/kubernetes/gke/status", handleCheckGkeClusterCreationStatus).Methods("GET")
@@ -58,10 +60,14 @@ func InitRouter() {
 	router.HandleFunc("/kubernetes/eks", handleGetAllEksKubClusters).Methods("GET")
 	router.HandleFunc("/kubernetes/eks/status", handleCheckEksClusterCreationStatus).Methods("GET")
 	//router.HandleFunc("/kubernetes/eks", handleCreateEksKubClusters).Methods("POST")
-	router.HandleFunc("/kubernetes/eks", handleDeleteEksKubClusters).Methods("DELETE")
+	router.HandleFunc("/kubernetes/eks", handleDeleteEksCluster).Methods("DELETE")
 	router.HandleFunc("/kubernetes/eks/nodegroup", handleCreateEksNodeGroup).Methods("POST")
 	router.HandleFunc("/kubernetes/eks/nodegroup/status", handleCheckEksNodeGroupCreationStatus).Methods("GET")
 	//router.HandleFunc("/kubernetes/ec2/vpc", handleGetVPCConfigForRegion).Methods("GET")
+
+	router.HandleFunc("/kubernetes/aks", handleDeleteAksCluster).Methods("DELETE")
+	router.HandleFunc("/kubernetes/aks/status", handleCheckAksClusterCreationStatus).Methods("GET")
+	router.HandleFunc("/kubernetes/aks/resourcegroup/status", handleCheckExistenceResourceGroup).Methods("GET")
 
 	osChannel := make(chan os.Signal, 1)
 	signal.Notify(osChannel, syscall.SIGINT, syscall.SIGKILL)
