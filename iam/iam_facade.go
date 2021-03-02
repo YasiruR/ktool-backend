@@ -23,7 +23,7 @@ func TestIamPermissions(cloudSecret *domain.CloudSecret) (isValid bool, err erro
 	case "Amazon":
 		isValid, err = TestIamPermissionsEks(cloudSecret)
 	default:
-
+		isValid, err = true, nil
 	}
 	if err != nil {
 		return isValid, err
