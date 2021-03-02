@@ -190,7 +190,11 @@ func CreateEksCluster(clusterId string, secretId int, createClusterRequest *doma
 
 	// get ARN from here
 	// https://docs.aws.amazon.com/eks/latest/userguide/service_IAM_role.html#create-service-role
-	arn := "arn:aws:iam::899060911865:role/EKSManagerRole" //todo: fetch from api
+	//arn := "arn:aws:iam::899060911865:role/EKSManagerRole" //todo: fetch from api
+	arn, err := iam.GetRoleArnForEks(secretId)
+	if err != nil {
+		return domain.EksClusterContext{}, err
+	}
 	// fetch vpc config for user for region
 	vpcConfig := getVPCConfigForUSerForRegion(secretId, createClusterRequest.Location)
 

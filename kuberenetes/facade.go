@@ -54,7 +54,8 @@ func ProcessAsyncJob(job *domain.AsyncCloudJob) {
 						//todo: process create failed
 						_, err = database.UpdateEksClusterCreationStatus(context.Background(), domain.EKS_MASTER_FAILED, status.ClusterRequest.Name)
 						log.Logger.Trace("Error occurred in control plane creation for cluster name: ", status.ClusterRequest.Name)
-						PushToJobList(*job)
+						//PushToJobList(*job)
+						return
 					} else {
 						log.Logger.Trace("Control plane is still being created for cluster: ", status.ClusterStatus.Name)
 					}
@@ -75,11 +76,12 @@ func ProcessAsyncJob(job *domain.AsyncCloudJob) {
 						//todo: process create failed
 						_, err = database.UpdateEksClusterCreationStatus(context.Background(), domain.EKS_NODE_GROUP_FAILED, *status.Response.ClusterName)
 						log.Logger.Trace("Error occurred in node group creation for cluster name: ", status.Response.ClusterName)
-						PushToJobList(*job)
+						//PushToJobList(*job)
 					} else {
 						log.Logger.Trace("Node group is still being created for cluster name: ", status.Response.ClusterName)
 						PushToJobList(*job)
 					}
+					return
 				} else {
 					log.Logger.Trace("Node group creation status check failed for cluster name: ", status.Response.ClusterName)
 					_, err = database.UpdateEksClusterCreationStatus(context.Background(), domain.EKS_NODE_GROUP_FAILED, *status.Response.ClusterName)
@@ -141,7 +143,8 @@ func ProcessAsyncJob(job *domain.AsyncCloudJob) {
 						//todo: process create failed
 						_, err = database.UpdateGkeClusterCreationStatus(context.Background(), domain.FAILED, status.Name)
 						log.Logger.Trace("Error occurred in control plane creation for cluster name: ", status.Name)
-						PushToJobList(*job)
+						//PushToJobList(*job)
+						return
 					} else if result.Status == "RUNNING" {
 						PushToJobList(*job)
 						log.Logger.Trace("Cluster is still being created for cluster: ", status.Name)

@@ -20,6 +20,8 @@ func TestIamPermissions(cloudSecret *domain.CloudSecret) (isValid bool, err erro
 
 		}
 		isValid, err = TestIamPermissionsGke(cred, credAsBytes)
+	case "Amazon":
+		isValid, err = TestIamPermissionsEks(cloudSecret)
 	default:
 
 	}

@@ -49,7 +49,7 @@ func main() {
 		}
 	}()
 
-	//scrape prometheus metrics from jmx
+	////scrape prometheus metrics from jmx
 	//metricsTicker := time.NewTicker(time.Duration(service.Cfg.MetricsUpdateInterval) * time.Second)
 	//syncContext := traceable_context.WithUUID(uuid.New())
 	//go func() {
@@ -60,8 +60,8 @@ func main() {
 	//		}
 	//	}
 	//}()
-
-	//to update metrics ports of brokers
+	//
+	////to update metrics ports of brokers
 	//metricsPortContext := traceable_context.WithUUID(uuid.New())
 	//go func() {
 	//	for {
@@ -71,8 +71,8 @@ func main() {
 	//		}
 	//	}
 	//}()
-
-	//run metrics clean job
+	//
+	////run metrics clean job
 	//cleanTicker := time.NewTicker(time.Duration(service.Cfg.MetricsCleanInterval) * time.Second)
 	//cleanContext := traceable_context.WithUUID(uuid.New())
 	//go func() {

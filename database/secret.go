@@ -315,6 +315,7 @@ func GetEksSecret(ctx context.Context, OwnerId string, SecretName string) (resul
 	return result
 }
 
+// database operations for updating secrets
 func UpdateSecret(ctx context.Context, request *domain.CloudSecret) (result domain.Result) {
 	OwnerId := request.OwnerId
 	var err error
@@ -383,7 +384,6 @@ func UpdateAksSecret(ctx context.Context, UserId string, SecretName string, AksC
 	return nil
 }
 
-// valid for adding gke secrets
 func UpdateGkeSecret(ctx context.Context, UserId string, SecretName string, GkeType string, GkeProjectId string,
 	GkePrivateKeyId string, GkePrivateKey string, GkeClientMail string, GkeClientId string, GkeAuthUri string,
 	GkeTokenUri string, GkeAuthCertUrl string, GkeClientCertUrl string) (err error) {
@@ -412,6 +412,7 @@ func UpdateGkeSecret(ctx context.Context, UserId string, SecretName string, GkeT
 	return nil
 }
 
+// database operations for adding secrets
 func AddSecret(ctx context.Context, request *domain.CloudSecret) (result domain.Result) {
 	OwnerId := request.OwnerId
 	var err error
@@ -485,7 +486,6 @@ func AddAksSecret(ctx context.Context, UserId string, SecretName string, Tags st
 	return nil
 }
 
-// valid for adding gke secrets
 func AddGkeSecret(ctx context.Context, UserId string, SecretName string, Tags string, GkeType string, GkeProjectId string,
 	GkePrivateKeyId string, GkePrivateKey string, GkeClientMail string, GkeClientId string, GkeAuthUri string,
 	GkeTokenUri string, GkeAuthCertUrl string, GkeClientCertUrl string) (err error) {
@@ -510,6 +510,7 @@ func AddGkeSecret(ctx context.Context, UserId string, SecretName string, Tags st
 	return nil
 }
 
+// database operations for deleting secrets
 func DeleteSecret(ctx context.Context, secretId string) (result bool, err error) {
 	query := "UPDATE " + cloudSecretTable + " SET deleted=1 WHERE id=" + secretId + ";"
 

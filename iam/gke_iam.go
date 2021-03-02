@@ -1,21 +1,14 @@
 package iam
 
 import (
-	iamadmin "cloud.google.com/go/iam"
-	admin "cloud.google.com/go/iam/admin/apiv1"
-	credentials "cloud.google.com/go/iam/credentials/apiv1"
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/YasiruR/ktool-backend/database"
 	"github.com/YasiruR/ktool-backend/domain"
 	"github.com/YasiruR/ktool-backend/log"
 	oauth2 "golang.org/x/oauth2/google"
 	resource "google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/option"
-	adminpb "google.golang.org/genproto/googleapis/iam/admin/v1"
-	credentialspb "google.golang.org/genproto/googleapis/iam/credentials/v1"
-	iampb "google.golang.org/genproto/googleapis/iam/v1"
 )
 
 //func main() {
@@ -82,143 +75,143 @@ func TestIamPermissionsGke(credentials *oauth2.Credentials, credsAsBytes []byte)
 	return true, nil
 }
 
-func GetOAuthAccessTokenForUser(userId string) (*credentialspb.GenerateAccessTokenResponse, error) {
-	b, cred, err := GetGkeCredentialsForUser(userId)
-	//log.Logger.Info(cred)
-	if err != nil {
-		return nil, err
-	}
-	return GetOAuthAccessToken(cred, b)
-}
+//func GetOAuthAccessTokenForUser(userId string) (*credentialspb.GenerateAccessTokenResponse, error) {
+//	b, cred, err := GetGkeCredentialsForUser(userId)
+//	//log.Logger.Info(cred)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return GetOAuthAccessToken(cred, b)
+//}
 
-func GetOAuthAccessToken(cred domain.GkeSecret, credentialsBytes []byte) (*credentialspb.GenerateAccessTokenResponse, error) {
-	c, err := credentials.NewIamCredentialsClient(context.Background(), option.WithCredentialsJSON(credentialsBytes))
-	if err != nil {
-		// TODO: Handle error.
-	}
-
-	req := &credentialspb.GenerateAccessTokenRequest{
-		Name: fmt.Sprintf("projects/-/serviceAccounts/%s", cred.ClientId),
-		Delegates: []string{
-			fmt.Sprintf("projects/-/serviceAccounts/%s", cred.ClientId),
-		},
-		Scope: []string{
-			"https://www.googleapis.com/auth/cloud-platform",
-		},
-	}
-	resp, err := c.GenerateAccessToken(context.Background(), req)
-	if err != nil {
-		// TODO: Handle error.
-	}
-	// TODO: Use resp.
-	return resp, nil
-}
-
-func GetServiceAccount(userId string) (*adminpb.ServiceAccount, error) {
-	ctx := context.Background()
-	b, cred, err := GetGkeCredentialsForUser(userId)
-	//log.Logger.Info(cred)
-	if err != nil {
-		return nil, err
-	}
-	c, err := admin.NewIamClient(ctx, option.WithCredentialsJSON(b))
-	if err != nil {
-		// TODO: Handle error.
-	}
-
-	req := &adminpb.GetServiceAccountRequest{
-		Name: fmt.Sprintf("projects/%s/serviceAccounts/%s", cred.ProjectId, cred.ClientId),
-	}
-	resp, err := c.GetServiceAccount(ctx, req)
-	if err != nil {
-		// TODO: Handle error.
-	}
-	// TODO: Use resp.
-	return resp, nil
-}
-
-func ListRolesForServiceAccount(userId string) (*adminpb.ListRolesResponse, error) {
-	ctx := context.Background()
-	b, cred, err := GetGkeCredentialsForUser(userId)
-	//log.Logger.Info(cred)
-	if err != nil {
-		return nil, err
-	}
-	c, err := admin.NewIamClient(ctx, option.WithCredentialsJSON(b))
-	if err != nil {
-		// TODO: Handle error.
-	}
-
-	req := &adminpb.ListRolesRequest{
-		Parent:   fmt.Sprintf("projects/%s", cred.ProjectId),
-		View:     1,
-		PageSize: 1000,
-	}
-	resp, err := c.ListRoles(ctx, req)
-	if err != nil {
-		// TODO: Handle error.
-	}
-	// TODO: Use resp.
-	return resp, nil
-}
-
-func TestIamPermissionsForServiceAcc(userId string) (**iampb.TestIamPermissionsResponse, error) {
-	ctx := context.Background()
-	b, cred, err := GetGkeCredentialsForUser(userId)
-	//log.Logger.Info(cred)
-	if err != nil {
-		return nil, err
-	}
-	c, err := admin.NewIamClient(ctx, option.WithCredentialsJSON(b))
-	if err != nil {
-		// TODO: Handle error.
-	}
-
-	req := &iampb.TestIamPermissionsRequest{
-		// TODO: Fill request struct fields.
-		Resource: fmt.Sprintf("projects/%s/serviceAccounts/%s", cred.ProjectId, cred.ClientMail),
-		Permissions: []string{
-			"iam.serviceAccounts.actAs",
-			"iam.serviceAccounts.get",
-			"iam.serviceAccounts.list",
-		},
-	}
-	resp, err := c.TestIamPermissions(ctx, req)
-	if err != nil {
-		// TODO: Handle error.
-	}
-	// TODO: Use resp.
-	return &resp, nil
-}
-
-func GetServiceAccountIamPolicies(userId string) (*iamadmin.Policy, error) {
-	ctx := context.Background()
-	b, cred, err := GetGkeCredentialsForUser(userId)
-	//log.Logger.Info(cred)
-	if err != nil {
-		return nil, err
-	}
-	c, err := admin.NewIamClient(ctx, option.WithCredentialsJSON(b))
-	if err != nil {
-		// TODO: Handle error.
-	}
-
-	//req := &iamadmin.ListRolesRequest{
-	//	// TODO: Fill request struct fields.
-	//	Parent: "projects/ktool-280018",
-	//	View: 1,
-	//}
-	req := &iampb.GetIamPolicyRequest{
-		// TODO: Fill request struct fields.
-		Resource: "projects/" + cred.ProjectId + "/serviceAccounts/" + cred.ClientId,
-	}
-	resp, err := c.GetIamPolicy(ctx, req)
-	if err != nil {
-		// TODO: Handle error.
-	}
-	// TODO: Use resp.
-	return resp, nil
-}
+//func GetOAuthAccessToken(cred domain.GkeSecret, credentialsBytes []byte) (*credentialspb.GenerateAccessTokenResponse, error) {
+//	c, err := credentials.NewIamCredentialsClient(context.Background(), option.WithCredentialsJSON(credentialsBytes))
+//	if err != nil {
+//		// TODO: Handle error.
+//	}
+//
+//	req := &credentialspb.GenerateAccessTokenRequest{
+//		Name: fmt.Sprintf("projects/-/serviceAccounts/%s", cred.ClientId),
+//		Delegates: []string{
+//			fmt.Sprintf("projects/-/serviceAccounts/%s", cred.ClientId),
+//		},
+//		Scope: []string{
+//			"https://www.googleapis.com/auth/cloud-platform",
+//		},
+//	}
+//	resp, err := c.GenerateAccessToken(context.Background(), req)
+//	if err != nil {
+//		// TODO: Handle error.
+//	}
+//	// TODO: Use resp.
+//	return resp, nil
+//}
+//
+//func GetServiceAccount(userId string) (*adminpb.ServiceAccount, error) {
+//	ctx := context.Background()
+//	b, cred, err := GetGkeCredentialsForUser(userId)
+//	//log.Logger.Info(cred)
+//	if err != nil {
+//		return nil, err
+//	}
+//	c, err := admin.NewIamClient(ctx, option.WithCredentialsJSON(b))
+//	if err != nil {
+//		// TODO: Handle error.
+//	}
+//
+//	req := &adminpb.GetServiceAccountRequest{
+//		Name: fmt.Sprintf("projects/%s/serviceAccounts/%s", cred.ProjectId, cred.ClientId),
+//	}
+//	resp, err := c.GetServiceAccount(ctx, req)
+//	if err != nil {
+//		// TODO: Handle error.
+//	}
+//	// TODO: Use resp.
+//	return resp, nil
+//}
+//
+//func ListRolesForServiceAccount(userId string) (*adminpb.ListRolesResponse, error) {
+//	ctx := context.Background()
+//	b, cred, err := GetGkeCredentialsForUser(userId)
+//	//log.Logger.Info(cred)
+//	if err != nil {
+//		return nil, err
+//	}
+//	c, err := admin.NewIamClient(ctx, option.WithCredentialsJSON(b))
+//	if err != nil {
+//		// TODO: Handle error.
+//	}
+//
+//	req := &adminpb.ListRolesRequest{
+//		Parent:   fmt.Sprintf("projects/%s", cred.ProjectId),
+//		View:     1,
+//		PageSize: 1000,
+//	}
+//	resp, err := c.ListRoles(ctx, req)
+//	if err != nil {
+//		// TODO: Handle error.
+//	}
+//	// TODO: Use resp.
+//	return resp, nil
+//}
+//
+//func TestIamPermissionsForServiceAcc(userId string) (**iampb.TestIamPermissionsResponse, error) {
+//	ctx := context.Background()
+//	b, cred, err := GetGkeCredentialsForUser(userId)
+//	//log.Logger.Info(cred)
+//	if err != nil {
+//		return nil, err
+//	}
+//	c, err := admin.NewIamClient(ctx, option.WithCredentialsJSON(b))
+//	if err != nil {
+//		// TODO: Handle error.
+//	}
+//
+//	req := &iampb.TestIamPermissionsRequest{
+//		// TODO: Fill request struct fields.
+//		Resource: fmt.Sprintf("projects/%s/serviceAccounts/%s", cred.ProjectId, cred.ClientMail),
+//		Permissions: []string{
+//			"iam.serviceAccounts.actAs",
+//			"iam.serviceAccounts.get",
+//			"iam.serviceAccounts.list",
+//		},
+//	}
+//	resp, err := c.TestIamPermissions(ctx, req)
+//	if err != nil {
+//		// TODO: Handle error.
+//	}
+//	// TODO: Use resp.
+//	return &resp, nil
+//}
+//
+//func GetServiceAccountIamPolicies(userId string) (*iamadmin.Policy, error) {
+//	ctx := context.Background()
+//	b, cred, err := GetGkeCredentialsForUser(userId)
+//	//log.Logger.Info(cred)
+//	if err != nil {
+//		return nil, err
+//	}
+//	c, err := admin.NewIamClient(ctx, option.WithCredentialsJSON(b))
+//	if err != nil {
+//		// TODO: Handle error.
+//	}
+//
+//	//req := &iamadmin.ListRolesRequest{
+//	//	// TODO: Fill request struct fields.
+//	//	Parent: "projects/ktool-280018",
+//	//	View: 1,
+//	//}
+//	req := &iampb.GetIamPolicyRequest{
+//		// TODO: Fill request struct fields.
+//		Resource: "projects/" + cred.ProjectId + "/serviceAccounts/" + cred.ClientId,
+//	}
+//	resp, err := c.GetIamPolicy(ctx, req)
+//	if err != nil {
+//		// TODO: Handle error.
+//	}
+//	// TODO: Use resp.
+//	return resp, nil
+//}
 
 func GetGkeCredentialsForUser(userId string) ([]byte, domain.GkeSecret, error) {
 	ctx := context.Background()

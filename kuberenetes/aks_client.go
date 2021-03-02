@@ -184,6 +184,7 @@ func DeleteAksCluster(clusterName, resourceGroupName, secretId string) (err erro
 	return nil
 }
 
+// helper functions
 func CreateResourceGroupIfNotExist(ctx context.Context, resourceGroupName, region, secretId string) (result domain.AksResourceGroup, err error) {
 	cred, err := iam.GetAksCredentialsForSecretId(secretId)
 	aksClient := resources.NewGroupsClientWithBaseURI(azure.PublicCloud.ResourceManagerEndpoint, cred.SubscriptionId)
