@@ -17,7 +17,7 @@ func TestIamPermissions(cloudSecret *domain.CloudSecret) (isValid bool, err erro
 		//	//JSON: cloudSecret.GkeProjectId.strin TODO: convert to json bytes
 		//}
 		if err != nil {
-
+			return false, err
 		}
 		isValid, err = TestIamPermissionsGke(cred, credAsBytes)
 	case "Amazon":

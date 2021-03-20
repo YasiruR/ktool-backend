@@ -9,8 +9,9 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.3
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/Azure/go-autorest/autorest/validation v0.3.0 // indirect
-	github.com/Shopify/sarama v1.26.0
 	github.com/aws/aws-sdk-go v1.30.16
+	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
+	github.com/Shopify/sarama v1.26.0
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
@@ -21,7 +22,6 @@ require (
 	github.com/reiver/go-telnet v0.0.0-20180421082511-9ff0b2ab096e
 	github.com/rs/cors v1.7.0
 	github.com/sparrc/go-ping v0.0.0-20190613174326-4e5b6552494c
-	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	google.golang.org/api v0.22.0
 	google.golang.org/genproto v0.0.0-20200424135956-bca184e23272
